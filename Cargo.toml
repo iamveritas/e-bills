@@ -1,0 +1,9 @@
+[package]
+name = "bitcredit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+#chrono = "0.4.20"
+openssl = "0.10.40"
+borsh = "0.9.3"
