@@ -4,14 +4,16 @@ use openssl::dsa;
 use openssl::dsa::Dsa;
 use openssl::ec::{EcGroup, EcKey, EcPoint};
 use openssl::error::ErrorStack;
+use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::rsa::{Padding, Rsa};
+use openssl::sign::Signer;
 use openssl::symm::Cipher;
 use std::mem;
 
 // Private individuals or legal entities.
-struct AccountRecord {
+pub struct AccountRecord {
     //TODO: cryptographic address.
 
     //TODO: add hash of all data.
@@ -34,14 +36,64 @@ struct AccountRecord {
     // Current address (living or registration).
     current_address: String,
 
+    // Central liability provider Public Key.
+    liability_provider: String,
+
     public_key_pem: String,
 
-    private_ket_encrypted_with_pass_pem: String,
+    private_key_pem: String,
+}
+
+pub fn create_new_id(
+    legal_name: String,
+    date_of_appearance: String,
+    city_of_appearance: String,
+    country_of_appearance: String,
+    email: String,
+    current_address: String,
+) -> AccountRecord {
+    let rsa = generation_rsa_key();
+
+    let private_key = pem_private_key_from_rsa(&rsa);
+
+    let public_key = pem_public_key_from_rsa(&rsa);
+
+    println!("Your private key: {}", &private_key);
+
+    let new_account = AccountRecord {
+        legal_name: legal_name,
+        date_of_appearance: date_of_appearance,
+        city_of_appearance: city_of_appearance,
+        country_of_appearance: country_of_appearance,
+        email: email,
+        current_address: current_address,
+        liability_provider: "".to_string(),
+        public_key_pem: public_key,
+        private_key_pem: private_key,
+    };
+
+    new_account
+}
+
+fn generation_rsa_key() -> Rsa<Private> {
+    Rsa::generate(2048).unwrap()
+}
+
+fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
+    let private_key: Vec<u8> = rsa.private_key_to_pem().unwrap();
+    //TODO: Write it in file
+    String::from_utf8(private_key).unwrap()
+}
+
+fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
+    let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
+    //TODO: Write it in file
+    String::from_utf8(public_key).unwrap()
 }
 
 // A cryptographic bill of exchange with future repayment.
 #[derive(BorshSerialize, BorshDeserialize)]
-struct BitcreditBill {
+pub struct BitcreditBill {
     // Flag: “to” the payee or “to his order”.
     to_payee: bool,
 
@@ -79,8 +131,52 @@ struct BitcreditBill {
 
     public_key_pem: String,
 
-    private_ket_encrypted_with_pass_pem: String,
+    private_key_pem: String,
+
+    
 }
+
+pub fn issue_new_bill(
+    bill_jurisdiction: String,
+    place_of_drawing: String,
+    amount_numbers: u64,
+    amounts_letters: String,
+    maturity_date: String,
+    drawer: AccountRecord,
+) -> BitcreditBill {
+    // Generate keys.
+    let rsa = generation_rsa_key();
+
+    let private_key = pem_private_key_from_rsa(&rsa);
+
+    let public_key = pem_public_key_from_rsa(&rsa);
+
+    // Create bill.
+    let new_bill = BitcreditBill {
+        to_payee: false,
+        bill_jurisdiction: bill_jurisdiction,
+        timestamp_at_drawing: "test".to_string(),
+        place_of_drawing: place_of_drawing,
+        currency_code: "BTC".to_string(),
+        amount_numbers: amount_numbers,
+        amounts_letters: amounts_letters,
+        maturity_date: maturity_date,
+        compounding_interest_rate: 0,
+        type_of_interest_calculation: false,
+        place_of_payment: drawer.city_of_appearance.to_string(),
+        public_key_pem: public_key,
+        private_key_pem: private_key,
+    };
+
+    // Return new bill.
+    new_bill
+}
+
+fn sign_bill() {}
+
+fn encrypt_bill() {}
+
+fn decrypt_bill() {}
 
 // The party issuing a bill.
 struct Drawer {}
@@ -98,90 +194,15 @@ struct Holder {}
 struct Honor {}
 
 fn main() {
-    test();
     // Add this account in our DHT.
 }
 
-fn test() {}
-
-fn create_new_id() -> AccountRecord {
-    let rsa = generation_rsa_key();
-
-    let private_key = pem_private_key_from_rsa(&rsa);
-
-    let public_key = pem_public_key_from_rsa(&rsa);
-
-    let new_account = AccountRecord {
-        legal_name: "test".to_string(),
-        date_of_appearance: Default::default(),
-        city_of_appearance: "test".to_string(),
-        country_of_appearance: "test".to_string(),
-        email: "test".to_string(),
-        current_address: "test".to_string(),
-        public_key_pem: public_key,
-        private_ket_encrypted_with_pass_pem: private_key,
-    };
-
-    new_account
-}
-
-fn generation_rsa_key() -> Rsa<Private> {
-    Rsa::generate(2048).unwrap()
-}
-
-fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
-    let private_key: Vec<u8> = rsa.private_key_to_pem().unwrap();
-    //TODO: Write it in file
-    String::from_utf8(private_key).unwrap()
-}
-
-fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
-    let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
-    //TODO: Write it in file
-    String::from_utf8(public_key).unwrap()
-}
-
-fn issue_new_bill() -> BitcreditBill {
-    // Generate keys.
-    let rsa = generation_rsa_key();
-
-    let private_key = pem_private_key_from_rsa(&rsa);
-
-    let public_key = pem_public_key_from_rsa(&rsa);
-
-    // Create bill.
-    let new_bill = BitcreditBill {
-        to_payee: false,
-        bill_jurisdiction: "test".to_string(),
-        timestamp_at_drawing: "test".to_string(),
-        place_of_drawing: "test".to_string(),
-        currency_code: "test".to_string(),
-        amount_numbers: 1,
-        amounts_letters: "one".to_string(),
-        maturity_date: Default::default(),
-        compounding_interest_rate: 0,
-        type_of_interest_calculation: false,
-        place_of_payment: "test".to_string(),
-        public_key_pem: public_key,
-        private_ket_encrypted_with_pass_pem: private_key,
-    };
-
-    // эти ключи шифруем ключами открытимы сторон bill
-    // посылаем защифрованный билл участникам
-
-    // Return new bill.
-    new_bill
-}
-
-fn sign_bill() {}
-
-fn encrypt_bill() {}
-
-fn decrypt_bill() {}
-
 #[cfg(test)]
 mod test {
-    use crate::{create_new_id, generation_rsa_key, issue_new_bill, BitcreditBill};
+    use crate::{
+        create_new_id, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
+        pem_public_key_from_rsa, AccountRecord, BitcreditBill,
+    };
     use borsh::{BorshDeserialize, BorshSerialize};
     use openssl::aes::{aes_ige, AesKey};
     use openssl::encrypt::{Decrypter, Encrypter};
@@ -211,7 +232,24 @@ mod test {
     #[test]
     fn sign_and_verify_data_given_an_rsa_keypair() {
         // Create data
-        let data = "test";
+        let data: BitcreditBill = issue_new_bill(
+            "".to_string(),
+            "".to_string(),
+            0,
+            "".to_string(),
+            "".to_string(),
+            AccountRecord {
+                legal_name: "".to_string(),
+                date_of_appearance: "".to_string(),
+                city_of_appearance: "".to_string(),
+                country_of_appearance: "".to_string(),
+                email: "".to_string(),
+                current_address: "".to_string(),
+                liability_provider: "".to_string(),
+                public_key_pem: "".to_string(),
+                private_key_pem: "".to_string(),
+            },
+        );
 
         // Generate a keypair
         let rsa_key = generation_rsa_key();
@@ -221,14 +259,14 @@ mod test {
         let mut signer = Signer::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
 
         // Sign
-        signer.update(data.as_bytes()).unwrap();
+        signer.update(&*data.try_to_vec().unwrap()).unwrap();
         let signature = signer.sign_to_vec().unwrap();
 
         // Create verifier
         let mut verifier = Verifier::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
 
         // Verify
-        verifier.update(data.as_bytes()).unwrap();
+        verifier.update(&*data.try_to_vec().unwrap()).unwrap();
         assert!(verifier.verify(&signature).unwrap());
     }
 
@@ -350,7 +388,7 @@ mod test {
     //     // Decrypted bill with private key
     //
     // }
-
+    //
     // #[test]
     // unsafe fn test () {
     //     let passphrase = "Qwerty1234";
@@ -402,11 +440,40 @@ mod test {
 
     #[test]
     fn bill_to_bytes_and_opposite_with_borsh() {
-        let bill = issue_new_bill();
+        let bill = issue_new_bill(
+            "".to_string(),
+            "".to_string(),
+            0,
+            "".to_string(),
+            "".to_string(),
+            AccountRecord {
+                legal_name: "".to_string(),
+                date_of_appearance: "".to_string(),
+                city_of_appearance: "".to_string(),
+                country_of_appearance: "".to_string(),
+                email: "".to_string(),
+                current_address: "".to_string(),
+                liability_provider: "".to_string(),
+                public_key_pem: "".to_string(),
+                private_key_pem: "".to_string(),
+            },
+        );
 
         let encoded_bill = bill.try_to_vec().unwrap();
 
         let decoded_a: BitcreditBill = BitcreditBill::try_from_slice(&encoded_bill).unwrap();
         assert_eq!(bill.bill_jurisdiction, decoded_a.bill_jurisdiction);
+    }
+
+    #[test]
+    fn create_new_account() {
+        let account: AccountRecord = create_new_id(
+            "Ivan".to_string(),
+            "12.12.2022".to_string(),
+            "Vienna".to_string(),
+            "Austria".to_string(),
+            "111@gmail.com".to_string(),
+            "Mainstrasse 1".to_string(),
+        );
     }
 }
