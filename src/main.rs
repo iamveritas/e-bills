@@ -1,9 +1,10 @@
+mod distributed_module;
 mod numbers_to_words;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use openssl::pkey::Private;
 use openssl::rsa::Rsa;
-use std::mem;
+use std::{fs, mem};
 
 // Private individuals or legal entities.
 pub struct Identity {
@@ -35,6 +36,7 @@ pub struct Identity {
     public_key_pem: String,
 
     private_key_pem: String,
+    //peer_id
 }
 
 pub fn create_new_identity(
@@ -85,6 +87,8 @@ fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
 // A cryptographic bill of exchange with future repayment.
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct BitcreditBill {
+    id: i32,
+
     // Flag: “to” the payee or “to his order”.
     to_payee: bool,
 
@@ -129,6 +133,7 @@ pub struct BitcreditBill {
 }
 
 pub fn issue_new_bill(
+    id: i32,
     bill_jurisdiction: String,
     place_of_drawing: String,
     amount_numbers: u64,
@@ -146,6 +151,7 @@ pub fn issue_new_bill(
 
     // Create bill.
     let new_bill = BitcreditBill {
+        id: id,
         to_payee: false,
         bill_jurisdiction: bill_jurisdiction,
         timestamp_at_drawing: "test".to_string(),
@@ -164,6 +170,25 @@ pub fn issue_new_bill(
 
     // Return new bill.
     new_bill
+}
+
+fn write_bill_to_file(bill: BitcreditBill) {
+    let bill_id = bill.id;
+    let data = bill_to_byte_array(bill);
+    fs::write("bills/test", data).expect("Unable to write file");
+}
+
+fn read_bill_from_file(bill_id: i32) -> BitcreditBill {
+    let data = fs::read("bills/test").expect("Unable to read file");
+    bill_from_byte_array(data)
+}
+
+fn bill_to_byte_array(bill: BitcreditBill) -> Vec<u8> {
+    bill.try_to_vec().unwrap()
+}
+
+fn bill_from_byte_array(bill: Vec<u8>) -> BitcreditBill {
+    BitcreditBill::try_from_slice(&bill).unwrap()
 }
 
 fn encrypt_bill() {}
@@ -186,7 +211,7 @@ struct Holder {}
 struct Honor {}
 
 fn main() {
-    // Add new identity in our DHT.
+    distributed_module::connect();
 }
 
 #[cfg(test)]
@@ -194,7 +219,7 @@ mod test {
     use crate::numbers_to_words::encode;
     use crate::{
         create_new_identity, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
-        pem_public_key_from_rsa, BitcreditBill, Identity,
+        pem_public_key_from_rsa, read_bill_from_file, write_bill_to_file, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
     use openssl::aes::{aes_ige, AesKey};
@@ -205,6 +230,36 @@ mod test {
     use openssl::rsa::{Padding, Rsa};
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::{decrypt, encrypt, Cipher, Mode};
+
+    // Dont uncomment before find way for id.
+    // #[test]
+    // fn write_bill_to_file_and_read_it() {
+    //     let bill = issue_new_bill(
+    //         1,
+    //         "fa".to_string(),
+    //         "saf".to_string(),
+    //         23,
+    //         "sdf".to_string(),
+    //         "11".to_string(),
+    //         Identity {
+    //             legal_name: "tymko".to_string(),
+    //             date_of_appearance: "2123".to_string(),
+    //             city_of_appearance: "13".to_string(),
+    //             country_of_appearance: "123".to_string(),
+    //             email: "123".to_string(),
+    //             current_address: "123".to_string(),
+    //             liability_provider: "123".to_string(),
+    //             public_key_pem: "123".to_string(),
+    //             private_key_pem: "321".to_string(),
+    //         },
+    //         "3213".to_string(),
+    //     );
+    //
+    //     write_bill_to_file(bill);
+    //     let bill_from_file = read_bill_from_file(1);
+    //
+    //     assert_eq!("fa".to_string(), bill_from_file.bill_jurisdiction);
+    // }
 
     #[test]
     fn different_rsa_keys_generated_each_time() {
@@ -226,6 +281,7 @@ mod test {
     fn sign_and_verify_data_given_an_rsa_keypair() {
         // Create data
         let data: BitcreditBill = issue_new_bill(
+            0,
             "".to_string(),
             "".to_string(),
             0,
@@ -320,100 +376,6 @@ mod test {
         assert!(String::from_utf8(buf).unwrap().starts_with(data));
     }
 
-    // #[test]
-    // fn create_bill() {
-    //     // Create bill
-    //     let bill = issue_new_bill();
-    //     let bill_public_key = &bill.public_key_pem;
-    //     let bill_private_key = &bill.private_ket_encrypted_with_pass_pem;
-    //
-    //     // Encrypted bill with public key
-    //     let rsa_bill = Rsa::public_key_from_pem(bill_public_key.as_bytes()).unwrap();
-    //     let mut buf_bill: Vec<u8> = vec![0; rsa_bill.size() as usize];
-    //     let bill_byte = bill.try_to_vec().unwrap();
-    //     let _ = rsa_bill.public_encrypt(bill_byte.as_slice(), &mut buf_bill, Padding::PKCS1).unwrap();
-    //     let encrypted_bill = buf_bill;
-    //
-    //     // Create 3 person
-    //     let payee = create_new_id();
-    //     let payee_public_key = &payee.public_key_pem;
-    //     let payee_private_key = &payee.private_ket_encrypted_with_pass_pem;
-    //     let drawer = create_new_id();
-    //     let drawer_public_key = &drawer.public_key_pem;
-    //     let drawer_private_key = &drawer.private_ket_encrypted_with_pass_pem;
-    //     let drawee = create_new_id();
-    //     let drawee_public_key = &drawee.public_key_pem;
-    //     let drawee_private_key = &drawee.private_ket_encrypted_with_pass_pem;
-    //
-    //     // Encrypted bill's private key with person's public keys
-    //     let bill_private_key_byte = bill_private_key.as_bytes();
-    //     // payee
-    //     let rsa_payee = Rsa::public_key_from_pem(payee_public_key.as_bytes()).unwrap();
-    //     let mut buf_payee: Vec<u8> = vec![0; rsa_payee.size() as usize];
-    //     let _ = rsa_payee.public_encrypt(bill_private_key_byte, &mut buf_payee, Padding::PKCS1).unwrap();
-    //     let encrypted_bill_private_key_payee = buf_payee;
-    //     // drawer
-    //     let rsa_drawer = Rsa::public_key_from_pem(drawer_public_key.as_bytes()).unwrap();
-    //     let mut buf_drawer: Vec<u8> = vec![0; rsa_drawer.size() as usize];
-    //     let _ = rsa_drawer.public_encrypt(bill_private_key_byte, &mut buf_drawer, Padding::PKCS1).unwrap();
-    //     let encrypted_bill_private_key_drawer = buf_drawer;
-    //     // drawee
-    //     let rsa_drawee = Rsa::public_key_from_pem(drawee_public_key.as_bytes()).unwrap();
-    //     let mut buf_drawee: Vec<u8> = vec![0; rsa_drawee.size() as usize];
-    //     let _ = rsa_drawee.public_encrypt(bill_private_key_byte, &mut buf_drawee, Padding::PKCS1).unwrap();
-    //     let encrypted_bill_private_key_drawee = buf_drawee;
-    //
-    //     // Decrypted bill's private key with person's private keys
-    //     let passphrase = "Qwerty1234";
-    //     // payee
-    //     let rsa_payee_pr = Rsa::private_key_from_pem_passphrase(payee_private_key.as_bytes(), passphrase.as_bytes()).unwrap();
-    //     let mut buf_payee_pr: Vec<u8> = vec![0; rsa_payee_pr.size() as usize];
-    //     let _ = rsa_payee_pr.private_decrypt(&encrypted_bill_private_key_payee, &mut buf_payee_pr, Padding::PKCS1).unwrap();
-    //     let payee_key_from_bill = String::from_utf8(buf_payee_pr).unwrap();
-    //     // drawer
-    //     let rsa_drawer_pr = Rsa::private_key_from_pem_passphrase(drawer_private_key.as_bytes(), passphrase.as_bytes()).unwrap();
-    //     let mut buf_drawer_pr: Vec<u8> = vec![0; rsa_drawer_pr.size() as usize];
-    //     let _ = rsa_drawer_pr.private_decrypt(&encrypted_bill_private_key_drawer, &mut buf_drawer_pr, Padding::PKCS1).unwrap();
-    //     // drawee
-    //     let rsa_drawee_pr = Rsa::private_key_from_pem_passphrase(drawee_private_key.as_bytes(), passphrase.as_bytes()).unwrap();
-    //     let mut buf_drawee_pr: Vec<u8> = vec![0; rsa_drawee_pr.size() as usize];
-    //     let _ = rsa_drawee_pr.private_decrypt(&encrypted_bill_private_key_drawee, &mut buf_drawee_pr, Padding::PKCS1).unwrap();
-    //
-    //     // Decrypted bill with private key
-    //
-    // }
-    //
-    // #[test]
-    // unsafe fn test () {
-    //     let passphrase = "Qwerty1234";
-    //
-    //     let bill = issue_new_bill();
-    //     let bill_public_key = &bill.public_key_pem;
-    //     let bill_private_key = &bill.private_ket_encrypted_with_pass_pem;
-    //
-    //     //
-    //     let mut buf = [0; 128];
-    //     rand_bytes(&mut buf).unwrap();
-    //     let aeskey = AesKey::new_encrypt(&buf).unwrap();
-    //
-    //     let payee = create_new_id();
-    //     let payee_public_key = &payee.public_key_pem;
-    //     let payee_private_key = &payee.private_ket_encrypted_with_pass_pem;
-    //
-    //
-    //     // // Encrypt with public key
-    //     // let rsa = Rsa::public_key_from_pem(payee_public_key.as_bytes()).unwrap();
-    //     // let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
-    //     // let _ = rsa.public_encrypt(bill_private_key.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
-    //     //
-    //     // let data = buf;
-    //     //
-    //     // // Decrypt with private key
-    //     // let rsa = Rsa::private_key_from_pem_passphrase(payee_private_key.as_bytes(), passphrase.as_bytes()).unwrap();
-    //     // let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
-    //     // let _ = rsa.private_decrypt(&data, &mut buf, Padding::PKCS1).unwrap();
-    // }
-
     #[test]
     fn encrypting_assymetric_rsa_key_with_symmetric_cipher() {
         let cipher = Cipher::aes_128_cbc();
@@ -435,6 +397,7 @@ mod test {
     #[test]
     fn bill_to_bytes_and_opposite_with_borsh() {
         let bill = issue_new_bill(
+            0,
             "".to_string(),
             "".to_string(),
             0,
@@ -456,8 +419,8 @@ mod test {
 
         let encoded_bill = bill.try_to_vec().unwrap();
 
-        let decoded_a: BitcreditBill = BitcreditBill::try_from_slice(&encoded_bill).unwrap();
-        assert_eq!(bill.bill_jurisdiction, decoded_a.bill_jurisdiction);
+        let decoded_bill: BitcreditBill = BitcreditBill::try_from_slice(&encoded_bill).unwrap();
+        assert_eq!(bill.bill_jurisdiction, decoded_bill.bill_jurisdiction);
     }
 
     #[test]
