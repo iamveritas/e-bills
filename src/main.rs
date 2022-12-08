@@ -1,19 +1,12 @@
+mod numbers_to_words;
+
 use borsh::{self, BorshDeserialize, BorshSerialize};
-use openssl::bn::BigNumContext;
-use openssl::dsa;
-use openssl::dsa::Dsa;
-use openssl::ec::{EcGroup, EcKey, EcPoint};
-use openssl::error::ErrorStack;
-use openssl::hash::MessageDigest;
-use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private};
-use openssl::rsa::{Padding, Rsa};
-use openssl::sign::Signer;
-use openssl::symm::Cipher;
+use openssl::pkey::Private;
+use openssl::rsa::Rsa;
 use std::mem;
 
 // Private individuals or legal entities.
-pub struct AccountRecord {
+pub struct Identity {
     //TODO: cryptographic address.
 
     //TODO: add hash of all data.
@@ -44,23 +37,21 @@ pub struct AccountRecord {
     private_key_pem: String,
 }
 
-pub fn create_new_id(
+pub fn create_new_identity(
     legal_name: String,
     date_of_appearance: String,
     city_of_appearance: String,
     country_of_appearance: String,
     email: String,
     current_address: String,
-) -> AccountRecord {
+) -> Identity {
     let rsa = generation_rsa_key();
 
     let private_key = pem_private_key_from_rsa(&rsa);
 
     let public_key = pem_public_key_from_rsa(&rsa);
 
-    println!("Your private key: {}", &private_key);
-
-    let new_account = AccountRecord {
+    let new_identity = Identity {
         legal_name: legal_name,
         date_of_appearance: date_of_appearance,
         city_of_appearance: city_of_appearance,
@@ -72,7 +63,7 @@ pub fn create_new_id(
         private_key_pem: private_key,
     };
 
-    new_account
+    new_identity
 }
 
 fn generation_rsa_key() -> Rsa<Private> {
@@ -133,7 +124,8 @@ pub struct BitcreditBill {
 
     private_key_pem: String,
 
-    
+    // In MVP english or german.
+    language: String,
 }
 
 pub fn issue_new_bill(
@@ -142,7 +134,8 @@ pub fn issue_new_bill(
     amount_numbers: u64,
     amounts_letters: String,
     maturity_date: String,
-    drawer: AccountRecord,
+    drawee: Identity,
+    language: String,
 ) -> BitcreditBill {
     // Generate keys.
     let rsa = generation_rsa_key();
@@ -163,16 +156,15 @@ pub fn issue_new_bill(
         maturity_date: maturity_date,
         compounding_interest_rate: 0,
         type_of_interest_calculation: false,
-        place_of_payment: drawer.city_of_appearance.to_string(),
+        place_of_payment: drawee.current_address.to_string(),
         public_key_pem: public_key,
         private_key_pem: private_key,
+        language: language,
     };
 
     // Return new bill.
     new_bill
 }
-
-fn sign_bill() {}
 
 fn encrypt_bill() {}
 
@@ -194,14 +186,15 @@ struct Holder {}
 struct Honor {}
 
 fn main() {
-    // Add this account in our DHT.
+    // Add new identity in our DHT.
 }
 
 #[cfg(test)]
 mod test {
+    use crate::numbers_to_words::encode;
     use crate::{
-        create_new_id, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
-        pem_public_key_from_rsa, AccountRecord, BitcreditBill,
+        create_new_identity, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
+        pem_public_key_from_rsa, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
     use openssl::aes::{aes_ige, AesKey};
@@ -238,7 +231,7 @@ mod test {
             0,
             "".to_string(),
             "".to_string(),
-            AccountRecord {
+            Identity {
                 legal_name: "".to_string(),
                 date_of_appearance: "".to_string(),
                 city_of_appearance: "".to_string(),
@@ -249,6 +242,7 @@ mod test {
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
             },
+            "".to_string(),
         );
 
         // Generate a keypair
@@ -446,7 +440,7 @@ mod test {
             0,
             "".to_string(),
             "".to_string(),
-            AccountRecord {
+            Identity {
                 legal_name: "".to_string(),
                 date_of_appearance: "".to_string(),
                 city_of_appearance: "".to_string(),
@@ -457,6 +451,7 @@ mod test {
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
             },
+            "".to_string(),
         );
 
         let encoded_bill = bill.try_to_vec().unwrap();
@@ -467,7 +462,7 @@ mod test {
 
     #[test]
     fn create_new_account() {
-        let account: AccountRecord = create_new_id(
+        let account: Identity = create_new_identity(
             "Ivan".to_string(),
             "12.12.2022".to_string(),
             "Vienna".to_string(),
@@ -475,5 +470,11 @@ mod test {
             "111@gmail.com".to_string(),
             "Mainstrasse 1".to_string(),
         );
+    }
+
+    #[test]
+    fn numbers_to_letters() {
+        let result = encode(123_324_324);
+        assert_eq!("one hundred twenty-three million three hundred twenty-four thousand three hundred twenty-four".to_string(), result);
     }
 }
