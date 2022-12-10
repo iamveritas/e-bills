@@ -195,21 +195,6 @@ fn encrypt_bill() {}
 
 fn decrypt_bill() {}
 
-// The party issuing a bill.
-struct Drawer {}
-
-// The party obliged to pay a bill.
-struct Drawee {}
-
-// The person to whom a bill is payable.
-struct Payee {}
-
-// The person to whom the payee or a prior holder endorses a bill.
-struct Holder {}
-
-// For the issuer of a dishonored bill or note, all issued bills and notes become due immediately.
-struct Honor {}
-
 fn main() {
     distributed_module::connect();
 }

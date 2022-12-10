@@ -223,7 +223,7 @@ pub async fn connect() {
             .parse()
             .expect("can get a local socket"),
     )
-    .expect("swarm can be started");
+        .expect("swarm can be started");
 
     loop {
         let evt = {
