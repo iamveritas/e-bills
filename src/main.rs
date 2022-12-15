@@ -1,3 +1,4 @@
+mod distributed_module;
 mod numbers_to_words;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
