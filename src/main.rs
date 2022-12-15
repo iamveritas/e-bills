@@ -3,15 +3,14 @@ mod numbers_to_words;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use openssl::pkey::Private;
-use openssl::rsa::Rsa;
+use openssl::rsa::{Padding, Rsa};
+use std::fs::File;
 use std::{fs, mem};
+
+const STORAGE_FILE_PATH: &str = "./identity";
 
 // Private individuals or legal entities.
 pub struct Identity {
-    //TODO: cryptographic address.
-
-    //TODO: add hash of all data.
-
     // Name + surname or company name.
     legal_name: String,
 
@@ -36,7 +35,6 @@ pub struct Identity {
     public_key_pem: String,
 
     private_key_pem: String,
-    //peer_id
 }
 
 pub fn create_new_identity(
@@ -74,13 +72,11 @@ fn generation_rsa_key() -> Rsa<Private> {
 
 fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
     let private_key: Vec<u8> = rsa.private_key_to_pem().unwrap();
-    //TODO: Write it in file
     String::from_utf8(private_key).unwrap()
 }
 
 fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
     let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
-    //TODO: Write it in file
     String::from_utf8(public_key).unwrap()
 }
 
@@ -108,7 +104,6 @@ pub struct BitcreditBill {
 
     amounts_letters: String,
 
-    // TODO: change to data type.
     maturity_date: String,
 
     // Percent of interest.
@@ -116,10 +111,6 @@ pub struct BitcreditBill {
 
     // A flag for interest calculation “in advance” (for bills) or “in arrears” (for notes).
     type_of_interest_calculation: bool,
-
-    //TODO: each of the three party’s id / (optionally encrypted with the bill’s public key).
-
-    //TODO: each name (drawer, drawee, payee) and their respective address (defaulting to the id/ data), always encrypted with the bill’s public key.
 
     // Defaulting to the drawee’s id/ address, encrypted with the bill’s public key.
     place_of_payment: String,
@@ -142,14 +133,12 @@ pub fn issue_new_bill(
     drawee: Identity,
     language: String,
 ) -> BitcreditBill {
-    // Generate keys.
     let rsa = generation_rsa_key();
 
     let private_key = pem_private_key_from_rsa(&rsa);
 
     let public_key = pem_public_key_from_rsa(&rsa);
 
-    // Create bill.
     let new_bill = BitcreditBill {
         id: id,
         to_payee: false,
@@ -168,42 +157,139 @@ pub fn issue_new_bill(
         language: language,
     };
 
-    // Return new bill.
     new_bill
 }
 
-fn write_bill_to_file(bill: BitcreditBill) {
+fn write_bill_to_file(bill: &BitcreditBill) {
+    // late it need to choose name of file with bill
     let bill_id = bill.id;
-    let data = bill_to_byte_array(bill);
+    let data = bill_to_byte_array(&bill);
     fs::write("bills/test", data).expect("Unable to write file");
 }
 
-fn read_bill_from_file(bill_id: i32) -> BitcreditBill {
+fn read_bill_from_file(bill_id: &i32) -> BitcreditBill {
     let data = fs::read("bills/test").expect("Unable to read file");
-    bill_from_byte_array(data)
+    bill_from_byte_array(&data)
 }
 
-fn bill_to_byte_array(bill: BitcreditBill) -> Vec<u8> {
+fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
     bill.try_to_vec().unwrap()
 }
 
-fn bill_from_byte_array(bill: Vec<u8>) -> BitcreditBill {
+fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(&bill).unwrap()
 }
 
-fn encrypt_bill() {}
+fn encrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+    let key_size = (rsa_key.size() / 2) as usize; //128
 
-fn decrypt_bill() {}
+    let mut hole_encrypted_buff = Vec::new();
+    let mut time_buff = vec![0; key_size];
+    let mut time_buff_encrypted = vec![0; rsa_key.size() as usize];
 
-fn main() {
-    distributed_module::connect();
+    let number_of_key_size_in_hole_bill = bill_bytes.len() / key_size;
+    let remainder = bill_bytes.len() - key_size * number_of_key_size_in_hole_bill;
+
+    for i in 0..number_of_key_size_in_hole_bill {
+        for j in 0..key_size {
+            let byte_number = key_size * i + j;
+            time_buff[j] = bill_bytes[byte_number];
+        }
+
+        let encrypted_len = rsa_key
+            .public_encrypt(&*time_buff, &mut time_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        hole_encrypted_buff.append(&mut time_buff_encrypted);
+        time_buff = vec![0; key_size];
+        time_buff_encrypted = vec![0; rsa_key.size() as usize];
+    }
+
+    if remainder != 0 {
+        time_buff = vec![0; remainder];
+
+        let position = key_size * number_of_key_size_in_hole_bill;
+        let mut index_in_time_buff = 0;
+
+        for i in position..bill_bytes.len() {
+            time_buff[index_in_time_buff] = bill_bytes[i];
+            index_in_time_buff += 1;
+        }
+
+        index_in_time_buff = 0;
+
+        let encrypted_len = rsa_key
+            .public_encrypt(&*time_buff, &mut time_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        hole_encrypted_buff.append(&mut time_buff_encrypted);
+        time_buff.clear();
+        time_buff_encrypted.clear();
+    }
+
+    hole_encrypted_buff
 }
+
+fn decrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+    let key_size = rsa_key.size() as usize; //256
+
+    let mut hole_decrypted_buff = Vec::new();
+    let mut time_buff = vec![0; rsa_key.size() as usize];
+    let mut time_buff_decrypted = vec![0; rsa_key.size() as usize];
+
+    let number_of_key_size_in_hole_bill = bill_bytes.len() / key_size;
+    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_hole_bill;
+
+    for i in 0..number_of_key_size_in_hole_bill {
+        for j in 0..key_size {
+            let byte_number = key_size * i + j;
+            time_buff[j] = bill_bytes[byte_number];
+        }
+
+        let decrypted_len = rsa_key
+            .private_decrypt(&*time_buff, &mut time_buff_decrypted, Padding::PKCS1)
+            .unwrap();
+
+        hole_decrypted_buff.append(&mut time_buff_decrypted[0..decrypted_len].to_vec());
+        time_buff = vec![0; rsa_key.size() as usize];
+        time_buff_decrypted = vec![0; rsa_key.size() as usize];
+    }
+
+    // if remainder != 0 {
+    //     let position = key_size * number_of_key_size_in_hole_bill;
+    //     let mut index_in_time_buff = 0;
+    //
+    //     for i in position..bill_bytes.len() {
+    //         time_buff[index_in_time_buff] = bill_bytes[i];
+    //         index_in_time_buff = index_in_time_buff + 1;
+    //     }
+    //
+    //     index_in_time_buff = 0;
+    //
+    //     let decrypted_len = rsa_key
+    //         .public_decrypt(&*time_buff, &mut time_buff_decrypted, Padding::PKCS1)
+    //         .unwrap();
+    //
+    //     hole_decrypted_buff.append(&mut time_buff_decrypted);
+    //     time_buff.clear();
+    //     time_buff_decrypted.clear();
+    // }
+
+    hole_decrypted_buff
+}
+
+unsafe fn any_as_u8_slice<'a, T: Sized>(mut p: T) -> &'a mut [u8] {
+    ::std::slice::from_raw_parts_mut((&mut p as *mut T) as *mut u8, ::std::mem::size_of::<T>())
+}
+
+fn main() {}
 
 #[cfg(test)]
 mod test {
     use crate::numbers_to_words::encode;
     use crate::{
-        create_new_identity, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
+        any_as_u8_slice, bill_from_byte_array, bill_to_byte_array, create_new_identity,
+        decrypt_bytes, encrypt_bytes, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
         pem_public_key_from_rsa, read_bill_from_file, write_bill_to_file, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
@@ -215,8 +301,10 @@ mod test {
     use openssl::rsa::{Padding, Rsa};
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::{decrypt, encrypt, Cipher, Mode};
+    use std::io::Read;
+    use std::{env, fs, slice};
 
-    // Dont uncomment before find way for id.
+    // Dont uncomment before find way for special file name for every bill.
     // #[test]
     // fn write_bill_to_file_and_read_it() {
     //     let bill = issue_new_bill(
@@ -245,6 +333,82 @@ mod test {
     //
     //     assert_eq!("fa".to_string(), bill_from_file.bill_jurisdiction);
     // }
+
+    #[test]
+    fn encrypt_bill_with_rsa_keypair() {
+        let bill = issue_new_bill(
+            0,
+            "".to_string(),
+            "".to_string(),
+            0,
+            "".to_string(),
+            "".to_string(),
+            Identity {
+                legal_name: "".to_string(),
+                date_of_appearance: "".to_string(),
+                city_of_appearance: "".to_string(),
+                country_of_appearance: "".to_string(),
+                email: "".to_string(),
+                current_address: "".to_string(),
+                liability_provider: "".to_string(),
+                public_key_pem: "".to_string(),
+                private_key_pem: "".to_string(),
+            },
+            "".to_string(),
+        );
+
+        let rsa_key = generation_rsa_key();
+        let bill_bytes = bill_to_byte_array(&bill);
+
+        let enc = encrypt_bytes(&bill_bytes, &rsa_key);
+
+        let mut final_number_256_byte_arrays: u32;
+        let bill_bytes_len = bill_bytes.len();
+        let exact_number_256_byte_arrays = (bill_bytes_len as f32 / 128 as f32) as f32;
+        if exact_number_256_byte_arrays % 1.0 == 0 as f32 {
+            final_number_256_byte_arrays = exact_number_256_byte_arrays as u32
+        } else {
+            final_number_256_byte_arrays = exact_number_256_byte_arrays as u32 + 1
+        }
+
+        assert_eq!(final_number_256_byte_arrays * 256, enc.len() as u32);
+    }
+
+    #[test]
+    fn decrypt_bill_with_rsa_keypair() {
+        let bill = issue_new_bill(
+            0,
+            "".to_string(),
+            "".to_string(),
+            0,
+            "".to_string(),
+            "".to_string(),
+            Identity {
+                legal_name: "".to_string(),
+                date_of_appearance: "".to_string(),
+                city_of_appearance: "".to_string(),
+                country_of_appearance: "".to_string(),
+                email: "".to_string(),
+                current_address: "".to_string(),
+                liability_provider: "".to_string(),
+                public_key_pem: "".to_string(),
+                private_key_pem: "".to_string(),
+            },
+            "".to_string(),
+        );
+
+        let rsa_key = generation_rsa_key();
+        let bill_bytes = bill_to_byte_array(&bill);
+
+        let encrypted_bill = encrypt_bytes(&bill_bytes, &rsa_key);
+
+        let decrypted_bill = decrypt_bytes(&encrypted_bill, &rsa_key);
+        assert_eq!(bill_bytes.len(), decrypted_bill.len());
+
+        let new_bill = bill_from_byte_array(&decrypted_bill);
+
+        assert_eq!(bill.bill_jurisdiction, new_bill.bill_jurisdiction);
+    }
 
     #[test]
     fn different_rsa_keys_generated_each_time() {
@@ -362,7 +526,7 @@ mod test {
     }
 
     #[test]
-    fn encrypting_assymetric_rsa_key_with_symmetric_cipher() {
+    fn encrypting_asymmetric_rosa_key_with_symmetric_cipher() {
         let cipher = Cipher::aes_128_cbc();
         let data = b"Some Crypto Text";
         let key = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
