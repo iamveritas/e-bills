@@ -180,20 +180,20 @@ fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(&bill).unwrap()
 }
 
-fn encrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size = (rsa_key.size() / 2) as usize; //128
 
     let mut hole_encrypted_buff = Vec::new();
     let mut time_buff = vec![0; key_size];
     let mut time_buff_encrypted = vec![0; rsa_key.size() as usize];
 
-    let number_of_key_size_in_hole_bill = bill_bytes.len() / key_size;
-    let remainder = bill_bytes.len() - key_size * number_of_key_size_in_hole_bill;
+    let number_of_key_size_in_hole_bill = bytes.len() / key_size;
+    let remainder = bytes.len() - key_size * number_of_key_size_in_hole_bill;
 
     for i in 0..number_of_key_size_in_hole_bill {
         for j in 0..key_size {
             let byte_number = key_size * i + j;
-            time_buff[j] = bill_bytes[byte_number];
+            time_buff[j] = bytes[byte_number];
         }
 
         let encrypted_len = rsa_key
@@ -211,8 +211,8 @@ fn encrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
         let position = key_size * number_of_key_size_in_hole_bill;
         let mut index_in_time_buff = 0;
 
-        for i in position..bill_bytes.len() {
-            time_buff[index_in_time_buff] = bill_bytes[i];
+        for i in position..bytes.len() {
+            time_buff[index_in_time_buff] = bytes[i];
             index_in_time_buff += 1;
         }
 
@@ -230,20 +230,20 @@ fn encrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     hole_encrypted_buff
 }
 
-fn decrypt_bytes(bill_bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size = rsa_key.size() as usize; //256
 
     let mut hole_decrypted_buff = Vec::new();
     let mut time_buff = vec![0; rsa_key.size() as usize];
     let mut time_buff_decrypted = vec![0; rsa_key.size() as usize];
 
-    let number_of_key_size_in_hole_bill = bill_bytes.len() / key_size;
+    let number_of_key_size_in_hole_bill = bytes.len() / key_size;
     // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_hole_bill;
 
     for i in 0..number_of_key_size_in_hole_bill {
         for j in 0..key_size {
             let byte_number = key_size * i + j;
-            time_buff[j] = bill_bytes[byte_number];
+            time_buff[j] = bytes[byte_number];
         }
 
         let decrypted_len = rsa_key
@@ -470,38 +470,6 @@ mod test {
     }
 
     #[test]
-    fn encrypt_and_decrypt_simple_data_given_an_rsa_keypair_using_encrypter_decrypter() {
-        // Create data
-        let data = "test";
-
-        // Generate a keypair
-        let rsa_key = generation_rsa_key();
-        let p_key = PKey::from_rsa(rsa_key).unwrap();
-
-        // Encrypt the data with RSA PKCS1
-        let mut encrypter = Encrypter::new(&p_key).unwrap();
-        encrypter.set_rsa_padding(Padding::PKCS1).unwrap();
-        // Create an output buffer
-        let buffer_len = encrypter.encrypt_len(data.as_bytes()).unwrap();
-        let mut encrypted = vec![0; buffer_len];
-        // Encrypt and truncate the buffer
-        let encrypted_len = encrypter.encrypt(data.as_bytes(), &mut encrypted).unwrap();
-        encrypted.truncate(encrypted_len);
-
-        // Decrypt the data
-        let mut decrypter = Decrypter::new(&p_key).unwrap();
-        decrypter.set_rsa_padding(Padding::PKCS1).unwrap();
-        // Create an output buffer
-        let buffer_len = decrypter.decrypt_len(&encrypted).unwrap();
-        let mut decrypted = vec![0; buffer_len];
-        // Encrypt and truncate the buffer
-        let decrypted_len = decrypter.decrypt(&encrypted, &mut decrypted).unwrap();
-        decrypted.truncate(decrypted_len);
-
-        assert_eq!(&*decrypted, data.as_bytes());
-    }
-
-    #[test]
     fn encrypt_and_decrypt_simple_data_with_rsa_keypair() {
         // Create data
         let data = "test";
@@ -523,24 +491,6 @@ mod test {
             .private_decrypt(&data_enc, &mut buf, Padding::PKCS1)
             .unwrap();
         assert!(String::from_utf8(buf).unwrap().starts_with(data));
-    }
-
-    #[test]
-    fn encrypting_asymmetric_rosa_key_with_symmetric_cipher() {
-        let cipher = Cipher::aes_128_cbc();
-        let data = b"Some Crypto Text";
-        let key = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
-        let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
-
-        let ciphertext_enc = encrypt(cipher, key, Some(iv), data).unwrap();
-
-        assert_eq!(
-            b"\xB4\xB9\xE7\x30\xD6\xD6\xF7\xDE\x77\x3F\x1C\xFF\xB3\x3E\x44\x5A\x91\xD7\x27\x62\x87\x4D\xFB\x3C\x5E\xC4\x59\x72\x4A\xF4\x7C\xA1",
-            &ciphertext_enc[..]);
-
-        let ciphertext = decrypt(cipher, key, Some(iv), &ciphertext_enc[..]).unwrap();
-
-        assert_eq!(b"Some Crypto Text", &ciphertext[..]);
     }
 
     #[test]
