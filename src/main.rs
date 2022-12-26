@@ -2,20 +2,24 @@ mod distributed_module;
 mod numbers_to_words;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
+use libp2p::identity::{ed25519, Keypair};
+use libp2p::{identity, PeerId};
 use openssl::pkey::Private;
 use openssl::rsa::{Padding, Rsa};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::{fs, mem};
 
 const STORAGE_FILE_PATH: &str = "./identity";
 
 // Private individuals or legal entities.
+// #[derive(Serialize, Deserialize)]
+#[repr(packed)]
 pub struct Identity {
     // Name + surname or company name.
     legal_name: String,
 
     // Date of birth or foundation in the format YYYY-MM-DD.
-    // TODO: change to data type.
     date_of_appearance: String,
 
     // City of birth or foundation.
@@ -35,6 +39,10 @@ pub struct Identity {
     public_key_pem: String,
 
     private_key_pem: String,
+
+    ed25519_keys: Keypair,
+
+    peer_id: PeerId,
 }
 
 pub fn create_new_identity(
@@ -51,6 +59,9 @@ pub fn create_new_identity(
 
     let public_key = pem_public_key_from_rsa(&rsa);
 
+    let ed25519_keys = identity::Keypair::generate_ed25519();
+    let peer_id = PeerId::from(ed25519_keys.public());
+
     let new_identity = Identity {
         legal_name: legal_name,
         date_of_appearance: date_of_appearance,
@@ -61,6 +72,8 @@ pub fn create_new_identity(
         liability_provider: "".to_string(),
         public_key_pem: public_key,
         private_key_pem: private_key,
+        ed25519_keys: ed25519_keys,
+        peer_id: peer_id,
     };
 
     new_identity
@@ -151,7 +164,7 @@ pub fn issue_new_bill(
         maturity_date: maturity_date,
         compounding_interest_rate: 0,
         type_of_interest_calculation: false,
-        place_of_payment: drawee.current_address.to_string(),
+        place_of_payment: drawee.current_address,
         public_key_pem: public_key,
         private_key_pem: private_key,
         language: language,
@@ -281,6 +294,25 @@ fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
 unsafe fn any_as_u8_slice<'a, T: Sized>(mut p: T) -> &'a mut [u8] {
     ::std::slice::from_raw_parts_mut((&mut p as *mut T) as *mut u8, ::std::mem::size_of::<T>())
 }
+unsafe fn any_as_u8_slice_original<T: Sized>(p: &T) -> &[u8] {
+    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+}
+
+unsafe fn any_as_u8_slice_copy<T: Sized>(p: T) -> &'static [u8] {
+    ::std::slice::from_raw_parts((&p as *const T) as *const u8, ::std::mem::size_of::<T>())
+}
+
+fn pop528(barry: &[u8]) -> &[u8; 528] {
+    barry.try_into().expect("slice with incorrect length")
+}
+
+fn pop80(barry: &[u8]) -> &[u8; 80] {
+    barry.try_into().expect("slice with incorrect length")
+}
+
+fn pop232(barry: &[u8]) -> &[u8; 232] {
+    barry.try_into().expect("slice with incorrect length")
+}
 
 fn main() {}
 
@@ -288,11 +320,14 @@ fn main() {}
 mod test {
     use crate::numbers_to_words::encode;
     use crate::{
-        any_as_u8_slice, bill_from_byte_array, bill_to_byte_array, create_new_identity,
-        decrypt_bytes, encrypt_bytes, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
-        pem_public_key_from_rsa, read_bill_from_file, write_bill_to_file, BitcreditBill, Identity,
+        any_as_u8_slice, any_as_u8_slice_copy, any_as_u8_slice_original, bill_from_byte_array,
+        bill_to_byte_array, create_new_identity, decrypt_bytes, encrypt_bytes, generation_rsa_key,
+        issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa, pop232, pop528, pop80,
+        read_bill_from_file, write_bill_to_file, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
+    use libp2p::identity::{ed25519, Keypair};
+    use libp2p::{identity, PeerId};
     use openssl::aes::{aes_ige, AesKey};
     use openssl::encrypt::{Decrypter, Encrypter};
     use openssl::hash::MessageDigest;
@@ -301,8 +336,9 @@ mod test {
     use openssl::rsa::{Padding, Rsa};
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::{decrypt, encrypt, Cipher, Mode};
+    use serde_binary::binary_stream::Endian;
     use std::io::Read;
-    use std::{env, fs, slice};
+    use std::{env, fs, mem, slice};
 
     // Dont uncomment before find way for special file name for every bill.
     // #[test]
@@ -335,7 +371,45 @@ mod test {
     // }
 
     #[test]
+    fn structure_to_bytes() {
+        let ed25519_keys = identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+        let id = create_new_identity(
+            "qwq".to_string(),
+            "ewqe".to_string(),
+            "qwewqe".to_string(),
+            "qwewqe".to_string(),
+            "qweeq".to_string(),
+            "qwewqe".to_string(),
+        );
+
+        let bytes_ed25519_keys = unsafe { any_as_u8_slice_original(&ed25519_keys) };
+        let bytes_peer_id = unsafe { any_as_u8_slice_original(&peer_id) };
+        let bytes_id = unsafe { any_as_u8_slice_original(&id) };
+
+        let h = pop232(bytes_ed25519_keys);
+        let g: _ =
+            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<Keypair>()], Keypair>(*h) };
+
+        let d = pop80(bytes_peer_id);
+        let h: _ =
+            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<PeerId>()], PeerId>(*d) };
+
+        let new_peer_id: PeerId = unsafe { mem::transmute_copy(d) };
+
+        let a = pop528(bytes_id);
+        // let f: _ = unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<Identity>()], Identity>(*a) };
+        // let new_id: Identity = unsafe { mem::transmute_copy(a) };
+
+        // let о = {g.country_of_appearance};
+        // assert_eq!("qwewqsdsde".to_string(), zalupa);
+    }
+
+    #[test]
     fn encrypt_bill_with_rsa_keypair() {
+        let ed25519_keys = identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -353,6 +427,8 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
+                ed25519_keys: ed25519_keys,
+                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -376,6 +452,9 @@ mod test {
 
     #[test]
     fn decrypt_bill_with_rsa_keypair() {
+        let ed25519_keys = identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -393,6 +472,8 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
+                ed25519_keys: ed25519_keys,
+                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -428,7 +509,9 @@ mod test {
 
     #[test]
     fn sign_and_verify_data_given_an_rsa_keypair() {
-        // Create data
+        let ed25519_keys = identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
         let data: BitcreditBill = issue_new_bill(
             0,
             "".to_string(),
@@ -446,6 +529,8 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
+                ed25519_keys: ed25519_keys,
+                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -495,6 +580,9 @@ mod test {
 
     #[test]
     fn bill_to_bytes_and_opposite_with_borsh() {
+        let ed25519_keys = identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -512,6 +600,8 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
+                ed25519_keys: ed25519_keys,
+                peer_id: peer_id,
             },
             "".to_string(),
         );

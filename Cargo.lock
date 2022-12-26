@@ -272,6 +272,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "binary-stream"
+version = "3.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65e208019c0cb0c265f5e0958a227e5e9d69fbbcea2f5100b50486b13cef7992"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "bitcredit"
 version = "0.1.0"
 dependencies = [
@@ -282,6 +291,7 @@ dependencies = [
  "openssl",
  "pretty_env_logger",
  "serde",
+ "serde-binary",
  "serde_json",
  "tokio",
 ]
@@ -2372,6 +2382,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "256b9932320c590e707b94576e3cc1f7c9024d0ee6612dfbcf1cb106cbe8e055"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-binary"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f3d696093abb984fc36749834699cf89c996de364d3b8560b852cdfcd66edb9"
+dependencies = [
+ "binary-stream",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
