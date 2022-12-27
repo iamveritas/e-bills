@@ -6,15 +6,14 @@ use libp2p::identity::Keypair;
 use libp2p::{identity, PeerId};
 use openssl::pkey::Private;
 use openssl::rsa::{Padding, Rsa};
-use std::{fs, mem};
 use std::fs::File;
 use std::path::Path;
+use std::{fs, mem};
 
 const STORAGE_FILE_PATH: &str = "./identity";
 
 // Private individuals or legal entities.
-// #[derive(Serialize, Deserialize)]
-#[repr(packed)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Identity {
     // Name + surname or company name.
     legal_name: String,
@@ -39,10 +38,12 @@ pub struct Identity {
     public_key_pem: String,
 
     private_key_pem: String,
+}
 
-    ed25519_keys: Keypair,
-
+pub struct IdentityWithAll {
+    identity: Identity,
     peer_id: PeerId,
+    key_pair: Keypair,
 }
 
 pub fn create_new_identity(
@@ -59,13 +60,6 @@ pub fn create_new_identity(
 
     let public_key = pem_public_key_from_rsa(&rsa);
 
-    let ed25519_keys = Keypair::generate_ed25519();
-
-    let peer_id = PeerId::from(ed25519_keys.public());
-
-    write_peer_id_to_file(&peer_id);
-    write_ed25519_keypair_to_file(&ed25519_keys);
-
     let new_identity = Identity {
         legal_name: legal_name,
         date_of_appearance: date_of_appearance,
@@ -76,11 +70,78 @@ pub fn create_new_identity(
         liability_provider: "".to_string(),
         public_key_pem: public_key,
         private_key_pem: private_key,
-        ed25519_keys: ed25519_keys,
-        peer_id: peer_id,
     };
 
     new_identity
+}
+
+pub fn create_whole_identity(
+    legal_name: String,
+    date_of_appearance: String,
+    city_of_appearance: String,
+    country_of_appearance: String,
+    email: String,
+    current_address: String,
+) -> IdentityWithAll {
+    if !Path::new("identity").exists() {
+        let identity = create_new_identity(
+            legal_name,
+            date_of_appearance,
+            city_of_appearance,
+            country_of_appearance,
+            email,
+            current_address,
+        );
+        let ed25519_keys = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
+        write_identity_to_file(&identity);
+        write_peer_id_to_file(&peer_id);
+        write_ed25519_keypair_to_file(&ed25519_keys);
+
+        let whole_identity = IdentityWithAll {
+            identity: identity,
+            peer_id: peer_id,
+            key_pair: ed25519_keys,
+        };
+
+        whole_identity
+    } else {
+        let identity = read_identity_from_file();
+        let ed25519_keys = read_ed25519_keypair_from_file();
+        let peer_id = read_peer_id_from_file();
+
+        let whole_identity = IdentityWithAll {
+            identity: identity,
+            peer_id: peer_id,
+            key_pair: ed25519_keys,
+        };
+
+        whole_identity
+    }
+}
+
+fn write_identity_to_file(identity: &Identity) {
+    let data = identity_to_byte_array(&identity);
+
+    if !Path::new("identity").exists() {
+        fs::create_dir("identity").expect("Can't create folder.");
+    }
+
+    fs::write("identity/identity", data).expect("Unable to write file");
+}
+
+fn read_identity_from_file() -> Identity {
+    let data = fs::read("identity/identity").expect("Unable to read file");
+    identity_from_byte_array(&data)
+}
+
+fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
+    identity.try_to_vec().unwrap()
+}
+
+fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
+    Identity::try_from_slice(&identity).unwrap()
 }
 
 fn generation_rsa_key() -> Rsa<Private> {
@@ -88,7 +149,7 @@ fn generation_rsa_key() -> Rsa<Private> {
 }
 
 fn write_ed25519_keypair_to_file(ed25519_keys: &Keypair) {
-    let data = unsafe {structure_as_u8_slice(&ed25519_keys)};
+    let data = unsafe { structure_as_u8_slice(&ed25519_keys) };
 
     if !Path::new("identity").exists() {
         fs::create_dir("identity").expect("Can't create folder.");
@@ -98,7 +159,7 @@ fn write_ed25519_keypair_to_file(ed25519_keys: &Keypair) {
 }
 
 fn write_peer_id_to_file(peer_id: &PeerId) {
-    let data = unsafe {structure_as_u8_slice(&peer_id)};
+    let data = unsafe { structure_as_u8_slice(&peer_id) };
 
     if !Path::new("identity").exists() {
         fs::create_dir("identity").expect("Can't create folder.");
@@ -347,7 +408,14 @@ unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 }
 
 fn main() {
-    create_new_identity("a".to_string(), "b".to_string(), "c".to_string(), "d".to_string(), "ds".to_string(), "ds".to_string());
+    let identity = create_whole_identity(
+        "a".to_string(),
+        "b".to_string(),
+        "c".to_string(),
+        "d".to_string(),
+        "ds".to_string(),
+        "ds".to_string(),
+    );
 }
 
 #[cfg(test)]
@@ -371,8 +439,6 @@ mod test {
 
     #[test]
     fn write_bill_to_file_and_read_it() {
-        let ed25519_keys = Keypair::generate_ed25519();
-        let peer_id = PeerId::from(ed25519_keys.public());
         let bill = issue_new_bill(
             1,
             "fa".to_string(),
@@ -390,8 +456,6 @@ mod test {
                 liability_provider: "123".to_string(),
                 public_key_pem: "123".to_string(),
                 private_key_pem: "321".to_string(),
-                ed25519_keys: ed25519_keys,
-                peer_id: peer_id,
             },
             "3213".to_string(),
         );
@@ -431,9 +495,6 @@ mod test {
 
     #[test]
     fn encrypt_bill_with_rsa_keypair() {
-        let ed25519_keys = identity::Keypair::generate_ed25519();
-        let peer_id = PeerId::from(ed25519_keys.public());
-
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -451,8 +512,6 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
-                ed25519_keys: ed25519_keys,
-                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -476,9 +535,6 @@ mod test {
 
     #[test]
     fn decrypt_bill_with_rsa_keypair() {
-        let ed25519_keys = identity::Keypair::generate_ed25519();
-        let peer_id = PeerId::from(ed25519_keys.public());
-
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -496,8 +552,6 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
-                ed25519_keys: ed25519_keys,
-                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -533,9 +587,6 @@ mod test {
 
     #[test]
     fn sign_and_verify_data_given_an_rsa_keypair() {
-        let ed25519_keys = identity::Keypair::generate_ed25519();
-        let peer_id = PeerId::from(ed25519_keys.public());
-
         let data: BitcreditBill = issue_new_bill(
             0,
             "".to_string(),
@@ -553,8 +604,6 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
-                ed25519_keys: ed25519_keys,
-                peer_id: peer_id,
             },
             "".to_string(),
         );
@@ -604,9 +653,6 @@ mod test {
 
     #[test]
     fn bill_to_bytes_and_opposite_with_borsh() {
-        let ed25519_keys = identity::Keypair::generate_ed25519();
-        let peer_id = PeerId::from(ed25519_keys.public());
-
         let bill = issue_new_bill(
             0,
             "".to_string(),
@@ -624,8 +670,6 @@ mod test {
                 liability_provider: "".to_string(),
                 public_key_pem: "".to_string(),
                 private_key_pem: "".to_string(),
-                ed25519_keys: ed25519_keys,
-                peer_id: peer_id,
             },
             "".to_string(),
         );
