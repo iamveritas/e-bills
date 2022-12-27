@@ -2,20 +2,23 @@ mod distributed_module;
 mod numbers_to_words;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
+use libp2p::identity::Keypair;
+use libp2p::{identity, PeerId};
 use openssl::pkey::Private;
 use openssl::rsa::{Padding, Rsa};
 use std::fs::File;
+use std::path::Path;
 use std::{fs, mem};
 
 const STORAGE_FILE_PATH: &str = "./identity";
 
 // Private individuals or legal entities.
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Identity {
     // Name + surname or company name.
     legal_name: String,
 
     // Date of birth or foundation in the format YYYY-MM-DD.
-    // TODO: change to data type.
     date_of_appearance: String,
 
     // City of birth or foundation.
@@ -35,6 +38,12 @@ pub struct Identity {
     public_key_pem: String,
 
     private_key_pem: String,
+}
+
+pub struct IdentityWithAll {
+    identity: Identity,
+    peer_id: PeerId,
+    key_pair: Keypair,
 }
 
 pub fn create_new_identity(
@@ -66,8 +75,111 @@ pub fn create_new_identity(
     new_identity
 }
 
+pub fn create_whole_identity(
+    legal_name: String,
+    date_of_appearance: String,
+    city_of_appearance: String,
+    country_of_appearance: String,
+    email: String,
+    current_address: String,
+) -> IdentityWithAll {
+    if !Path::new("identity").exists() {
+        let identity = create_new_identity(
+            legal_name,
+            date_of_appearance,
+            city_of_appearance,
+            country_of_appearance,
+            email,
+            current_address,
+        );
+        let ed25519_keys = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+
+        write_identity_to_file(&identity);
+        write_peer_id_to_file(&peer_id);
+        write_ed25519_keypair_to_file(&ed25519_keys);
+
+        let whole_identity = IdentityWithAll {
+            identity: identity,
+            peer_id: peer_id,
+            key_pair: ed25519_keys,
+        };
+
+        whole_identity
+    } else {
+        let identity = read_identity_from_file();
+        let ed25519_keys = read_ed25519_keypair_from_file();
+        let peer_id = read_peer_id_from_file();
+
+        let whole_identity = IdentityWithAll {
+            identity: identity,
+            peer_id: peer_id,
+            key_pair: ed25519_keys,
+        };
+
+        whole_identity
+    }
+}
+
+fn write_identity_to_file(identity: &Identity) {
+    let data = identity_to_byte_array(&identity);
+
+    if !Path::new("identity").exists() {
+        fs::create_dir("identity").expect("Can't create folder.");
+    }
+
+    fs::write("identity/identity", data).expect("Unable to write file");
+}
+
+fn read_identity_from_file() -> Identity {
+    let data = fs::read("identity/identity").expect("Unable to read file");
+    identity_from_byte_array(&data)
+}
+
+fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
+    identity.try_to_vec().unwrap()
+}
+
+fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
+    Identity::try_from_slice(&identity).unwrap()
+}
+
 fn generation_rsa_key() -> Rsa<Private> {
     Rsa::generate(2048).unwrap()
+}
+
+fn write_ed25519_keypair_to_file(ed25519_keys: &Keypair) {
+    let data = unsafe { structure_as_u8_slice(&ed25519_keys) };
+
+    if !Path::new("identity").exists() {
+        fs::create_dir("identity").expect("Can't create folder.");
+    }
+
+    fs::write("identity/ed25519_keys", data).expect("Unable to write keypair in file");
+}
+
+fn write_peer_id_to_file(peer_id: &PeerId) {
+    let data = unsafe { structure_as_u8_slice(&peer_id) };
+
+    if !Path::new("identity").exists() {
+        fs::create_dir("identity").expect("Can't create folder.");
+    }
+
+    fs::write("identity/peer_id", data).expect("Unable to write peer id in file");
+}
+
+fn read_ed25519_keypair_from_file() -> Keypair {
+    let data = fs::read("identity/ed25519_keys").expect("Unable to read file with keypair");
+    let key_pair_bytes_sized = byte_array_to_size_array_keypair(&data);
+    let key_pair: Keypair = unsafe { mem::transmute_copy(key_pair_bytes_sized) };
+    key_pair
+}
+
+fn read_peer_id_from_file() -> PeerId {
+    let data = fs::read("identity/peer_id").expect("Unable to read file with peer id");
+    let peer_id_bytes_sized = byte_array_to_size_array_peer_id(&data);
+    let peer_id: PeerId = unsafe { mem::transmute_copy(peer_id_bytes_sized) };
+    peer_id
 }
 
 fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
@@ -151,7 +263,7 @@ pub fn issue_new_bill(
         maturity_date: maturity_date,
         compounding_interest_rate: 0,
         type_of_interest_calculation: false,
-        place_of_payment: drawee.current_address.to_string(),
+        place_of_payment: drawee.current_address,
         public_key_pem: public_key,
         private_key_pem: private_key,
         language: language,
@@ -164,6 +276,11 @@ fn write_bill_to_file(bill: &BitcreditBill) {
     // late it need to choose name of file with bill
     let bill_id = bill.id;
     let data = bill_to_byte_array(&bill);
+
+    if !Path::new("bills").exists() {
+        fs::create_dir("bills").expect("Can't create folder.");
+    }
+
     fs::write("bills/test", data).expect("Unable to write file");
 }
 
@@ -183,156 +300,198 @@ fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
 fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size = (rsa_key.size() / 2) as usize; //128
 
-    let mut hole_encrypted_buff = Vec::new();
-    let mut time_buff = vec![0; key_size];
-    let mut time_buff_encrypted = vec![0; rsa_key.size() as usize];
+    let mut whole_encrypted_buff = Vec::new();
+    let mut temp_buff = vec![0; key_size];
+    let mut temp_buff_encrypted = vec![0; rsa_key.size() as usize];
 
-    let number_of_key_size_in_hole_bill = bytes.len() / key_size;
-    let remainder = bytes.len() - key_size * number_of_key_size_in_hole_bill;
+    let number_of_key_size_in_whole_bill = bytes.len() / key_size;
+    let remainder = bytes.len() - key_size * number_of_key_size_in_whole_bill;
 
-    for i in 0..number_of_key_size_in_hole_bill {
+    for i in 0..number_of_key_size_in_whole_bill {
         for j in 0..key_size {
             let byte_number = key_size * i + j;
-            time_buff[j] = bytes[byte_number];
+            temp_buff[j] = bytes[byte_number];
         }
 
         let encrypted_len = rsa_key
-            .public_encrypt(&*time_buff, &mut time_buff_encrypted, Padding::PKCS1)
+            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
             .unwrap();
 
-        hole_encrypted_buff.append(&mut time_buff_encrypted);
-        time_buff = vec![0; key_size];
-        time_buff_encrypted = vec![0; rsa_key.size() as usize];
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff = vec![0; key_size];
+        temp_buff_encrypted = vec![0; rsa_key.size() as usize];
     }
 
     if remainder != 0 {
-        time_buff = vec![0; remainder];
+        temp_buff = vec![0; remainder];
 
-        let position = key_size * number_of_key_size_in_hole_bill;
-        let mut index_in_time_buff = 0;
+        let position = key_size * number_of_key_size_in_whole_bill;
+        let mut index_in_temp_buff = 0;
 
         for i in position..bytes.len() {
-            time_buff[index_in_time_buff] = bytes[i];
-            index_in_time_buff += 1;
+            temp_buff[index_in_temp_buff] = bytes[i];
+            index_in_temp_buff += 1;
         }
 
-        index_in_time_buff = 0;
+        index_in_temp_buff = 0;
 
         let encrypted_len = rsa_key
-            .public_encrypt(&*time_buff, &mut time_buff_encrypted, Padding::PKCS1)
+            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
             .unwrap();
 
-        hole_encrypted_buff.append(&mut time_buff_encrypted);
-        time_buff.clear();
-        time_buff_encrypted.clear();
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff.clear();
+        temp_buff_encrypted.clear();
     }
 
-    hole_encrypted_buff
+    whole_encrypted_buff
 }
 
 fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size = rsa_key.size() as usize; //256
 
-    let mut hole_decrypted_buff = Vec::new();
-    let mut time_buff = vec![0; rsa_key.size() as usize];
-    let mut time_buff_decrypted = vec![0; rsa_key.size() as usize];
+    let mut whole_decrypted_buff = Vec::new();
+    let mut temp_buff = vec![0; rsa_key.size() as usize];
+    let mut temp_buff_decrypted = vec![0; rsa_key.size() as usize];
 
-    let number_of_key_size_in_hole_bill = bytes.len() / key_size;
-    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_hole_bill;
+    let number_of_key_size_in_whole_bill = bytes.len() / key_size;
+    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_whole_bill;
 
-    for i in 0..number_of_key_size_in_hole_bill {
+    for i in 0..number_of_key_size_in_whole_bill {
         for j in 0..key_size {
             let byte_number = key_size * i + j;
-            time_buff[j] = bytes[byte_number];
+            temp_buff[j] = bytes[byte_number];
         }
 
         let decrypted_len = rsa_key
-            .private_decrypt(&*time_buff, &mut time_buff_decrypted, Padding::PKCS1)
+            .private_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
             .unwrap();
 
-        hole_decrypted_buff.append(&mut time_buff_decrypted[0..decrypted_len].to_vec());
-        time_buff = vec![0; rsa_key.size() as usize];
-        time_buff_decrypted = vec![0; rsa_key.size() as usize];
+        whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
+        temp_buff = vec![0; rsa_key.size() as usize];
+        temp_buff_decrypted = vec![0; rsa_key.size() as usize];
     }
 
     // if remainder != 0 {
-    //     let position = key_size * number_of_key_size_in_hole_bill;
-    //     let mut index_in_time_buff = 0;
+    //     let position = key_size * number_of_key_size_in_whole_bill;
+    //     let mut index_in_temp_buff = 0;
     //
     //     for i in position..bill_bytes.len() {
-    //         time_buff[index_in_time_buff] = bill_bytes[i];
-    //         index_in_time_buff = index_in_time_buff + 1;
+    //         temp_buff[index_in_temp_buff] = bill_bytes[i];
+    //         index_in_temp_buff = index_in_temp_buff + 1;
     //     }
     //
-    //     index_in_time_buff = 0;
+    //     index_in_temp_buff = 0;
     //
     //     let decrypted_len = rsa_key
-    //         .public_decrypt(&*time_buff, &mut time_buff_decrypted, Padding::PKCS1)
+    //         .public_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
     //         .unwrap();
     //
-    //     hole_decrypted_buff.append(&mut time_buff_decrypted);
-    //     time_buff.clear();
-    //     time_buff_decrypted.clear();
+    //     whole_decrypted_buff.append(&mut temp_buff_decrypted);
+    //     temp_buff.clear();
+    //     temp_buff_decrypted.clear();
     // }
 
-    hole_decrypted_buff
+    whole_decrypted_buff
 }
 
-unsafe fn any_as_u8_slice<'a, T: Sized>(mut p: T) -> &'a mut [u8] {
-    ::std::slice::from_raw_parts_mut((&mut p as *mut T) as *mut u8, ::std::mem::size_of::<T>())
+fn byte_array_to_size_array_peer_id(array: &[u8]) -> &[u8; ::std::mem::size_of::<PeerId>()] {
+    array.try_into().expect("slice with incorrect length")
 }
 
-fn main() {}
+fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
+    array.try_into().expect("slice with incorrect length")
+}
+
+unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+}
+
+fn main() {
+    let identity = create_whole_identity(
+        "a".to_string(),
+        "b".to_string(),
+        "c".to_string(),
+        "d".to_string(),
+        "ds".to_string(),
+        "ds".to_string(),
+    );
+}
 
 #[cfg(test)]
 mod test {
     use crate::numbers_to_words::encode;
     use crate::{
-        any_as_u8_slice, bill_from_byte_array, bill_to_byte_array, create_new_identity,
-        decrypt_bytes, encrypt_bytes, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
-        pem_public_key_from_rsa, read_bill_from_file, write_bill_to_file, BitcreditBill, Identity,
+        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
+        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
+        generation_rsa_key, issue_new_bill, read_bill_from_file, structure_as_u8_slice,
+        write_bill_to_file, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
-    use openssl::aes::{aes_ige, AesKey};
-    use openssl::encrypt::{Decrypter, Encrypter};
+    use libp2p::identity::Keypair;
+    use libp2p::{identity, PeerId};
     use openssl::hash::MessageDigest;
-    use openssl::pkey::{PKey, PKeyRef};
-    use openssl::rand::rand_bytes;
-    use openssl::rsa::{Padding, Rsa};
+    use openssl::pkey::PKey;
+    use openssl::rsa::Padding;
     use openssl::sign::{Signer, Verifier};
-    use openssl::symm::{decrypt, encrypt, Cipher, Mode};
     use std::io::Read;
-    use std::{env, fs, slice};
+    use std::mem;
 
-    // Dont uncomment before find way for special file name for every bill.
-    // #[test]
-    // fn write_bill_to_file_and_read_it() {
-    //     let bill = issue_new_bill(
-    //         1,
-    //         "fa".to_string(),
-    //         "saf".to_string(),
-    //         23,
-    //         "sdf".to_string(),
-    //         "11".to_string(),
-    //         Identity {
-    //             legal_name: "tymko".to_string(),
-    //             date_of_appearance: "2123".to_string(),
-    //             city_of_appearance: "13".to_string(),
-    //             country_of_appearance: "123".to_string(),
-    //             email: "123".to_string(),
-    //             current_address: "123".to_string(),
-    //             liability_provider: "123".to_string(),
-    //             public_key_pem: "123".to_string(),
-    //             private_key_pem: "321".to_string(),
-    //         },
-    //         "3213".to_string(),
-    //     );
-    //
-    //     write_bill_to_file(bill);
-    //     let bill_from_file = read_bill_from_file(1);
-    //
-    //     assert_eq!("fa".to_string(), bill_from_file.bill_jurisdiction);
-    // }
+    #[test]
+    fn write_bill_to_file_and_read_it() {
+        let bill = issue_new_bill(
+            1,
+            "fa".to_string(),
+            "saf".to_string(),
+            23,
+            "sdf".to_string(),
+            "11".to_string(),
+            Identity {
+                legal_name: "tymko".to_string(),
+                date_of_appearance: "2123".to_string(),
+                city_of_appearance: "13".to_string(),
+                country_of_appearance: "123".to_string(),
+                email: "123".to_string(),
+                current_address: "123".to_string(),
+                liability_provider: "123".to_string(),
+                public_key_pem: "123".to_string(),
+                private_key_pem: "321".to_string(),
+            },
+            "3213".to_string(),
+        );
+
+        write_bill_to_file(&bill);
+        let bill_from_file = read_bill_from_file(&1);
+
+        assert_eq!("fa".to_string(), bill_from_file.bill_jurisdiction);
+    }
+
+    #[test]
+    fn structure_to_bytes() {
+        let ed25519_keys = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(ed25519_keys.public());
+        let id = create_new_identity(
+            "qwq".to_string(),
+            "ewqe".to_string(),
+            "qwewqe".to_string(),
+            "qwewqe".to_string(),
+            "qweeq".to_string(),
+            "qwewqe".to_string(),
+        );
+
+        let bytes_ed25519_keys = unsafe { structure_as_u8_slice(&ed25519_keys) };
+        let bytes_peer_id = unsafe { structure_as_u8_slice(&peer_id) };
+        let bytes_id = unsafe { structure_as_u8_slice(&id) };
+
+        let h = byte_array_to_size_array_keypair(bytes_ed25519_keys);
+        let g: _ =
+            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<Keypair>()], Keypair>(*h) };
+
+        let d = byte_array_to_size_array_peer_id(bytes_peer_id);
+        let new_peer_id_first_way: _ =
+            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<PeerId>()], PeerId>(*d) };
+        let new_peer_id_second_way: PeerId = unsafe { mem::transmute_copy(d) };
+    }
 
     #[test]
     fn encrypt_bill_with_rsa_keypair() {
@@ -428,7 +587,6 @@ mod test {
 
     #[test]
     fn sign_and_verify_data_given_an_rsa_keypair() {
-        // Create data
         let data: BitcreditBill = issue_new_bill(
             0,
             "".to_string(),
