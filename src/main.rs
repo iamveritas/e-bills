@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate rocket;
 
-mod test;
 mod constants;
 mod numbers_to_words;
+mod test;
 mod web;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
@@ -391,7 +391,7 @@ pub struct BitcreditBill {
     amount_numbers: u64,
     amounts_letters: String,
     maturity_date: String,
-    date_of_issued: String,
+    date_of_issue: String,
     compounding_interest_rate: u64,
     type_of_interest_calculation: bool,
     // Defaulting to the drawee’s id/ address
@@ -440,7 +440,7 @@ pub fn issue_new_bill(
 
         let utc = Utc::now();
         let timestamp_at_drawing = utc.timestamp();
-        let date_of_issued = utc.naive_local().date().to_string();
+        let date_of_issue = utc.naive_local().date().to_string();
         let maturity_date = utc
             .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
             .unwrap()
@@ -458,7 +458,7 @@ pub fn issue_new_bill(
             amount_numbers: amount_numbers,
             amounts_letters: amount_letters,
             maturity_date: maturity_date,
-            date_of_issued: date_of_issued,
+            date_of_issue: date_of_issue,
             compounding_interest_rate: COMPOUNDING_INTEREST_RATE_ZERO,
             type_of_interest_calculation: false,
             place_of_payment: drawer.postal_address,

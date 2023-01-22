@@ -126,7 +126,7 @@ pub async fn new_bill() -> Template {
     } else {
         let identity: IdentityWithAll = get_whole_identity();
         let utc = Utc::now();
-        let date_of_issued = utc.naive_local().date().to_string();
+        let date_of_issue = utc.naive_local().date().to_string();
         let maturity_date = utc
             .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
             .unwrap()
@@ -137,7 +137,7 @@ pub async fn new_bill() -> Template {
             "hbs/new_bill",
             context! {
                 identity: Some(identity.identity),
-                date_of_issued: date_of_issued,
+                date_of_issue: date_of_issue,
                 maturity_date: maturity_date,
             },
         )
