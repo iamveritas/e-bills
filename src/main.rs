@@ -5,8 +5,6 @@ mod constants;
 mod numbers_to_words;
 mod test;
 mod web;
-mod privat_identity;
-mod bill;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{DateTime, Days, Utc};
