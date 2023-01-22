@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate rocket;
 
+mod test;
 mod constants;
 mod numbers_to_words;
-mod test;
 mod web;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
