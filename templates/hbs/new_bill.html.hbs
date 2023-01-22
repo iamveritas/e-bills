@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Issue bill</title>
+</head>
+<header>
+    {{> hbs/nav}}
+</header>
+<body>
+<div class="content">
+    <div class="headline">
+    <h1>Issue new bill</h1>
+    </div>
+    <form action="http://localhost:8000/bill/issue" method="post">
+        <label for="drawee_name">Drawee name:</label><br>
+        <input type="text" required="required" id="drawee_name" name="drawee_name"><br>
+        <label>Drawer name:</label><br>
+        <input type="text" required="required" id="drawer_name" name="drawer_name" value="{{identity.name}}" readonly><br>
+        <label for="amount_numbers">Amount numbers:</label><br>
+        <input type="number" required="required" id="amount_numbers" name="amount_numbers"><br>
+        <label>Currency code:</label><br>
+        <input type="text" required="required" id="currency_code" name="currency_code" value="BTC" readonly><br>
+        <label>Date of issued:</label><br>
+        <input type="text" required="required" id="date_of_issued" name="date_of_issued" value="{{date_of_issued}}" readonly><br>
+        <label>Maturity date:</label><br>
+        <input type="text" required="required" id="maturity_date" name="maturity_date" value="{{maturity_date}}" readonly><br>
+        <label for="place_of_drawing">Place of drawing:</label><br>
+        <input type="text" required="required" id="place_of_drawing" name="place_of_drawing"><br>
+        <label>Place of payment:</label><br>
+        <input type="text" required="required" id="place_of_payment" name="place_of_payment" value="{{identity.postal_address}}" readonly><br>
+        <label for="bill_jurisdiction">Bill jurisdiction:</label><br>
+        <input type="text" required="required" id="bill_jurisdiction" name="bill_jurisdiction"><br>
+        <label for="language">Language:</label><br>
+        <input type="text" required="required" id="language" name="language"><br>
+        <input type="submit" id="button_submit" value="Issue bill">
+    </form>
+</div>
+</body>
+<footer>
+    {{> hbs/footer}}
+</footer>
+</html>

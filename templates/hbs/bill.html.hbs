@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Bill info</title>
+</head>
+<header>
+    {{> hbs/nav}}
+</header>
+<body>
+<div class="content">
+    <div class="headline">
+        <h1>Information about your bill {{bill.name}}</h1>
+    </div>
+    <h3>Drawer: {{bill.drawer_name}}</h3>
+    <h3>Drawee: {{bill.drawee_name}}</h3>
+    <h3>Amount numbers: {{bill.amount_numbers}}</h3>
+    <h3>Amounts letters: {{bill.amounts_letters}}</h3>
+    <h3>Currency code: {{bill.currency_code}}</h3>
+    <h3>Date of issued: {{bill.date_of_issued}}</h3>
+    <h3>Maturity date: {{bill.maturity_date}}</h3>
+    <h3>Place of drawing: {{bill.place_of_drawing}}</h3>
+    <h3>Place of payment: {{bill.place_of_payment}}</h3>
+    <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
+    <h3>Language: {{bill.language}}</h3>
+    <h3>Public key: {{bill.public_key_pem}}</h3>
+</div>
+</body>
+<footer>
+    {{> hbs/footer}}
+</footer>
+</html>
