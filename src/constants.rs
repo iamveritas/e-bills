@@ -1,5 +1,3 @@
-use std::string::ToString;
-
 pub const IDENTITY_FOLDER_PATH: &'static str = "identity";
 pub const IDENTITY_FILE_PATH: &'static str = "identity/identity";
 pub const IDENTITY_PEER_ID_FILE_PATH: &'static str = "identity/peer_id";

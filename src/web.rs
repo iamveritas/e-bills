@@ -7,12 +7,8 @@ use crate::{
 };
 use chrono::{Days, Utc};
 use rocket::form::Form;
-use rocket::http::MediaType;
-use rocket::response::Redirect;
-use rocket::serde::json::Json;
 use rocket::Request;
 use rocket_dyn_templates::{context, handlebars, Template};
-use std::convert::identity;
 use std::fs;
 use std::path::Path;
 

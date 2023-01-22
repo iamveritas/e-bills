@@ -7,9 +7,9 @@ mod test;
 mod web;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
-use chrono::{DateTime, Days, Utc};
+use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
-use libp2p::{identity, PeerId};
+use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
@@ -17,9 +17,7 @@ use openssl::sha::sha256;
 use rocket::fs::FileServer;
 use rocket::routes;
 use rocket::serde::{Deserialize, Serialize};
-use rocket_contrib::serve::StaticFiles;
-use rocket_dyn_templates::{context, Template};
-use std::fs::File;
+use rocket_dyn_templates::Template;
 use std::path::Path;
 use std::{fs, mem};
 
@@ -29,6 +27,160 @@ use crate::constants::{
     IDENTITY_PEER_ID_FILE_PATH,
 };
 use crate::numbers_to_words::encode;
+
+// MAIN
+
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .register("/", catchers![web::not_found])
+        .mount("/image", FileServer::from("image"))
+        .mount("/css", FileServer::from("css"))
+        .mount("/", routes![web::start])
+        .mount(
+            "/identity",
+            routes![web::get_identity, web::create_identity,],
+        )
+        .mount("/bills", routes![web::bills_list])
+        .mount("/info", routes![web::info])
+        .mount(
+            "/bill",
+            routes![web::get_bill, web::issue_bill, web::new_bill],
+        )
+        .attach(Template::custom(|engines| {
+            web::customize(&mut engines.handlebars);
+        }))
+}
+
+// CORE
+
+fn generation_rsa_key() -> Rsa<Private> {
+    Rsa::generate(2048).unwrap()
+}
+
+fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
+    let private_key: Vec<u8> = rsa.private_key_to_pem().unwrap();
+    String::from_utf8(private_key).unwrap()
+}
+
+fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
+    let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
+    String::from_utf8(public_key).unwrap()
+}
+
+fn private_key_from_pem_u8(private_key_u8: &Vec<u8>) -> Rsa<Private> {
+    let private_key = rsa::Rsa::private_key_from_pem(private_key_u8).unwrap();
+    private_key
+}
+
+fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
+    let public_key = rsa::Rsa::public_key_from_pem(public_key_u8).unwrap();
+    public_key
+}
+
+fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+    let key_size: usize = (rsa_key.size() / 2) as usize; //128
+
+    let mut whole_encrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; key_size];
+    let mut temp_buff_encrypted: Vec<u8> = vec![0; rsa_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    let remainder: usize = bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number: usize = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let encrypted_len: usize = rsa_key
+            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff = vec![0; key_size];
+        temp_buff_encrypted = vec![0; rsa_key.size() as usize];
+    }
+
+    if remainder != 0 {
+        temp_buff = vec![0; remainder];
+
+        let position: usize = key_size * number_of_key_size_in_whole_bill;
+        let mut index_in_temp_buff: usize = 0;
+
+        for i in position..bytes.len() {
+            temp_buff[index_in_temp_buff] = bytes[i];
+            index_in_temp_buff += 1;
+        }
+
+        index_in_temp_buff = 0;
+
+        let encrypted_len: usize = rsa_key
+            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff.clear();
+        temp_buff_encrypted.clear();
+    }
+
+    whole_encrypted_buff
+}
+
+fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
+    let key_size: usize = rsa_key.size() as usize; //256
+
+    let mut whole_decrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; rsa_key.size() as usize];
+    let mut temp_buff_decrypted: Vec<u8> = vec![0; rsa_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let decrypted_len: usize = rsa_key
+            .private_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
+        temp_buff = vec![0; rsa_key.size() as usize];
+        temp_buff_decrypted = vec![0; rsa_key.size() as usize];
+    }
+
+    // if remainder != 0 {
+    //     let position = key_size * number_of_key_size_in_whole_bill;
+    //     let mut index_in_temp_buff = 0;
+    //
+    //     for i in position..bill_bytes.len() {
+    //         temp_buff[index_in_temp_buff] = bill_bytes[i];
+    //         index_in_temp_buff = index_in_temp_buff + 1;
+    //     }
+    //
+    //     index_in_temp_buff = 0;
+    //
+    //     let decrypted_len = rsa_key
+    //         .public_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+    //         .unwrap();
+    //
+    //     whole_decrypted_buff.append(&mut temp_buff_decrypted);
+    //     temp_buff.clear();
+    //     temp_buff_decrypted.clear();
+    // }
+
+    whole_decrypted_buff
+}
+
+unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+}
+
+// IDENITY
 
 pub struct IdentityWithAll {
     identity: Identity,
@@ -147,10 +299,6 @@ fn create_new_identity(
     new_identity
 }
 
-fn generation_rsa_key() -> Rsa<Private> {
-    Rsa::generate(2048).unwrap()
-}
-
 fn write_identity_to_file(identity: &Identity) {
     let data: Vec<u8> = identity_to_byte_array(&identity);
 
@@ -213,24 +361,12 @@ fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
     Identity::try_from_slice(&identity).unwrap()
 }
 
-fn pem_private_key_from_rsa(rsa: &Rsa<Private>) -> String {
-    let private_key: Vec<u8> = rsa.private_key_to_pem().unwrap();
-    String::from_utf8(private_key).unwrap()
+fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
+    array.try_into().expect("slice with incorrect length")
 }
 
-fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
-    let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
-    String::from_utf8(public_key).unwrap()
-}
-
-fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
-    let public_key = rsa::Rsa::public_key_from_pem(public_key_u8).unwrap();
-    public_key
-}
-
-fn private_key_from_pem_u8(private_key_u8: &Vec<u8>) -> Rsa<Private> {
-    let private_key = rsa::Rsa::private_key_from_pem(private_key_u8).unwrap();
-    private_key
+fn byte_array_to_size_array_peer_id(array: &[u8]) -> &[u8; ::std::mem::size_of::<PeerId>()] {
+    array.try_into().expect("slice with incorrect length")
 }
 
 // BILL
@@ -378,138 +514,4 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(&bill).unwrap()
-}
-
-fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
-    let key_size: usize = (rsa_key.size() / 2) as usize; //128
-
-    let mut whole_encrypted_buff: Vec<u8> = Vec::new();
-    let mut temp_buff: Vec<u8> = vec![0; key_size];
-    let mut temp_buff_encrypted: Vec<u8> = vec![0; rsa_key.size() as usize];
-
-    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
-    let remainder: usize = bytes.len() - key_size * number_of_key_size_in_whole_bill;
-
-    for i in 0..number_of_key_size_in_whole_bill {
-        for j in 0..key_size {
-            let byte_number: usize = key_size * i + j;
-            temp_buff[j] = bytes[byte_number];
-        }
-
-        let encrypted_len: usize = rsa_key
-            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
-            .unwrap();
-
-        whole_encrypted_buff.append(&mut temp_buff_encrypted);
-        temp_buff = vec![0; key_size];
-        temp_buff_encrypted = vec![0; rsa_key.size() as usize];
-    }
-
-    if remainder != 0 {
-        temp_buff = vec![0; remainder];
-
-        let position: usize = key_size * number_of_key_size_in_whole_bill;
-        let mut index_in_temp_buff: usize = 0;
-
-        for i in position..bytes.len() {
-            temp_buff[index_in_temp_buff] = bytes[i];
-            index_in_temp_buff += 1;
-        }
-
-        index_in_temp_buff = 0;
-
-        let encrypted_len: usize = rsa_key
-            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
-            .unwrap();
-
-        whole_encrypted_buff.append(&mut temp_buff_encrypted);
-        temp_buff.clear();
-        temp_buff_encrypted.clear();
-    }
-
-    whole_encrypted_buff
-}
-
-fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
-    let key_size: usize = rsa_key.size() as usize; //256
-
-    let mut whole_decrypted_buff: Vec<u8> = Vec::new();
-    let mut temp_buff: Vec<u8> = vec![0; rsa_key.size() as usize];
-    let mut temp_buff_decrypted: Vec<u8> = vec![0; rsa_key.size() as usize];
-
-    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
-    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_whole_bill;
-
-    for i in 0..number_of_key_size_in_whole_bill {
-        for j in 0..key_size {
-            let byte_number = key_size * i + j;
-            temp_buff[j] = bytes[byte_number];
-        }
-
-        let decrypted_len: usize = rsa_key
-            .private_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
-            .unwrap();
-
-        whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
-        temp_buff = vec![0; rsa_key.size() as usize];
-        temp_buff_decrypted = vec![0; rsa_key.size() as usize];
-    }
-
-    // if remainder != 0 {
-    //     let position = key_size * number_of_key_size_in_whole_bill;
-    //     let mut index_in_temp_buff = 0;
-    //
-    //     for i in position..bill_bytes.len() {
-    //         temp_buff[index_in_temp_buff] = bill_bytes[i];
-    //         index_in_temp_buff = index_in_temp_buff + 1;
-    //     }
-    //
-    //     index_in_temp_buff = 0;
-    //
-    //     let decrypted_len = rsa_key
-    //         .public_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
-    //         .unwrap();
-    //
-    //     whole_decrypted_buff.append(&mut temp_buff_decrypted);
-    //     temp_buff.clear();
-    //     temp_buff_decrypted.clear();
-    // }
-
-    whole_decrypted_buff
-}
-
-fn byte_array_to_size_array_peer_id(array: &[u8]) -> &[u8; ::std::mem::size_of::<PeerId>()] {
-    array.try_into().expect("slice with incorrect length")
-}
-
-fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
-    array.try_into().expect("slice with incorrect length")
-}
-
-unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-}
-
-// MAIN
-
-#[launch]
-fn rocket() -> _ {
-    rocket::build()
-        .register("/", catchers![web::not_found])
-        .mount("/image", FileServer::from("image"))
-        .mount("/css", FileServer::from("css"))
-        .mount("/", routes![web::start])
-        .mount(
-            "/identity",
-            routes![web::get_identity, web::create_identity,],
-        )
-        .mount("/bills", routes![web::bills_list])
-        .mount("/info", routes![web::info])
-        .mount(
-            "/bill",
-            routes![web::get_bill, web::issue_bill, web::new_bill],
-        )
-        .attach(Template::custom(|engines| {
-            web::customize(&mut engines.handlebars);
-        }))
 }
