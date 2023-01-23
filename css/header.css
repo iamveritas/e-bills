@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css?family=Arimo');
-
 .top-menu {
     background-color: #000000;
     color: #ffffff;
     box-shadow: 3px 0 7px rgb(0 0 0 / 30%);
-    padding: 2%;
+    padding: 5px;
+    padding-left: 2%;
+    padding-right: 2%;
     max-height: 75px;
 }
 
@@ -43,12 +43,9 @@
     padding: 2px;
     font-size: larger;
     letter-spacing: 2px;
-    font-family: 'Arimo', sans-serif;
     transition: .3s linear;
 }
 
 .menu-main a:hover {
     background-color: #444746;
 }
-
-

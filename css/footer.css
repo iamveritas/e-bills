@@ -7,3 +7,8 @@ footer {
     background-color: #000000;
     color: #ffffff;
 }
+
+.footer a {
+    color: #ffffff;
+    text-decoration: none;
+}

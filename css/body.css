@@ -1,5 +1,6 @@
 html {
     height: 100%;
+    font-family: "Arial Narrow", serif;
 }
 
 body {
@@ -18,6 +19,7 @@ input[readonly] {
 .content {
     color: #c4c7c5;
     text-decoration: none;
+    margin-left: 5px;
 }
 
 .content a {
