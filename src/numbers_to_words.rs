@@ -35,14 +35,14 @@ const ORDERS: [&str; 7] = [
     "quintillion",
 ];
 
-pub fn encode(num: u64) -> String {
+pub fn encode(num: &u64) -> String {
     match num {
-        0..=19 => ONES[num as usize].to_string(),
+        0..=19 => ONES[*num as usize].to_string(),
         20..=99 => {
-            let upper = (num / 10) as usize;
+            let upper: usize = (num / 10) as usize;
             match num % 10 {
                 0 => TENS[upper].to_string(),
-                lower => format!("{}-{}", TENS[upper], encode(lower)),
+                lower => format!("{}-{}", TENS[upper], encode(&lower)),
             }
         }
         100..=999 => format_num(num, 100, "hundred"),
@@ -57,11 +57,11 @@ pub fn encode(num: u64) -> String {
     }
 }
 
-fn format_num(num: u64, div: u64, order: &str) -> String {
+fn format_num(num: &u64, div: u64, order: &str) -> String {
     match (num / div, num % div) {
-        (upper, 0) => format!("{} {}", encode(upper), order),
+        (upper, 0) => format!("{} {}", encode(&upper), order),
         (upper, lower) => {
-            format!("{} {} {}", encode(upper), order, encode(lower))
+            format!("{} {} {}", encode(&upper), order, encode(&lower))
         }
     }
 }
