@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod constants;
+mod dht;
 mod numbers_to_words;
 mod test;
 mod web;
