@@ -3,6 +3,7 @@ extern crate rocket;
 
 mod constants;
 mod dht;
+mod filesharing;
 mod numbers_to_words;
 mod test;
 mod web;
@@ -10,6 +11,8 @@ mod web;
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
+use libp2p::kad::store::MemoryStore;
+use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
 use openssl::rsa;
@@ -23,35 +26,38 @@ use std::path::Path;
 use std::{fs, mem};
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
-    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
+    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH,
 };
 use crate::numbers_to_words::encode;
 
 // MAIN
-
-#[launch]
-fn rocket() -> _ {
-    rocket::build()
-        .register("/", catchers![web::not_found])
-        .mount("/image", FileServer::from("image"))
-        .mount("/css", FileServer::from("css"))
-        .mount("/", routes![web::start])
-        .mount(
-            "/identity",
-            routes![web::get_identity, web::create_identity,],
-        )
-        .mount("/bills", routes![web::bills_list])
-        .mount("/info", routes![web::info])
-        .mount(
-            "/bill",
-            routes![web::get_bill, web::issue_bill, web::new_bill],
-        )
-        .attach(Template::custom(|engines| {
-            web::customize(&mut engines.handlebars);
-        }))
+fn main() {
+    filesharing::main();
 }
+
+// #[launch]
+// fn rocket() -> _ {
+//     rocket::build()
+//         .register("/", catchers![web::not_found])
+//         .mount("/image", FileServer::from("image"))
+//         .mount("/css", FileServer::from("css"))
+//         .mount("/", routes![web::start])
+//         .mount(
+//             "/identity",
+//             routes![web::get_identity, web::create_identity,],
+//         )
+//         .mount("/bills", routes![web::bills_list])
+//         .mount("/info", routes![web::info])
+//         .mount(
+//             "/bill",
+//             routes![web::get_bill, web::issue_bill, web::new_bill],
+//         )
+//         .attach(Template::custom(|engines| {
+//             web::customize(&mut engines.handlebars);
+//         }))
+// }
 
 // CORE
 
@@ -333,6 +339,17 @@ fn write_peer_id_to_file(peer_id: &PeerId) {
     fs::write(IDENTITY_PEER_ID_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
 }
 
+fn write_dht_to_file(dht: &Kademlia<MemoryStore>) {
+    let data: &[u8] = unsafe { structure_as_u8_slice(dht) };
+    let data_sized = byte_array_to_size_array_dht(data);
+
+    if !Path::new(DHT_FOLDER_PATH).exists() {
+        fs::create_dir(DHT_FOLDER_PATH).expect("Can't create folder peer id");
+    }
+
+    fs::write(DHT_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
+}
+
 fn read_identity_from_file() -> Identity {
     let data: Vec<u8> = fs::read(IDENTITY_FILE_PATH).expect("Unable to read file identity");
     identity_from_byte_array(&data)
@@ -354,12 +371,25 @@ fn read_peer_id_from_file() -> PeerId {
     peer_id
 }
 
+fn read_dht_from_file() -> Kademlia<MemoryStore> {
+    let data: Vec<u8> = fs::read(DHT_FILE_PATH).expect("Unable to read file with dht");
+    let dht_bytes_sized = byte_array_to_size_array_dht(data.as_slice());
+    let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
+    dht
+}
+
 fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
     identity.try_to_vec().unwrap()
 }
 
 fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
     Identity::try_from_slice(&identity).unwrap()
+}
+
+fn byte_array_to_size_array_dht(
+    array: &[u8],
+) -> &[u8; ::std::mem::size_of::<Kademlia<MemoryStore>>()] {
+    array.try_into().expect("slice with incorrect length")
 }
 
 fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
