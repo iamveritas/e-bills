@@ -6,6 +6,9 @@ use libp2p::core::{Multiaddr, PeerId};
 use std::error::Error;
 use std::path::PathBuf;
 
+const BOOTSTRAP_NODE: &str = "12D3KooWH3XEBdqHDs9tQdRS1TkqAJttZsqUFUEpXx1atFTnTSTF";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.28.74.26/tcp/41749";
+
 //TODO: this will be in spawn in main.rs.
 #[async_std::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
@@ -107,10 +110,9 @@ mod network {
             };
 
             // TODO: take bootstrap node info from config file.
-            behaviour.kademlia.add_address(
-                &"12D3KooWEAzrK4KHMf4hqximrK5ge3kbnV57LZpsh3C8sNcYZFzE".parse()?,
-                "/ip4/172.28.75.96/tcp/36177".parse()?,
-            );
+            behaviour
+                .kademlia
+                .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
 
             Swarm::with_threadpool_executor(transport, behaviour, local_peer_id)
         };
