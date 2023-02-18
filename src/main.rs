@@ -34,7 +34,7 @@ use crate::numbers_to_words::encode;
 fn main() {
     // std::env::set_var("RUST_BACKTRACE", "1");
     // std::env::set_var("RUST_BACKTRACE", "full");
-    std::env::set_var("RUST_BACKTRACE", "0");
+    // std::env::set_var("RUST_BACKTRACE", "0");
 
     dht::main();
 }

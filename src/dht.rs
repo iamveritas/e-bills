@@ -4,7 +4,6 @@ use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
 use std::error::Error;
-use std::io::Write;
 use std::path::PathBuf;
 
 //TODO: this will be in spawn in main.rs.
