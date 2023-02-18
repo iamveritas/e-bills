@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod constants;
+mod dht;
 mod numbers_to_words;
 mod test;
 mod web;
@@ -9,48 +10,56 @@ mod web;
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
+use libp2p::kad::store::MemoryStore;
+use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-use rocket::fs::FileServer;
-use rocket::routes;
+
 use rocket::serde::{Deserialize, Serialize};
-use rocket_dyn_templates::Template;
+
 use std::path::Path;
 use std::{fs, mem};
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
-    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
+    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH,
 };
 use crate::numbers_to_words::encode;
 
 // MAIN
+fn main() {
+    // std::env::set_var("RUST_BACKTRACE", "1");
+    // std::env::set_var("RUST_BACKTRACE", "full");
+    // std::env::set_var("RUST_BACKTRACE", "0");
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build()
-        .register("/", catchers![web::not_found])
-        .mount("/image", FileServer::from("image"))
-        .mount("/css", FileServer::from("css"))
-        .mount("/", routes![web::start])
-        .mount(
-            "/identity",
-            routes![web::get_identity, web::create_identity,],
-        )
-        .mount("/bills", routes![web::bills_list])
-        .mount("/info", routes![web::info])
-        .mount(
-            "/bill",
-            routes![web::get_bill, web::issue_bill, web::new_bill],
-        )
-        .attach(Template::custom(|engines| {
-            web::customize(&mut engines.handlebars);
-        }))
+    dht::main();
 }
+
+// #[launch]
+// fn rocket() -> _ {
+//     rocket::build()
+//         .register("/", catchers![web::not_found])
+//         .mount("/image", FileServer::from("image"))
+//         .mount("/css", FileServer::from("css"))
+//         .mount("/", routes![web::start])
+//         .mount(
+//             "/identity",
+//             routes![web::get_identity, web::create_identity,],
+//         )
+//         .mount("/bills", routes![web::bills_list])
+//         .mount("/info", routes![web::info])
+//         .mount(
+//             "/bill",
+//             routes![web::get_bill, web::issue_bill, web::new_bill],
+//         )
+//         .attach(Template::custom(|engines| {
+//             web::customize(&mut engines.handlebars);
+//         }))
+// }
 
 // CORE
 
@@ -69,13 +78,11 @@ fn pem_public_key_from_rsa(rsa: &Rsa<Private>) -> String {
 }
 
 fn private_key_from_pem_u8(private_key_u8: &Vec<u8>) -> Rsa<Private> {
-    let private_key = rsa::Rsa::private_key_from_pem(private_key_u8).unwrap();
-    private_key
+    rsa::Rsa::private_key_from_pem(private_key_u8).unwrap()
 }
 
 fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
-    let public_key = rsa::Rsa::public_key_from_pem(public_key_u8).unwrap();
-    public_key
+    rsa::Rsa::public_key_from_pem(public_key_u8).unwrap()
 }
 
 fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
@@ -94,8 +101,8 @@ fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
             temp_buff[j] = bytes[byte_number];
         }
 
-        let encrypted_len: usize = rsa_key
-            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+        let _encrypted_len: usize = rsa_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
             .unwrap();
 
         whole_encrypted_buff.append(&mut temp_buff_encrypted);
@@ -116,8 +123,8 @@ fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
 
         index_in_temp_buff = 0;
 
-        let encrypted_len: usize = rsa_key
-            .public_encrypt(&*temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+        let _encrypted_len: usize = rsa_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
             .unwrap();
 
         whole_encrypted_buff.append(&mut temp_buff_encrypted);
@@ -145,7 +152,7 @@ fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
         }
 
         let decrypted_len: usize = rsa_key
-            .private_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+            .private_decrypt(&temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
             .unwrap();
 
         whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
@@ -218,13 +225,11 @@ pub fn get_whole_identity() -> IdentityWithAll {
     let ed25519_keys: Keypair = read_ed25519_keypair_from_file();
     let peer_id: PeerId = read_peer_id_from_file();
 
-    let whole_identity = IdentityWithAll {
-        identity: identity,
-        peer_id: peer_id,
+    IdentityWithAll {
+        identity,
+        peer_id,
         key_pair: ed25519_keys,
-    };
-
-    whole_identity
+    }
 }
 
 pub fn create_whole_identity(
@@ -251,25 +256,21 @@ pub fn create_whole_identity(
         write_ed25519_keypair_to_file(&ed25519_keys);
         write_identity_to_file(&identity);
 
-        let whole_identity = IdentityWithAll {
-            identity: identity,
-            peer_id: peer_id,
+        IdentityWithAll {
+            identity,
+            peer_id,
             key_pair: ed25519_keys,
-        };
-
-        whole_identity
+        }
     } else {
         let identity: Identity = read_identity_from_file();
         let ed25519_keys: Keypair = read_ed25519_keypair_from_file();
         let peer_id: PeerId = read_peer_id_from_file();
 
-        let whole_identity = IdentityWithAll {
-            identity: identity,
-            peer_id: peer_id,
+        IdentityWithAll {
+            identity,
+            peer_id,
             key_pair: ed25519_keys,
-        };
-
-        whole_identity
+        }
     }
 }
 
@@ -285,22 +286,20 @@ fn create_new_identity(
     let private_key: String = pem_private_key_from_rsa(&rsa);
     let public_key: String = pem_public_key_from_rsa(&rsa);
 
-    let new_identity = Identity {
-        name: name,
-        date_of_birth: date_of_birth,
-        city_of_birth: city_of_birth,
-        country_of_birth: country_of_birth,
-        email: email,
-        postal_address: postal_address,
+    Identity {
+        name,
+        date_of_birth,
+        city_of_birth,
+        country_of_birth,
+        email,
+        postal_address,
         public_key_pem: public_key,
         private_key_pem: private_key,
-    };
-
-    new_identity
+    }
 }
 
 fn write_identity_to_file(identity: &Identity) {
-    let data: Vec<u8> = identity_to_byte_array(&identity);
+    let data: Vec<u8> = identity_to_byte_array(identity);
 
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
         fs::create_dir(IDENTITY_FOLDER_PATH).expect("Can't create folder identity.");
@@ -332,6 +331,17 @@ fn write_peer_id_to_file(peer_id: &PeerId) {
     fs::write(IDENTITY_PEER_ID_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
 }
 
+fn write_dht_to_file(dht: &Kademlia<MemoryStore>) {
+    let data: &[u8] = unsafe { structure_as_u8_slice(dht) };
+    let data_sized = byte_array_to_size_array_dht(data);
+
+    if !Path::new(DHT_FOLDER_PATH).exists() {
+        fs::create_dir(DHT_FOLDER_PATH).expect("Can't create folder peer id");
+    }
+
+    fs::write(DHT_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
+}
+
 fn read_identity_from_file() -> Identity {
     let data: Vec<u8> = fs::read(IDENTITY_FILE_PATH).expect("Unable to read file identity");
     identity_from_byte_array(&data)
@@ -353,12 +363,25 @@ fn read_peer_id_from_file() -> PeerId {
     peer_id
 }
 
+fn read_dht_from_file() -> Kademlia<MemoryStore> {
+    let data: Vec<u8> = fs::read(DHT_FILE_PATH).expect("Unable to read file with dht");
+    let dht_bytes_sized = byte_array_to_size_array_dht(data.as_slice());
+    let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
+    dht
+}
+
 fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
     identity.try_to_vec().unwrap()
 }
 
 fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
-    Identity::try_from_slice(&identity).unwrap()
+    Identity::try_from_slice(identity).unwrap()
+}
+
+fn byte_array_to_size_array_dht(
+    array: &[u8],
+) -> &[u8; ::std::mem::size_of::<Kademlia<MemoryStore>>()] {
+    array.try_into().expect("slice with incorrect length")
 }
 
 fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
@@ -422,8 +445,7 @@ pub fn issue_new_bill(
     let rsa: Rsa<Private> = generation_rsa_key();
     let bill_name: String = create_bill_name(&rsa);
 
-    if Path::new((BILLS_FOLDER_PATH.to_string() + &"/".to_string() + &bill_name).as_str()).exists()
-    {
+    if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &bill_name).as_str()).exists() {
         issue_new_bill(
             bill_jurisdiction,
             place_of_drawing,
@@ -451,21 +473,21 @@ pub fn issue_new_bill(
         let new_bill = BitcreditBill {
             name: bill_name,
             to_payee: false,
-            bill_jurisdiction: bill_jurisdiction,
-            timestamp_at_drawing: timestamp_at_drawing,
-            place_of_drawing: place_of_drawing,
+            bill_jurisdiction,
+            timestamp_at_drawing,
+            place_of_drawing,
             currency_code: BTC.to_string(),
-            amount_numbers: amount_numbers,
+            amount_numbers,
             amounts_letters: amount_letters,
-            maturity_date: maturity_date,
-            date_of_issue: date_of_issue,
+            maturity_date,
+            date_of_issue,
             compounding_interest_rate: COMPOUNDING_INTEREST_RATE_ZERO,
             type_of_interest_calculation: false,
             place_of_payment: drawer.postal_address,
             public_key_pem: public_key,
             private_key_pem: private_key,
-            language: language,
-            drawee_name: drawee_name,
+            language,
+            drawee_name,
             drawer_name: drawer.name,
         };
 
@@ -485,25 +507,22 @@ fn create_bill_name(rsa: &Rsa<Private>) -> String {
 }
 
 fn clear_bill_name(bill_name_hash: String) -> String {
-    let bill_name: String = bill_name_hash
-        .replace(", ", "")
-        .replace("[", "")
-        .replace("]", "");
+    let bill_name: String = bill_name_hash.replace(", ", "").replace(['[', ']'], "");
 
     bill_name
 }
 
 fn write_bill_to_file(bill: &BitcreditBill) {
-    let data: Vec<u8> = bill_to_byte_array(&bill);
+    let data: Vec<u8> = bill_to_byte_array(bill);
     if !Path::new(BILLS_FOLDER_PATH).exists() {
         fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills");
     }
-    let path: String = BILLS_FOLDER_PATH.to_string() + &"/".to_string() + &bill.name;
+    let path: String = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;
     fs::write(path.as_str(), data).expect("Unable to write bill file");
 }
 
 fn read_bill_from_file(bill_id: &String) -> BitcreditBill {
-    let path: String = BILLS_FOLDER_PATH.to_string() + &"/".to_string() + bill_id;
+    let path: String = BILLS_FOLDER_PATH.to_string() + "/" + bill_id;
     let data: Vec<u8> = fs::read(path.as_str()).expect("Unable to read file bill");
     bill_from_byte_array(&data)
 }
@@ -513,5 +532,5 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 }
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
-    BitcreditBill::try_from_slice(&bill).unwrap()
+    BitcreditBill::try_from_slice(bill).unwrap()
 }

@@ -2,14 +2,16 @@
 mod test {
     use crate::numbers_to_words::encode;
     use crate::{
-        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
-        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
-        generation_rsa_key, issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
-        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file,
-        structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
+        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_dht,
+        byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity,
+        decrypt_bytes, encrypt_bytes, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
+        pem_public_key_from_rsa, private_key_from_pem_u8, public_key_from_pem_u8,
+        read_bill_from_file, structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
     };
     use borsh::{BorshDeserialize, BorshSerialize};
     use libp2p::identity::Keypair;
+    use libp2p::kad::store::MemoryStore;
+    use libp2p::kad::{Kademlia, KademliaConfig};
     use libp2p::{identity, PeerId};
     use openssl::hash::MessageDigest;
     use openssl::pkey::{PKey, Private, Public};
@@ -20,17 +22,8 @@ mod test {
     use openssl::{aes, sha};
     use std::io::Read;
     use std::path::Path;
+    use std::time::Duration;
     use std::{fs, mem};
-
-    #[test]
-    fn keypair_to_string_and_opposite() {
-        let rsa: Rsa<Private> = generation_rsa_key();
-        let private_key_pem: String = pem_private_key_from_rsa(&rsa);
-        let public_key_pem: String = pem_public_key_from_rsa(&rsa);
-
-        let private_key: Rsa<Private> = private_key_from_pem_u8(&private_key_pem.into_bytes());
-        let public_key: Rsa<Public> = public_key_from_pem_u8(&public_key_pem.into_bytes());
-    }
 
     #[test]
     fn write_bill_to_file_and_read_it() {
@@ -89,6 +82,29 @@ mod test {
     }
 
     #[test]
+    fn dht_to_bytes() {
+        let local_key = identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(local_key.public());
+
+        let mut cfg = KademliaConfig::default();
+        cfg.set_query_timeout(Duration::from_secs(5 * 60));
+        let store = MemoryStore::new(local_peer_id);
+        let mut behaviour = Kademlia::with_config(local_peer_id, store, cfg);
+
+        let bytes_behaviour = unsafe { structure_as_u8_slice(&behaviour) };
+        let bytes_behaviour_sized = byte_array_to_size_array_dht(bytes_behaviour);
+
+        if !Path::new("test").exists() {
+            fs::create_dir("test").expect("Can't create folder.");
+        }
+        fs::write("test/dht", *bytes_behaviour_sized).expect("Unable to write dht in file");
+
+        let data_dht: Vec<u8> = fs::read("test/dht").expect("Unable to read file with dht");
+        let dht_bytes_sized = byte_array_to_size_array_dht(data_dht.as_slice());
+        let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
+    }
+
+    #[test]
     fn structure_to_bytes() {
         let ed25519_keys = Keypair::generate_ed25519();
         let peer_id = PeerId::from(ed25519_keys.public());
@@ -107,7 +123,7 @@ mod test {
         let bytes_ed25519_keys_sized = byte_array_to_size_array_keypair(bytes_ed25519_keys);
         let bytes_peer_id_sized = byte_array_to_size_array_peer_id(bytes_peer_id);
 
-        if !Path::new(("test")).exists() {
+        if !Path::new("test").exists() {
             fs::create_dir("test").expect("Can't create folder.");
         }
         fs::write("test/keys", *bytes_ed25519_keys_sized).expect("Unable to write keys in file");
@@ -119,16 +135,7 @@ mod test {
 
         let data_peer_id = fs::read("test/peer_id").expect("Unable to read file with peer_id");
         let peer_id_bytes_sized = byte_array_to_size_array_peer_id(data_peer_id.as_slice());
-        let peer_id2: PeerId = unsafe { mem::transmute_copy(key_pair_bytes_sized) };
-
-        let h = byte_array_to_size_array_keypair(bytes_ed25519_keys);
-        let g: _ =
-            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<Keypair>()], Keypair>(*h) };
-
-        let d = byte_array_to_size_array_peer_id(bytes_peer_id);
-        let new_peer_id_first_way: _ =
-            unsafe { std::mem::transmute::<[u8; ::std::mem::size_of::<PeerId>()], PeerId>(*d) };
-        let new_peer_id_second_way: PeerId = unsafe { mem::transmute_copy(d) };
+        let peer_id2: PeerId = unsafe { mem::transmute_copy(peer_id_bytes_sized) };
     }
 
     #[test]
