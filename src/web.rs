@@ -95,8 +95,7 @@ pub async fn bills_list() -> Template {
 pub async fn get_bill(id: String) -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
-    } else if Path::new((BILLS_FOLDER_PATH.to_string() + &"/".to_string() + &id).as_str()).exists()
-    {
+    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id).as_str()).exists() {
         let bill: BitcreditBill = read_bill_from_file(&id);
 
         Template::render(
@@ -181,7 +180,7 @@ fn bills() -> Vec<BitcreditBill> {
     let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
     for _path in paths {
         let mut path = _path.unwrap().path().display().to_string();
-        let path_vec = path.split("/").collect::<Vec<&str>>();
+        let path_vec = path.split('/').collect::<Vec<&str>>();
         path = path_vec[1].to_string();
         let bill = read_bill_from_file(&path);
         bills.push(bill);
