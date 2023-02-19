@@ -1,3 +1,4 @@
+use crate::{bill_from_byte_array, write_bill_to_file};
 use async_std::io;
 use async_std::task::spawn;
 use clap::Parser;
@@ -6,8 +7,8 @@ use libp2p::core::{Multiaddr, PeerId};
 use std::error::Error;
 use std::path::PathBuf;
 
-const BOOTSTRAP_NODE: &str = "12D3KooWH3XEBdqHDs9tQdRS1TkqAJttZsqUFUEpXx1atFTnTSTF";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.28.74.26/tcp/41749";
+const BOOTSTRAP_NODE: &str = "12D3KooWGAFfCx3LRbeNAU1p9gVXwpKiJzTCeRpUaYe2HkC5m2pU";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.28.75.219/tcp/44343";
 
 //TODO: this will be in spawn in main.rs.
 #[async_std::main]
@@ -57,6 +58,8 @@ enum CliArgument {
 
 mod network {
     use super::*;
+    use crate::constants::BILLS_FOLDER_PATH;
+    use crate::BitcreditBill;
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -169,9 +172,14 @@ mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    println!("{request:?}");
-                    self.respond_file(std::fs::read(&request).expect("Can not respond."), channel)
-                        .await;
+                    //The place where we explicitly specify to look for the bill is in the bills folder.
+                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
+                    println!("{path_to_bill:?}");
+                    self.respond_file(
+                        std::fs::read(&path_to_bill).expect("Can not respond."),
+                        channel,
+                    )
+                    .await;
                 }
 
                 _ => {}
@@ -182,6 +190,20 @@ mod network {
             let mut args = line.split(' ');
 
             match args.next() {
+                Some("PUT") => {
+                    let name: String = {
+                        match args.next() {
+                            Some(name) => String::from(name),
+                            None => {
+                                eprintln!("Expected name.");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.start_providing(name.clone()).await;
+                }
+
                 Some("GET") => {
                     let name: String = {
                         match args.next() {
@@ -216,22 +238,11 @@ mod network {
                         .expect("Can not get file content.")
                         .0;
 
-                    //TODO: change logic when we receive file.
-                    println!("{file_content:?}");
-                }
+                    let bill: BitcreditBill = bill_from_byte_array(&file_content);
+                    let bill_name = bill.name.clone();
+                    write_bill_to_file(&bill);
 
-                Some("PUT") => {
-                    let name: String = {
-                        match args.next() {
-                            Some(name) => String::from(name),
-                            None => {
-                                eprintln!("Expected name.");
-                                return;
-                            }
-                        }
-                    };
-
-                    self.start_providing(name.clone()).await;
+                    println!("Bill {bill_name:?} was successfully saved.");
                 }
 
                 _ => {
