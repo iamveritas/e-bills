@@ -1,4 +1,5 @@
 use crate::{bill_from_byte_array, write_bill_to_file};
+
 use async_std::io;
 use async_std::task::spawn;
 use clap::Parser;
@@ -7,29 +8,34 @@ use libp2p::core::{Multiaddr, PeerId};
 use std::error::Error;
 use std::path::PathBuf;
 
-const BOOTSTRAP_NODE: &str = "12D3KooWGAFfCx3LRbeNAU1p9gVXwpKiJzTCeRpUaYe2HkC5m2pU";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.28.75.219/tcp/44343";
+// TODO: take bootstrap node info from config file.
+const BOOTSTRAP_NODE: &str = "12D3KooWGj3Lx6koonukLm7KRFwG87So3AG3KLVg5df5CLjBpvDJ";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.26.170.124/tcp/45969";
 
-//TODO: this will be in spawn in main.rs.
-#[async_std::main]
-pub async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+pub async fn dht_main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    //Delete because we initialize it lazy in main::main().
+    // env_logger::init();
 
-    let (mut network_client, mut network_events, mut network_event_loop) = network::new().await?;
+    let (mut network_client, mut network_events, mut network_event_loop) = network::new()
+        .await
+        .expect("Can not to create network module in dht.");
 
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
 
     network_client
-        .start_listening("/ip4/0.0.0.0/tcp/0".parse()?)
+        .start_listening(
+            "/ip4/0.0.0.0/tcp/0"
+                .parse()
+                .expect("Can not start listening."),
+        )
         .await
         .expect("Listening not to fail.");
 
     spawn(network_client.run(stdin, network_events));
 
-    //TODO: delete it later.
-    loop {}
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -112,7 +118,6 @@ mod network {
                 identify,
             };
 
-            // TODO: take bootstrap node info from config file.
             behaviour
                 .kademlia
                 .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);

@@ -7,8 +7,16 @@ mod numbers_to_words;
 mod test;
 mod web;
 
+use crate::constants::{
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
+    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    IDENTITY_PEER_ID_FILE_PATH,
+};
+use crate::numbers_to_words::encode;
+
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
+use futures::future;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
@@ -17,49 +25,41 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-
+use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
-
+use rocket::{Build, Rocket};
+use rocket_dyn_templates::Template;
 use std::path::Path;
 use std::{fs, mem};
 
-use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
-    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
-    IDENTITY_PEER_ID_FILE_PATH,
-};
-use crate::numbers_to_words::encode;
-
 // MAIN
-fn main() {
-    // std::env::set_var("RUST_BACKTRACE", "1");
-    // std::env::set_var("RUST_BACKTRACE", "full");
-    // std::env::set_var("RUST_BACKTRACE", "0");
+#[rocket::main]
+async fn main() {
+    let (rocket, dht) = future::join(dht::dht_main(), rocket_main().launch()).await;
 
-    dht::main();
+    loop {}
 }
 
-// #[launch]
-// fn rocket() -> _ {
-//     rocket::build()
-//         .register("/", catchers![web::not_found])
-//         .mount("/image", FileServer::from("image"))
-//         .mount("/css", FileServer::from("css"))
-//         .mount("/", routes![web::start])
-//         .mount(
-//             "/identity",
-//             routes![web::get_identity, web::create_identity,],
-//         )
-//         .mount("/bills", routes![web::bills_list])
-//         .mount("/info", routes![web::info])
-//         .mount(
-//             "/bill",
-//             routes![web::get_bill, web::issue_bill, web::new_bill],
-//         )
-//         .attach(Template::custom(|engines| {
-//             web::customize(&mut engines.handlebars);
-//         }))
-// }
+fn rocket_main() -> Rocket<Build> {
+    rocket::build()
+        .register("/", catchers![web::not_found])
+        .mount("/image", FileServer::from("image"))
+        .mount("/css", FileServer::from("css"))
+        .mount("/", routes![web::start])
+        .mount(
+            "/identity",
+            routes![web::get_identity, web::create_identity,],
+        )
+        .mount("/bills", routes![web::bills_list])
+        .mount("/info", routes![web::info])
+        .mount(
+            "/bill",
+            routes![web::get_bill, web::issue_bill, web::new_bill],
+        )
+        .attach(Template::custom(|engines| {
+            web::customize(&mut engines.handlebars);
+        }))
+}
 
 // CORE
 

@@ -8,6 +8,7 @@ mod test {
         pem_public_key_from_rsa, private_key_from_pem_u8, public_key_from_pem_u8,
         read_bill_from_file, structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
     };
+
     use borsh::{BorshDeserialize, BorshSerialize};
     use libp2p::identity::Keypair;
     use libp2p::kad::store::MemoryStore;

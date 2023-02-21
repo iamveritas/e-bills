@@ -1,10 +1,12 @@
 use self::handlebars::{Handlebars, JsonRender};
+
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
 use crate::{
     create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file,
     read_identity_from_file, BitcreditBill, BitcreditBillForm, Identity, IdentityForm,
     IdentityWithAll,
 };
+
 use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::Request;
