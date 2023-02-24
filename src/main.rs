@@ -7,6 +7,13 @@ mod numbers_to_words;
 mod test;
 mod web;
 
+use crate::constants::{
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
+    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    IDENTITY_PEER_ID_FILE_PATH,
+};
+use crate::numbers_to_words::encode;
+
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
@@ -17,49 +24,51 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-
+use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
-
+use rocket::{Build, Rocket};
+use rocket_dyn_templates::Template;
 use std::path::Path;
 use std::{fs, mem};
 
-use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
-    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
-    IDENTITY_PEER_ID_FILE_PATH,
-};
-use crate::numbers_to_words::encode;
-
 // MAIN
-fn main() {
-    // std::env::set_var("RUST_BACKTRACE", "1");
-    // std::env::set_var("RUST_BACKTRACE", "full");
-    // std::env::set_var("RUST_BACKTRACE", "0");
+#[rocket::main]
+async fn main() {
+    let mut dht = dht::dht_main().await.unwrap();
 
-    dht::main();
+    let rocket = rocket_main(dht).launch().await.unwrap();
+
+    //TODO: how to stay program online without it.
+    loop {}
 }
 
-// #[launch]
-// fn rocket() -> _ {
-//     rocket::build()
-//         .register("/", catchers![web::not_found])
-//         .mount("/image", FileServer::from("image"))
-//         .mount("/css", FileServer::from("css"))
-//         .mount("/", routes![web::start])
-//         .mount(
-//             "/identity",
-//             routes![web::get_identity, web::create_identity,],
-//         )
-//         .mount("/bills", routes![web::bills_list])
-//         .mount("/info", routes![web::info])
-//         .mount(
-//             "/bill",
-//             routes![web::get_bill, web::issue_bill, web::new_bill],
-//         )
-//         .attach(Template::custom(|engines| {
-//             web::customize(&mut engines.handlebars);
-//         }))
-// }
+fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
+    rocket::build()
+        .register("/", catchers![web::not_found])
+        .manage(dht)
+        .mount("/image", FileServer::from("image"))
+        .mount("/css", FileServer::from("css"))
+        .mount("/", routes![web::start])
+        .mount(
+            "/identity",
+            routes![web::get_identity, web::create_identity,],
+        )
+        .mount("/bills", routes![web::bills_list])
+        .mount("/info", routes![web::info])
+        .mount(
+            "/bill",
+            routes![
+                web::get_bill,
+                web::issue_bill,
+                web::new_bill,
+                web::search_bill_dht,
+                web::search_bill
+            ],
+        )
+        .attach(Template::custom(|engines| {
+            web::customize(&mut engines.handlebars);
+        }))
+}
 
 // CORE
 
@@ -417,21 +426,11 @@ pub struct BitcreditBill {
     date_of_issue: String,
     compounding_interest_rate: u64,
     type_of_interest_calculation: bool,
-    // Defaulting to the drawee’s id/ address
+    // Defaulting to the drawee’s id/ address.
     place_of_payment: String,
     public_key_pem: String,
     private_key_pem: String,
     language: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillForm {
-    bill_jurisdiction: String,
-    place_of_drawing: String,
-    amount_numbers: u64,
-    language: String,
-    drawee_name: String,
 }
 
 pub fn issue_new_bill(
@@ -533,4 +532,22 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
+}
+
+//FORMS
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct BitcreditBillForm {
+    pub bill_jurisdiction: String,
+    pub place_of_drawing: String,
+    pub amount_numbers: u64,
+    pub language: String,
+    pub drawee_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct FindBillForm {
+    pub bill_name: String,
 }

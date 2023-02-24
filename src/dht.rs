@@ -1,4 +1,6 @@
 use crate::{bill_from_byte_array, write_bill_to_file};
+
+use crate::dht::network::Client;
 use async_std::io;
 use async_std::task::spawn;
 use clap::Parser;
@@ -7,29 +9,33 @@ use libp2p::core::{Multiaddr, PeerId};
 use std::error::Error;
 use std::path::PathBuf;
 
-const BOOTSTRAP_NODE: &str = "12D3KooWGAFfCx3LRbeNAU1p9gVXwpKiJzTCeRpUaYe2HkC5m2pU";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.28.75.219/tcp/44343";
+// TODO: take bootstrap node info from config file.
+const BOOTSTRAP_NODE: &str = "12D3KooWBcg2rfbknTCNGcqLvrUXyAEh2Ybmu5o1FUm5rkWD95xr";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.20.77.78/tcp/35723";
 
-//TODO: this will be in spawn in main.rs.
-#[async_std::main]
-pub async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
-
-    let (mut network_client, mut network_events, mut network_event_loop) = network::new().await?;
+pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
+    let (mut network_client, mut network_events, mut network_event_loop) = network::new()
+        .await
+        .expect("Can not to create network module in dht.");
 
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
 
+    let network_client_to_return = network_client.clone();
+
     network_client
-        .start_listening("/ip4/0.0.0.0/tcp/0".parse()?)
+        .start_listening(
+            "/ip4/0.0.0.0/tcp/0"
+                .parse()
+                .expect("Can not start listening."),
+        )
         .await
         .expect("Listening not to fail.");
 
     spawn(network_client.run(stdin, network_events));
 
-    //TODO: delete it later.
-    loop {}
+    Ok(network_client_to_return)
 }
 
 #[derive(Parser, Debug)]
@@ -56,10 +62,10 @@ enum CliArgument {
     },
 }
 
-mod network {
+pub mod network {
     use super::*;
     use crate::constants::BILLS_FOLDER_PATH;
-    use crate::BitcreditBill;
+    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -76,16 +82,15 @@ mod network {
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::{development_transport, identity};
+    use libp2p::development_transport;
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        //TODO: take it from file with identity.
-        let local_key = identity::Keypair::generate_ed25519();
+        let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
 
-        let local_peer_id = PeerId::from(local_key.public());
+        let local_peer_id = read_peer_id_from_file();
         println!("Local peer id: {local_peer_id:?}");
 
         let transport = development_transport(local_key).await?;
@@ -112,7 +117,6 @@ mod network {
                 identify,
             };
 
-            // TODO: take bootstrap node info from config file.
             behaviour
                 .kademlia
                 .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
@@ -169,6 +173,101 @@ mod network {
             }
         }
 
+        pub async fn put(&mut self, name: String) {
+            self.start_providing(name.clone()).await;
+        }
+
+        pub async fn get(&mut self, name: String) {
+            // Locate all nodes providing the file.
+            let providers = self.get_providers(name.clone()).await;
+            if providers.is_empty() {
+                eprintln!("No providers was found.");
+            } else {
+                println!("Providers {providers:?}");
+            }
+
+            // Request the content of the file from each node.
+            //TODO: if it's me - don't continue.
+            let requests = providers.into_iter().map(|peer| {
+                let mut network_client = self.clone();
+                let name = name.clone();
+                async move { network_client.request_file(peer, name).await }.boxed()
+            });
+
+            // Await the requests, ignore the remaining once a single one succeeds.
+            let file_content = futures::future::select_ok(requests)
+                .await
+                .map_err(|_| "None of the providers returned file.")
+                .expect("Can not get file content.")
+                .0;
+
+            let bill: BitcreditBill = bill_from_byte_array(&file_content);
+            let bill_name = bill.name.clone();
+            write_bill_to_file(&bill);
+
+            println!("Bill {bill_name:?} was successfully saved.");
+        }
+
+        /// Dial the given peer at the given address.
+        async fn dial(
+            &mut self,
+            peer_id: PeerId,
+            peer_addr: Multiaddr,
+        ) -> Result<(), Box<dyn Error + Send>> {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::Dial {
+                    peer_id,
+                    peer_addr,
+                    sender,
+                })
+                .await
+                .expect("Command receiver not to be dropped.");
+            receiver.await.expect("Sender not to be dropped.")
+        }
+
+        async fn start_providing(&mut self, file_name: String) {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::StartProviding { file_name, sender })
+                .await
+                .expect("Command receiver not to be dropped.");
+            receiver.await.expect("Sender not to be dropped.");
+        }
+
+        async fn get_providers(&mut self, file_name: String) -> HashSet<PeerId> {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::GetProviders { file_name, sender })
+                .await
+                .expect("Command receiver not to be dropped.");
+            receiver.await.expect("Sender not to be dropped.")
+        }
+
+        async fn request_file(
+            &mut self,
+            peer: PeerId,
+            file_name: String,
+        ) -> Result<Vec<u8>, Box<dyn Error + Send>> {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::RequestFile {
+                    file_name,
+                    peer,
+                    sender,
+                })
+                .await
+                .expect("Command receiver not to be dropped.");
+            receiver.await.expect("Sender not be dropped.")
+        }
+
+        async fn respond_file(&mut self, file: Vec<u8>, channel: ResponseChannel<FileResponse>) {
+            self.sender
+                .send(Command::RespondFile { file, channel })
+                .await
+                .expect("Command receiver not to be dropped.");
+        }
+
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
@@ -186,6 +285,7 @@ mod network {
             }
         }
 
+        //TODO: dont delete. Need for testing.
         async fn handle_input_line(&mut self, line: String) {
             let mut args = line.split(' ');
 
@@ -249,70 +349,6 @@ mod network {
                     eprintln!("expected GET or PUT.");
                 }
             }
-        }
-
-        /// Dial the given peer at the given address.
-        pub async fn dial(
-            &mut self,
-            peer_id: PeerId,
-            peer_addr: Multiaddr,
-        ) -> Result<(), Box<dyn Error + Send>> {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::Dial {
-                    peer_id,
-                    peer_addr,
-                    sender,
-                })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not to be dropped.")
-        }
-
-        pub async fn start_providing(&mut self, file_name: String) {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::StartProviding { file_name, sender })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not to be dropped.");
-        }
-
-        pub async fn get_providers(&mut self, file_name: String) -> HashSet<PeerId> {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::GetProviders { file_name, sender })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not to be dropped.")
-        }
-
-        pub async fn request_file(
-            &mut self,
-            peer: PeerId,
-            file_name: String,
-        ) -> Result<Vec<u8>, Box<dyn Error + Send>> {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::RequestFile {
-                    file_name,
-                    peer,
-                    sender,
-                })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not be dropped.")
-        }
-
-        pub async fn respond_file(
-            &mut self,
-            file: Vec<u8>,
-            channel: ResponseChannel<FileResponse>,
-        ) {
-            self.sender
-                .send(Command::RespondFile { file, channel })
-                .await
-                .expect("Command receiver not to be dropped.");
         }
     }
 

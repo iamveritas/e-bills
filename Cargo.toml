@@ -7,16 +7,12 @@ edition = "2021"
 openssl = "0.10.40"
 borsh = "0.10.0"
 futures = "0.3.25"
-env_logger = "0.10.0"
-async-std = { version = "1.12.0", features = ["attributes"] }
-tokio = { version = "1.0", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "fs"] }
+async-std = { version = "1.12.0" }
 chrono = "0.4.23"
 clap = { version = "4.1.4", features = ["derive"]}
-either = "1.8.1"
 async-trait = "0.1.64"
 
 libp2p = { version = "0.50.0", features = ["tcp", "dns", "async-std", "noise", "mplex", "yamux", "websocket", "ping", "macros", "kad", "request-response", "identify"] }
-
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
 rocket_dyn_templates = { version = "0.1.0-rc.2", features = ["handlebars"] }
 rocket_contrib = "0.4.11"

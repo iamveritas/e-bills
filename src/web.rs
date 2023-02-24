@@ -1,13 +1,16 @@
 use self::handlebars::{Handlebars, JsonRender};
+
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
+use crate::dht::network::Client;
 use crate::{
     create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file,
-    read_identity_from_file, BitcreditBill, BitcreditBillForm, Identity, IdentityForm,
-    IdentityWithAll,
+    read_identity_from_file, BitcreditBill, BitcreditBillForm, FindBillForm, Identity,
+    IdentityForm, IdentityWithAll,
 };
+
 use chrono::{Days, Utc};
 use rocket::form::Form;
-use rocket::Request;
+use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 use std::fs;
 use std::path::Path;
@@ -118,6 +121,39 @@ pub async fn get_bill(id: String) -> Template {
     }
 }
 
+#[get("/dht")]
+pub async fn search_bill() -> Template {
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        Template::render("hbs/search_bill", context! {})
+    }
+}
+
+#[post("/find", data = "<bill_form>")]
+pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm>) -> Template {
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let bill: FindBillForm = bill_form.into_inner();
+
+        let bill_name: String = bill.bill_name.clone();
+
+        let mut client = state.inner().clone();
+
+        client.get(bill_name).await;
+
+        let bill: BitcreditBill = read_bill_from_file(&bill.bill_name);
+
+        Template::render(
+            "hbs/bill",
+            context! {
+                bill: Some(bill),
+            },
+        )
+    }
+}
+
 #[get("/")]
 pub async fn new_bill() -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
@@ -144,7 +180,7 @@ pub async fn new_bill() -> Template {
 }
 
 #[post("/issue", data = "<bill_form>")]
-pub async fn issue_bill(bill_form: Form<BitcreditBillForm>) -> Template {
+pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
@@ -158,6 +194,12 @@ pub async fn issue_bill(bill_form: Form<BitcreditBillForm>) -> Template {
             bill.language,
             bill.drawee_name,
         );
+
+        let bill_name: String = bill.name.clone();
+
+        let mut client = state.inner().clone();
+
+        client.put(bill_name).await;
 
         let bill: BitcreditBill = read_bill_from_file(&bill.name);
 
