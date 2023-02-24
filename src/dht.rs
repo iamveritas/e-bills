@@ -14,9 +14,6 @@ const BOOTSTRAP_NODE: &str = "12D3KooWBcg2rfbknTCNGcqLvrUXyAEh2Ybmu5o1FUm5rkWD95
 const BOOTSTRAP_ADDRESS: &str = "/ip4/172.20.77.78/tcp/35723";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
-    //Delete because we initialize it lazy in main::main().
-    // env_logger::init();
-
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
         .await
         .expect("Can not to create network module in dht.");
@@ -68,7 +65,7 @@ enum CliArgument {
 pub mod network {
     use super::*;
     use crate::constants::BILLS_FOLDER_PATH;
-    use crate::BitcreditBill;
+    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -85,16 +82,15 @@ pub mod network {
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::{development_transport, identity};
+    use libp2p::development_transport;
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        //TODO: take it from file with identity.
-        let local_key = identity::Keypair::generate_ed25519();
+        let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
 
-        let local_peer_id = PeerId::from(local_key.public());
+        let local_peer_id = read_peer_id_from_file();
         println!("Local peer id: {local_peer_id:?}");
 
         let transport = development_transport(local_key).await?;
