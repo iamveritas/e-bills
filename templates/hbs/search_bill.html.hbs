@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Search bill</title>
+</head>
+<header>
+    {{> hbs/nav}}
+</header>
+<body>
+<div class="content">
+    <div class="headline">
+        <h1>Search bill in DHT</h1>
+    </div>
+    <form class="fields_bill" action="http://localhost:8000/bill/find" method="post">
+        <label for="bill_name">Bill id:</label><br>
+        <input type="text" required="required" id="bill_name" name="bill_name" placeholder="Bill id"><br>
+        <input type="submit" id="button_submit" value="Search bill">
+    </form>
+</div>
+</body>
+<footer>
+    {{> hbs/footer}}
+</footer>
+</html>

@@ -16,7 +16,6 @@ use crate::numbers_to_words::encode;
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
-use futures::future;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
@@ -35,14 +34,18 @@ use std::{fs, mem};
 // MAIN
 #[rocket::main]
 async fn main() {
-    let (rocket, dht) = future::join(dht::dht_main(), rocket_main().launch()).await;
+    let mut dht = dht::dht_main().await.unwrap();
 
+    let rocket = rocket_main(dht).launch().await.unwrap();
+
+    //TODO: how to stay program online without it.
     loop {}
 }
 
-fn rocket_main() -> Rocket<Build> {
+fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
     rocket::build()
         .register("/", catchers![web::not_found])
+        .manage(dht)
         .mount("/image", FileServer::from("image"))
         .mount("/css", FileServer::from("css"))
         .mount("/", routes![web::start])
@@ -54,7 +57,13 @@ fn rocket_main() -> Rocket<Build> {
         .mount("/info", routes![web::info])
         .mount(
             "/bill",
-            routes![web::get_bill, web::issue_bill, web::new_bill],
+            routes![
+                web::get_bill,
+                web::issue_bill,
+                web::new_bill,
+                web::search_bill_dht,
+                web::search_bill
+            ],
         )
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
@@ -417,21 +426,11 @@ pub struct BitcreditBill {
     date_of_issue: String,
     compounding_interest_rate: u64,
     type_of_interest_calculation: bool,
-    // Defaulting to the drawee’s id/ address
+    // Defaulting to the drawee’s id/ address.
     place_of_payment: String,
     public_key_pem: String,
     private_key_pem: String,
     language: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillForm {
-    bill_jurisdiction: String,
-    place_of_drawing: String,
-    amount_numbers: u64,
-    language: String,
-    drawee_name: String,
 }
 
 pub fn issue_new_bill(
@@ -533,4 +532,22 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
+}
+
+//FORMS
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct BitcreditBillForm {
+    pub bill_jurisdiction: String,
+    pub place_of_drawing: String,
+    pub amount_numbers: u64,
+    pub language: String,
+    pub drawee_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct FindBillForm {
+    pub bill_name: String,
 }
