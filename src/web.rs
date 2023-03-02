@@ -2,11 +2,7 @@ use self::handlebars::{Handlebars, JsonRender};
 
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
 use crate::dht::network::Client;
-use crate::{
-    create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file,
-    read_identity_from_file, BitcreditBill, BitcreditBillForm, FindBillForm, Identity,
-    IdentityForm, IdentityWithAll,
-};
+use crate::{create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file, read_identity_from_file, BitcreditBill, BitcreditBillForm, FindBillForm, Identity, IdentityForm, IdentityWithAll, read_peer_id_from_file};
 
 use chrono::{Days, Utc};
 use rocket::form::Form;
@@ -141,7 +137,10 @@ pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm
 
         let mut client = state.inner().clone();
 
-        client.get(bill_name).await;
+        //TODO bad.
+        let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &bill_name;
+
+        client.get(path_to_bill).await;
 
         let bill: BitcreditBill = read_bill_from_file(&bill.bill_name);
 
@@ -199,7 +198,14 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
 
         let mut client = state.inner().clone();
 
-        client.put(bill_name).await;
+        let local_peer_id = read_peer_id_from_file().to_string();
+
+        //TODO: this will be as a parameter, we will hold it.
+        let nodes: [String; 3] = ["node1".to_string(), "node2".to_string(), local_peer_id];
+
+        for node in nodes {
+            client.add_bill_to_dht(&bill_name, node).await;
+        }
 
         let bill: BitcreditBill = read_bill_from_file(&bill.name);
 

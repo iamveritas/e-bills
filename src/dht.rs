@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWBcg2rfbknTCNGcqLvrUXyAEh2Ybmu5o1FUm5rkWD95xr";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.20.77.78/tcp/35723";
+const BOOTSTRAP_NODE: &str = "12D3KooWEFHvn8brUCJo3RTD4SePUFVzaL97ZAbp1vwvnukNcGH7";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/42845";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -65,7 +65,7 @@ enum CliArgument {
 pub mod network {
     use super::*;
     use crate::constants::BILLS_FOLDER_PATH;
-    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
+    use crate::{read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill};
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -75,22 +75,30 @@ pub mod network {
     use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
     use libp2p::kad::record::store::MemoryStore;
-    use libp2p::kad::{GetProvidersOk, Kademlia, KademliaEvent, QueryId, QueryResult};
+    use libp2p::kad::record::{Key, Record};
+    use libp2p::kad::{
+        GetProvidersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, PeerRecord,
+        PutRecordOk, QueryId, QueryResult, Quorum,
+    };
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::development_transport;
+    use libp2p::{development_transport, identity};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        let local_key = read_ed25519_keypair_from_file();
-        let key_copy = local_key.clone();
+        // let local_key = read_ed25519_keypair_from_file();
+        // let key_copy = local_key.clone();
+        // let local_peer_id = read_peer_id_from_file();
 
-        let local_peer_id = read_peer_id_from_file();
+        let local_key = identity::Keypair::generate_ed25519();
+        let key_copy = local_key.clone();
+        let local_peer_id = PeerId::from(local_key.public());
+
         println!("Local peer id: {local_peer_id:?}");
 
         let transport = development_transport(local_key).await?;
@@ -173,7 +181,28 @@ pub mod network {
             }
         }
 
-        pub async fn put(&mut self, name: String) {
+        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
+            let node_request = "BILLS".to_string() + &node_id;
+            println!("node_request {node_request:?}");
+
+            //1) GET_RECORD
+            let mut values = std::str::from_utf8(&(self.get_record(node_request.clone()).await).value).unwrap().to_string();
+            println!("Values {values:?}");
+
+            //2) PUT_RECORD
+            if values.is_empty() {
+                values = bill_name.clone();
+            } else {
+                values = values + "," + bill_name;
+            }
+            println!("Put {values:?}");
+            self.put_record(node_request.clone(), values).await;
+
+            //3) PUT
+            self.put(bill_name).await;
+        }
+
+        pub async fn put(&mut self, name: &String) {
             self.start_providing(name.clone()).await;
         }
 
@@ -226,6 +255,22 @@ pub mod network {
             receiver.await.expect("Sender not to be dropped.")
         }
 
+        async fn put_record(&mut self, key: String, value: String) {
+            self.sender
+                .send(Command::PutRecord { key, value })
+                .await
+                .expect("Command receiver not to be dropped.");
+        }
+
+        async fn get_record(&mut self, key: String) -> Record {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::GetRecord { key, sender })
+                .await
+                .expect("Command receiver not to be dropped.");
+            receiver.await.expect("Sender not to be dropped.")
+        }
+
         async fn start_providing(&mut self, file_name: String) {
             let (sender, receiver) = oneshot::channel();
             self.sender
@@ -272,13 +317,9 @@ pub mod network {
             match event {
                 Event::InboundRequest { request, channel } => {
                     //The place where we explicitly specify to look for the bill is in the bills folder.
-                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
-                    println!("{path_to_bill:?}");
-                    self.respond_file(
-                        std::fs::read(&path_to_bill).expect("Can not respond."),
-                        channel,
-                    )
-                    .await;
+                    println!("{request:?}");
+                    self.respond_file(std::fs::read(&request).expect("Can not respond."), channel)
+                        .await;
                 }
 
                 _ => {}
@@ -345,6 +386,55 @@ pub mod network {
                     println!("Bill {bill_name:?} was successfully saved.");
                 }
 
+                Some("PUT_RECORD") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    let value = {
+                        match args.next() {
+                            Some(value) => String::from(value),
+                            None => {
+                                eprintln!("Expected value");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.put_record(key, value).await;
+                }
+
+                Some("GET_RECORD") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    self.get_record(key).await;
+                }
+
+                Some("GET_PROVIDERS") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    self.get_providers(key).await;
+                }
+
                 _ => {
                     eprintln!("expected GET or PUT.");
                 }
@@ -359,6 +449,7 @@ pub mod network {
         pending_dial: HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>,
         pending_start_providing: HashMap<QueryId, oneshot::Sender<()>>,
         pending_get_providers: HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>,
+        pending_get_records: HashMap<QueryId, oneshot::Sender<Record>>,
         pending_request_file:
             HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>,
     }
@@ -376,6 +467,7 @@ pub mod network {
                 pending_dial: Default::default(),
                 pending_start_providing: Default::default(),
                 pending_get_providers: Default::default(),
+                pending_get_records: Default::default(),
                 pending_request_file: Default::default(),
             }
         }
@@ -425,6 +517,37 @@ pub mod network {
                         );
                     }
 
+                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
+                        println!(
+                            "Successfully put record {:?}",
+                            std::str::from_utf8(key.as_ref()).unwrap()
+                        );
+                    }
+
+                    QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
+                        record,
+                        ..
+                    }))) => {
+                        if let Some(sender) = self.pending_get_records.remove(&id) {
+                            println!(
+                                "Got record {:?} {:?}",
+                                std::str::from_utf8(&record.key.as_ref()).unwrap(),
+                                std::str::from_utf8(&record.value).unwrap(),
+                            );
+
+                            sender.send(record).expect("Receiver not to be dropped.");
+
+                            // Finish the query. We are only interested in the first result.
+                            //TODO: think how to do it better.
+                            self.swarm
+                                .behaviour_mut()
+                                .kademlia
+                                .query_mut(&id)
+                                .unwrap()
+                                .finish();
+                        }
+                    }
+
                     QueryResult::StartProviding(Err(err)) => {
                         //TODO: do some logic.
                         eprintln!("Failed to put provider record: {err:?}");
@@ -435,6 +558,10 @@ pub mod network {
                         ..
                     })) => {
                         if let Some(sender) = self.pending_get_providers.remove(&id) {
+                            for peer in &providers {
+                                println!("PEER {peer:?}");
+                            }
+
                             sender.send(providers).expect("Receiver not to be dropped.");
 
                             // Finish the query. We are only interested in the first result.
@@ -595,6 +722,30 @@ pub mod network {
                     self.pending_start_providing.insert(query_id, sender);
                 }
 
+                Command::PutRecord { key, value } => {
+                    let key_record = Key::new(&key);
+                    let value_bytes = value.as_bytes().to_vec();
+                    let record = Record {
+                        key: key_record,
+                        value: value_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
+                    let query_id = self
+                        .swarm
+                        .behaviour_mut()
+                        .kademlia
+                        //TODO: what quorum use.
+                        .put_record(record, Quorum::All)
+                        .expect("Can not provide.");
+                }
+
+                Command::GetRecord { key, sender } => {
+                    let key_record = Key::new(&key);
+                    let query_id = self.swarm.behaviour_mut().kademlia.get_record(key_record);
+                    self.pending_get_records.insert(query_id, sender);
+                }
+
                 Command::GetProviders { file_name, sender } => {
                     let query_id = self
                         .swarm
@@ -700,6 +851,14 @@ pub mod network {
         GetProviders {
             file_name: String,
             sender: oneshot::Sender<HashSet<PeerId>>,
+        },
+        PutRecord {
+            key: String,
+            value: String,
+        },
+        GetRecord {
+            key: String,
+            sender: oneshot::Sender<Record>,
         },
         RequestFile {
             file_name: String,
