@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWEFHvn8brUCJo3RTD4SePUFVzaL97ZAbp1vwvnukNcGH7";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/42845";
+const BOOTSTRAP_NODE: &str = "12D3KooWJzveuqKgGU3MbHchVRyipXu3Xgs38qqZwtnv3LxEGfbm";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/40197";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -64,20 +64,18 @@ enum CliArgument {
 
 pub mod network {
     use super::*;
-    use crate::constants::BILLS_FOLDER_PATH;
-    use crate::{read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill};
+    use crate::BitcreditBill;
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
     use futures::channel::{mpsc, oneshot};
     use futures::io::Lines;
     use futures::stream::Fuse;
-    use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
-        GetProvidersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, PeerRecord,
+        GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
     use libp2p::multiaddr::Protocol;
@@ -86,7 +84,7 @@ pub mod network {
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::{development_transport, identity};
+    use libp2p::{development_transport, identity, tokio_development_transport};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
 
@@ -129,7 +127,7 @@ pub mod network {
                 .kademlia
                 .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
 
-            Swarm::with_threadpool_executor(transport, behaviour, local_peer_id)
+            Swarm::with_async_std_executor(transport, behaviour, local_peer_id)
         };
 
         swarm
@@ -183,20 +181,23 @@ pub mod network {
 
         pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
             let node_request = "BILLS".to_string() + &node_id;
-            println!("node_request {node_request:?}");
 
             //1) GET_RECORD
-            let mut values = std::str::from_utf8(&(self.get_record(node_request.clone()).await).value).unwrap().to_string();
-            println!("Values {values:?}");
+            let mut record_for_saving_in_dht = "".to_string();
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+            if !value.is_empty() {
+                record_for_saving_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                record_for_saving_in_dht = record_for_saving_in_dht.to_string() + "," + bill_name;
+            } else {
+                record_for_saving_in_dht = bill_name.clone();
+            }
 
             //2) PUT_RECORD
-            if values.is_empty() {
-                values = bill_name.clone();
-            } else {
-                values = values + "," + bill_name;
-            }
-            println!("Put {values:?}");
-            self.put_record(node_request.clone(), values).await;
+            self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
+                .await;
 
             //3) PUT
             self.put(bill_name).await;
@@ -490,7 +491,10 @@ pub mod network {
             event: SwarmEvent<
                 ComposedEvent,
                 //TODO: change to normal error type.
-                EitherError<EitherError<ConnectionHandlerUpgrErr<io::Error>, io::Error>, io::Error>,
+                rocket::Either<
+                    rocket::Either<ConnectionHandlerUpgrErr<io::Error>, io::Error>,
+                    io::Error,
+                >,
             >,
         ) {
             match event {
@@ -546,6 +550,61 @@ pub mod network {
                                 .unwrap()
                                 .finish();
                         }
+                    }
+
+                    QueryResult::GetRecord(Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
+                        ..
+                    })) => {
+                        self.pending_get_records.remove(&id);
+                        println!("No records.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::NotFound { key, .. })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("NotFound.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("Timeout.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("QuorumFailed.");
                     }
 
                     QueryResult::StartProviding(Err(err)) => {

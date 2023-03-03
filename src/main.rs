@@ -36,7 +36,7 @@ use std::{fs, mem};
 async fn main() {
     let mut dht = dht::dht_main().await.unwrap();
 
-    let rocket = rocket_main(dht).launch().await.unwrap();
+    // let rocket = rocket_main(dht).launch().await.unwrap();
 
     //TODO: how to stay program online without it.
     loop {}
