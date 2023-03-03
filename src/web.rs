@@ -83,9 +83,6 @@ pub async fn bills_list() -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        if !Path::new(BILLS_FOLDER_PATH).exists() {
-            fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills");
-        }
         let bills = bills();
 
         Template::render(
@@ -232,6 +229,9 @@ pub fn not_found(req: &Request) -> String {
 }
 
 fn bills() -> Vec<BitcreditBill> {
+    if !Path::new(BILLS_FOLDER_PATH).exists() {
+        fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills");
+    }
     let mut bills = Vec::new();
     let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
     for _path in paths {
