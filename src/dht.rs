@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWJzveuqKgGU3MbHchVRyipXu3Xgs38qqZwtnv3LxEGfbm";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/40197";
+const BOOTSTRAP_NODE: &str = "12D3KooWRK7zn44b7DBJzH23WrTzibXPVwUS5KSuiFivxQsz5ra5";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/36465";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -65,7 +65,7 @@ enum CliArgument {
 pub mod network {
     use super::*;
     use crate::constants::BILLS_FOLDER_PATH;
-    use crate::BitcreditBill;
+    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -91,13 +91,13 @@ pub mod network {
     use std::path::Path;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        // let local_key = read_ed25519_keypair_from_file();
-        // let key_copy = local_key.clone();
-        // let local_peer_id = read_peer_id_from_file();
-
-        let local_key = identity::Keypair::generate_ed25519();
+        let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
-        let local_peer_id = PeerId::from(local_key.public());
+        let local_peer_id = read_peer_id_from_file();
+
+        // let local_key = identity::Keypair::generate_ed25519();
+        // let key_copy = local_key.clone();
+        // let local_peer_id = PeerId::from(local_key.public());
 
         println!("Local peer id: {local_peer_id:?}");
 
