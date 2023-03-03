@@ -64,6 +64,7 @@ enum CliArgument {
 
 pub mod network {
     use super::*;
+    use crate::constants::BILLS_FOLDER_PATH;
     use crate::BitcreditBill;
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
@@ -87,6 +88,7 @@ pub mod network {
     use libp2p::{development_transport, identity, tokio_development_transport};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
+    use std::path::Path;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
         // let local_key = read_ed25519_keypair_from_file();
@@ -179,10 +181,40 @@ pub mod network {
             }
         }
 
-        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
-            let node_request = "BILLS".to_string() + &node_id;
-
+        pub async fn check_new_bills_when_login(&mut self, node_id: String) {
             //1) GET_RECORD
+            let node_request = "BILLS".to_string() + &node_id;
+            println!("Request {node_request:?}");
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+            println!("Value {value:?}");
+            if !value.is_empty() {
+                let record_for_saving_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let split = record_for_saving_in_dht.split(",");
+                for bill_id in split {
+                    // Check if we have bill in folder.
+                    if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
+                    {
+                        // 2)GET
+                        println!("Look for bill {}", bill_id);
+                        let bill_bytes = self.get(bill_id.to_string()).await;
+
+                        // Wright bill in files.
+                        let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
+                        let bill_name = bill.name.clone();
+                        write_bill_to_file(&bill);
+
+                        println!("Bill {bill_name:?} was successfully saved.");
+                    }
+                }
+            }
+        }
+
+        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
+            //1) GET_RECORD
+            let node_request = "BILLS".to_string() + &node_id;
             let mut record_for_saving_in_dht = "".to_string();
             let mut list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
@@ -198,16 +230,13 @@ pub mod network {
             //2) PUT_RECORD
             self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
                 .await;
-
-            //3) PUT
-            self.put(bill_name).await;
         }
 
         pub async fn put(&mut self, name: &String) {
             self.start_providing(name.clone()).await;
         }
 
-        pub async fn get(&mut self, name: String) {
+        pub async fn get(&mut self, name: String) -> Vec<u8> {
             // Locate all nodes providing the file.
             let providers = self.get_providers(name.clone()).await;
             if providers.is_empty() {
@@ -231,11 +260,7 @@ pub mod network {
                 .expect("Can not get file content.")
                 .0;
 
-            let bill: BitcreditBill = bill_from_byte_array(&file_content);
-            let bill_name = bill.name.clone();
-            write_bill_to_file(&bill);
-
-            println!("Bill {bill_name:?} was successfully saved.");
+            file_content
         }
 
         /// Dial the given peer at the given address.
@@ -319,8 +344,12 @@ pub mod network {
                 Event::InboundRequest { request, channel } => {
                     //The place where we explicitly specify to look for the bill is in the bills folder.
                     println!("{request:?}");
-                    self.respond_file(std::fs::read(&request).expect("Can not respond."), channel)
-                        .await;
+                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
+                    self.respond_file(
+                        std::fs::read(&path_to_bill).expect("Can not respond."),
+                        channel,
+                    )
+                    .await;
                 }
 
                 _ => {}

@@ -3,9 +3,9 @@ use self::handlebars::{Handlebars, JsonRender};
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
 use crate::dht::network::Client;
 use crate::{
-    create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file,
-    read_identity_from_file, read_peer_id_from_file, BitcreditBill, BitcreditBillForm,
-    FindBillForm, Identity, IdentityForm, IdentityWithAll,
+    bill_from_byte_array, create_whole_identity, get_whole_identity, issue_new_bill,
+    read_bill_from_file, read_identity_from_file, read_peer_id_from_file, write_bill_to_file,
+    BitcreditBill, BitcreditBillForm, FindBillForm, Identity, IdentityForm, IdentityWithAll,
 };
 
 use chrono::{Days, Utc};
@@ -141,12 +141,11 @@ pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm
 
         let mut client = state.inner().clone();
 
-        //TODO bad.
-        let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &bill_name;
+        let bill_bytes = client.get(bill_name).await;
+        let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
+        write_bill_to_file(&bill);
 
-        client.get(path_to_bill).await;
-
-        let bill: BitcreditBill = read_bill_from_file(&bill.bill_name);
+        let bill: BitcreditBill = read_bill_from_file(&bill.name);
 
         Template::render(
             "hbs/bill",
@@ -210,6 +209,8 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         for node in nodes {
             client.add_bill_to_dht(&bill_name, node).await;
         }
+
+        client.put(&bill_name).await;
 
         let bill: BitcreditBill = read_bill_from_file(&bill.name);
 
