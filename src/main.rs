@@ -38,7 +38,8 @@ async fn main() {
 
     if Path::new(IDENTITY_PEER_ID_FILE_PATH).exists() {
         let local_peer_id = read_peer_id_from_file();
-        dht.check_new_bills_when_login(local_peer_id.to_string()).await;
+        dht.check_new_bills_when_login(local_peer_id.to_string())
+            .await;
     }
 
     let rocket = rocket_main(dht).launch().await.unwrap();

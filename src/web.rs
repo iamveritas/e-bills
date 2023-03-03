@@ -130,6 +130,7 @@ pub async fn search_bill() -> Template {
     }
 }
 
+//TODO fix.
 #[post("/find", data = "<bill_form>")]
 pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm>) -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
@@ -204,7 +205,8 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         let local_peer_id = read_peer_id_from_file().to_string();
 
         //TODO: this will be as a parameter, we will hold it.
-        let nodes: [String; 3] = ["node1".to_string(), "node2".to_string(), local_peer_id];
+        let test_ubuntu_node = "12D3KooWNz82YDebz81ZuRHoLWCkXEkViak6PpkVSyYyta2Foord";
+        let nodes: [String; 2] = [test_ubuntu_node.to_string(), local_peer_id];
 
         for node in nodes {
             client.add_bill_to_dht(&bill_name, node).await;

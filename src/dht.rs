@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWRK7zn44b7DBJzH23WrTzibXPVwUS5KSuiFivxQsz5ra5";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/36465";
+const BOOTSTRAP_NODE: &str = "12D3KooWA4qkuc1Vj5t7GdPkiRoF7q5fw8kAzg4aFkBPDApG2uh7";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/36623";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -65,13 +65,14 @@ enum CliArgument {
 pub mod network {
     use super::*;
     use crate::constants::BILLS_FOLDER_PATH;
-    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
+    use crate::{read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill};
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
     use futures::channel::{mpsc, oneshot};
     use futures::io::Lines;
     use futures::stream::Fuse;
+    use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::kad::record::{Key, Record};
@@ -91,6 +92,7 @@ pub mod network {
     use std::path::Path;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
+        //TODO: If its first time login?
         let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
         let local_peer_id = read_peer_id_from_file();
@@ -187,7 +189,6 @@ pub mod network {
             println!("Request {node_request:?}");
             let mut list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
-            println!("Value {value:?}");
             if !value.is_empty() {
                 let record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
@@ -202,11 +203,11 @@ pub mod network {
                         let bill_bytes = self.get(bill_id.to_string()).await;
 
                         // Wright bill in files.
-                        let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
-                        let bill_name = bill.name.clone();
-                        write_bill_to_file(&bill);
-
-                        println!("Bill {bill_name:?} was successfully saved.");
+                        if !bill_bytes.is_empty() {
+                            let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
+                            bill.name.clone();
+                            write_bill_to_file(&bill);
+                        }
                     }
                 }
             }
@@ -241,26 +242,29 @@ pub mod network {
             let providers = self.get_providers(name.clone()).await;
             if providers.is_empty() {
                 eprintln!("No providers was found.");
+                Vec::new()
             } else {
                 println!("Providers {providers:?}");
+
+                // Request the content of the file from each node.
+                //TODO: if it's me - don't continue.
+                let requests = providers.into_iter().map(|peer| {
+                    let mut network_client = self.clone();
+                    let name = name.clone();
+                    async move { network_client.request_file(peer, name).await }.boxed()
+                });
+
+                // Await the requests, ignore the remaining once a single one succeeds.
+                let file_content = futures::future::select_ok(requests)
+                    .await
+                    .map_err(|_| "None of the providers returned file.")
+                    .expect("Can not get file content.")
+                    .0;
+
+                println!("{file_content:?}");
+
+                file_content
             }
-
-            // Request the content of the file from each node.
-            //TODO: if it's me - don't continue.
-            let requests = providers.into_iter().map(|peer| {
-                let mut network_client = self.clone();
-                let name = name.clone();
-                async move { network_client.request_file(peer, name).await }.boxed()
-            });
-
-            // Await the requests, ignore the remaining once a single one succeeds.
-            let file_content = futures::future::select_ok(requests)
-                .await
-                .map_err(|_| "None of the providers returned file.")
-                .expect("Can not get file content.")
-                .0;
-
-            file_content
         }
 
         /// Dial the given peer at the given address.
@@ -371,8 +375,7 @@ pub mod network {
                             }
                         }
                     };
-
-                    self.start_providing(name.clone()).await;
+                    self.put(&name).await;
                 }
 
                 Some("GET") => {
@@ -385,35 +388,8 @@ pub mod network {
                             }
                         }
                     };
-
-                    // Locate all nodes providing the file.
-                    let providers = self.get_providers(name.clone()).await;
-                    if providers.is_empty() {
-                        eprintln!("No providers was found.");
-                    } else {
-                        println!("Providers {providers:?}");
-                    }
-
-                    // Request the content of the file from each node.
-                    //TODO: if it's me - don't continue.
-                    let requests = providers.into_iter().map(|peer| {
-                        let mut network_client = self.clone();
-                        let name = name.clone();
-                        async move { network_client.request_file(peer, name).await }.boxed()
-                    });
-
-                    // Await the requests, ignore the remaining once a single one succeeds.
-                    let file_content = futures::future::select_ok(requests)
-                        .await
-                        .map_err(|_| "None of the providers returned file.")
-                        .expect("Can not get file content.")
-                        .0;
-
-                    let bill: BitcreditBill = bill_from_byte_array(&file_content);
-                    let bill_name = bill.name.clone();
-                    write_bill_to_file(&bill);
-
-                    println!("Bill {bill_name:?} was successfully saved.");
+                    self.get(name).await;
+                    println!("Bill was successfully saved.");
                 }
 
                 Some("PUT_RECORD") => {
@@ -466,7 +442,7 @@ pub mod network {
                 }
 
                 _ => {
-                    eprintln!("expected GET or PUT.");
+                    eprintln!("expected GET, PUT, GET_RECORD, PUT_RECORD or GET_PROVIDERS.");
                 }
             }
         }
@@ -520,9 +496,9 @@ pub mod network {
             event: SwarmEvent<
                 ComposedEvent,
                 //TODO: change to normal error type.
-                rocket::Either<
-                    rocket::Either<ConnectionHandlerUpgrErr<io::Error>, io::Error>,
-                    io::Error,
+                EitherError<
+                    EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
+                    std::io::Error,
                 >,
             >,
         ) {
