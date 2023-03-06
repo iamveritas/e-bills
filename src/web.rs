@@ -122,36 +122,22 @@ pub async fn get_bill(id: String) -> Template {
 }
 
 #[get("/dht")]
-pub async fn search_bill() -> Template {
+pub async fn search_bill(state: &State<Client>) -> Template {
     if !Path::new(IDENTITY_FOLDER_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        Template::render("hbs/search_bill", context! {})
-    }
-}
-
-//TODO fix.
-#[post("/find", data = "<bill_form>")]
-pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm>) -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
-    } else {
-        let bill: FindBillForm = bill_form.into_inner();
-
-        let bill_name: String = bill.bill_name.clone();
-
         let mut client = state.inner().clone();
+        let local_peer_id = read_peer_id_from_file();
+        client.check_new_bills(local_peer_id.to_string()).await;
 
-        let bill_bytes = client.get(bill_name).await;
-        let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
-        write_bill_to_file(&bill);
-
-        let bill: BitcreditBill = read_bill_from_file(&bill.name);
+        let bills = bills();
+        let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
-            "hbs/bill",
+            "hbs/home",
             context! {
-                bill: Some(bill),
+                identity: Some(identity.identity),
+                bills: bills,
             },
         )
     }

@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWA4qkuc1Vj5t7GdPkiRoF7q5fw8kAzg4aFkBPDApG2uh7";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/36623";
+const BOOTSTRAP_NODE: &str = "12D3KooWJcsM6LbxKux4yMw7WHUNgBARnnB1z3eYqU47YkbaxeBX";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/44701";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -183,7 +183,7 @@ pub mod network {
             }
         }
 
-        pub async fn check_new_bills_when_login(&mut self, node_id: String) {
+        pub async fn check_new_bills(&mut self, node_id: String) {
             //1) GET_RECORD
             let node_request = "BILLS".to_string() + &node_id;
             println!("Request {node_request:?}");
