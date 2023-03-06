@@ -3,9 +3,9 @@ use self::handlebars::{Handlebars, JsonRender};
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
 use crate::dht::network::Client;
 use crate::{
-    bill_from_byte_array, create_whole_identity, get_whole_identity, issue_new_bill,
-    read_bill_from_file, read_identity_from_file, read_peer_id_from_file, write_bill_to_file,
-    BitcreditBill, BitcreditBillForm, FindBillForm, Identity, IdentityForm, IdentityWithAll,
+    add_in_contacts_map, create_whole_identity, get_whole_identity, issue_new_bill,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    BitcreditBill, BitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
 };
 
 use chrono::{Days, Utc};
@@ -190,9 +190,10 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
 
         let local_peer_id = read_peer_id_from_file().to_string();
 
-        //TODO: this will be as a parameter, we will hold it.
-        let test_ubuntu_node = "12D3KooWNz82YDebz81ZuRHoLWCkXEkViak6PpkVSyYyta2Foord";
-        let nodes: [String; 2] = [test_ubuntu_node.to_string(), local_peer_id];
+        let map = read_contacts_map();
+        //TODO what to do if we cant find it.
+        let node1 = map.get(&bill.drawee_name).expect("Contact not found");
+        let nodes: [String; 2] = [local_peer_id, node1.clone()];
 
         for node in nodes {
             client.add_bill_to_dht(&bill_name, node).await;
@@ -206,6 +207,48 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
             "hbs/bill",
             context! {
                 bill: Some(bill),
+            },
+        )
+    }
+}
+
+#[get("/add")]
+pub async fn add_contact() -> Template {
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        Template::render("hbs/new_contact", context! {})
+    }
+}
+
+#[post("/new", data = "<new_contact_form>")]
+pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Template {
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let map = add_in_contacts_map(
+            new_contact_form.name.clone(),
+            new_contact_form.node_id.clone(),
+        );
+        Template::render(
+            "hbs/contacts",
+            context! {
+                contacts: map,
+            },
+        )
+    }
+}
+
+#[get("/")]
+pub async fn contacts() -> Template {
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let contacts = read_contacts_map();
+        Template::render(
+            "hbs/contacts",
+            context! {
+                contacts: contacts,
             },
         )
     }

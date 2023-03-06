@@ -8,8 +8,9 @@ mod test;
 mod web;
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
-    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
+    CONTACT_MAP_FOLDER_PATH, CONTACT_MAP_PATH, DHT_FILE_PATH, DHT_FOLDER_PATH,
+    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH,
 };
 use crate::numbers_to_words::encode;
@@ -28,6 +29,7 @@ use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
+use std::collections::HashMap;
 use std::path::Path;
 use std::{fs, mem};
 
@@ -61,6 +63,10 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])
         .mount(
+            "/contacts",
+            routes![web::add_contact, web::new_contact, web::contacts],
+        )
+        .mount(
             "/bill",
             routes![
                 web::get_bill,
@@ -75,6 +81,43 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
 }
 
 // CORE
+
+fn add_in_contacts_map(name: String, peer_id: String) -> HashMap<String, String> {
+    if !Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
+        create_contacts_map();
+    }
+    let mut contacts: HashMap<String, String> = read_contacts_map();
+    contacts.insert(name, peer_id);
+    write_contacts_map(contacts)
+}
+
+fn create_contacts_map() -> HashMap<String, String> {
+    if !Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
+        fs::create_dir(CONTACT_MAP_FOLDER_PATH).expect("Can't create folder contacts.");
+    }
+    let mut contacts: HashMap<String, String> = HashMap::new();
+    write_contacts_map(contacts)
+}
+
+fn read_contacts_map() -> HashMap<String, String> {
+    if Path::new(CONTACT_MAP_PATH).exists() {
+        let data: Vec<u8> = fs::read(CONTACT_MAP_PATH).expect("Unable to read contacts.");
+        let mut contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+        contacts
+    } else {
+        create_contacts_map()
+    }
+}
+
+fn write_contacts_map(map: HashMap<String, String>) -> HashMap<String, String> {
+    if Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
+        let contacts_byte = map.try_to_vec().unwrap();
+        fs::write(CONTACT_MAP_PATH, contacts_byte).expect("Unable to write peer id in file.");
+        map
+    } else {
+        create_contacts_map()
+    }
+}
 
 fn generation_rsa_key() -> Rsa<Private> {
     Rsa::generate(2048).unwrap()
@@ -220,17 +263,6 @@ pub struct Identity {
     postal_address: String,
     public_key_pem: String,
     private_key_pem: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct IdentityForm {
-    name: String,
-    date_of_birth: String,
-    city_of_birth: String,
-    country_of_birth: String,
-    email: String,
-    postal_address: String,
 }
 
 pub fn get_whole_identity() -> IdentityWithAll {
@@ -552,6 +584,18 @@ pub struct BitcreditBillForm {
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
-pub struct FindBillForm {
-    pub bill_name: String,
+pub struct IdentityForm {
+    name: String,
+    date_of_birth: String,
+    city_of_birth: String,
+    country_of_birth: String,
+    email: String,
+    postal_address: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct NewContactForm {
+    pub name: String,
+    pub node_id: String,
 }

@@ -74,6 +74,7 @@ pub mod network {
     use futures::stream::Fuse;
     use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
+    use libp2p::development_transport;
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
@@ -86,7 +87,6 @@ pub mod network {
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::{development_transport, identity, tokio_development_transport};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::iter;
     use std::path::Path;
