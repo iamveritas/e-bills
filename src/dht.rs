@@ -10,8 +10,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWQCQqiX8fwrWpsjUDoKa7nt95Nwx3W5AV3vJifwDWssGR";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.27.106.82/tcp/35415";
+const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2Bhr";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/45.147.248.87/tcp/22745";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
@@ -88,8 +88,8 @@ pub mod network {
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
     use std::collections::{hash_map, HashMap, HashSet};
-    use std::iter;
     use std::path::Path;
+    use std::{fs, iter};
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
         //TODO: If its first time login?
@@ -209,6 +209,46 @@ pub mod network {
                             write_bill_to_file(&bill);
                         }
                     }
+                }
+            }
+        }
+
+        pub async fn upgrade_table(&mut self, node_id: String) {
+            let node_request = "BILLS".to_string() + &node_id;
+            println!("Request {node_request:?}");
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+            if !value.is_empty() {
+                let record_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let mut new_record: String = record_in_dht.clone();
+                for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    println!("{}", bill_name);
+                    if !record_in_dht.contains(&bill_name) {
+                        new_record += (",".to_string() + &bill_name.clone()).as_str();
+                        self.put(&bill_name).await;
+                    }
+                }
+                if !record_in_dht.eq(&new_record) {
+                    self.put_record(node_request.clone(), new_record).await;
+                }
+            } else {
+                let mut new_record: String = "".to_string();
+                for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    println!("{}", bill_name);
+                    if new_record.is_empty() {
+                        new_record = bill_name.clone();
+                        self.put(&bill_name).await;
+                    } else {
+                        new_record += (",".to_string() + &bill_name.clone()).as_str();
+                        self.put(&bill_name).await;
+                    }
+                }
+                if !new_record.is_empty() {
+                    self.put_record(node_request.clone(), new_record).await;
                 }
             }
         }
