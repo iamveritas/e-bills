@@ -45,9 +45,6 @@ async fn main() {
     }
 
     let rocket = rocket_main(dht).launch().await.unwrap();
-
-    //TODO: how to stay program online without it.
-    loop {}
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
