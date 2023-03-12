@@ -7,9 +7,9 @@ const COPY_DIR: [&'static str; 6] = ["css", "identity", "image", "contacts", "te
 
 /// A helper function for recursively copying a directory.
 fn copy_dir<P, Q>(from: P, to: Q)
-    where
-        P: AsRef<Path>,
-        Q: AsRef<Path>,
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
 {
     let to = to.as_ref().to_path_buf();
 
@@ -31,6 +31,7 @@ fn copy_dir<P, Q>(from: P, to: Q)
 }
 
 fn main() {
+    init_folders();
     let out = env::var("PROFILE").unwrap();
     for dir in COPY_DIR {
         let out = PathBuf::from(format!("target/{}/{}", out, dir));
@@ -45,5 +46,26 @@ fn main() {
 
         // Copy the directory
         copy_dir(dir, &out);
+    }
+}
+
+fn init_folders() {
+    if !Path::new("contacts").exists() {
+        fs::create_dir("contacts").expect("Can't create folder contacts.");
+    }
+    if !Path::new("identity").exists() {
+        fs::create_dir("identity").expect("Can't create folder identity.");
+    }
+    if !Path::new("bills").exists() {
+        fs::create_dir("bills").expect("Can't create folder identity.");
+    }
+    if !Path::new("css").exists() {
+        fs::create_dir("css").expect("Can't create folder identity.");
+    }
+    if !Path::new("image").exists() {
+        fs::create_dir("image").expect("Can't create folder identity.");
+    }
+    if !Path::new("templates").exists() {
+        fs::create_dir("templates").expect("Can't create folder identity.");
     }
 }

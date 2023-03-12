@@ -9,9 +9,9 @@ mod web;
 
 use crate::constants::{
     BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
-    CONTACT_MAP_FOLDER_PATH, CONTACT_MAP_PATH, DHT_FILE_PATH, DHT_FOLDER_PATH,
+    CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH, CSS_FOLDER_PATH,
     IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
-    IDENTITY_PEER_ID_FILE_PATH,
+    IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
 
@@ -51,8 +51,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
     rocket::build()
         .register("/", catchers![web::not_found])
         .manage(dht)
-        .mount("/image", FileServer::from("image"))
-        .mount("/css", FileServer::from("css"))
+        .mount("/image", FileServer::from(IMAGE_FOLDER_PATH))
+        .mount("/css", FileServer::from(CSS_FOLDER_PATH))
         .mount("/", routes![web::start])
         .mount(
             "/identity",
@@ -98,8 +98,8 @@ fn create_contacts_map() -> HashMap<String, String> {
 }
 
 fn read_contacts_map() -> HashMap<String, String> {
-    if Path::new(CONTACT_MAP_PATH).exists() {
-        let data: Vec<u8> = fs::read(CONTACT_MAP_PATH).expect("Unable to read contacts.");
+    if Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
         let mut contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
         contacts
     } else {
@@ -110,7 +110,7 @@ fn read_contacts_map() -> HashMap<String, String> {
 fn write_contacts_map(map: HashMap<String, String>) -> HashMap<String, String> {
     if Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
         let contacts_byte = map.try_to_vec().unwrap();
-        fs::write(CONTACT_MAP_PATH, contacts_byte).expect("Unable to write peer id in file.");
+        fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
         map
     } else {
         create_contacts_map()
@@ -374,17 +374,6 @@ fn write_peer_id_to_file(peer_id: &PeerId) {
     fs::write(IDENTITY_PEER_ID_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
 }
 
-fn write_dht_to_file(dht: &Kademlia<MemoryStore>) {
-    let data: &[u8] = unsafe { structure_as_u8_slice(dht) };
-    let data_sized = byte_array_to_size_array_dht(data);
-
-    if !Path::new(DHT_FOLDER_PATH).exists() {
-        fs::create_dir(DHT_FOLDER_PATH).expect("Can't create folder peer id");
-    }
-
-    fs::write(DHT_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
-}
-
 fn read_identity_from_file() -> Identity {
     let data: Vec<u8> = fs::read(IDENTITY_FILE_PATH).expect("Unable to read file identity");
     identity_from_byte_array(&data)
@@ -404,13 +393,6 @@ fn read_peer_id_from_file() -> PeerId {
     let peer_id_bytes_sized = byte_array_to_size_array_peer_id(data.as_slice());
     let peer_id: PeerId = unsafe { mem::transmute_copy(peer_id_bytes_sized) };
     peer_id
-}
-
-fn read_dht_from_file() -> Kademlia<MemoryStore> {
-    let data: Vec<u8> = fs::read(DHT_FILE_PATH).expect("Unable to read file with dht");
-    let dht_bytes_sized = byte_array_to_size_array_dht(data.as_slice());
-    let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
-    dht
 }
 
 fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
