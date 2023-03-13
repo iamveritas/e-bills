@@ -44,7 +44,10 @@ async fn main() {
         dht.upgrade_table(local_peer_id.to_string().clone()).await;
     }
 
-    let rocket = rocket_main(dht).launch().await.unwrap();
+    let rocket = rocket_main(dht).launch().await;
+
+    let browser = open::that("http://127.0.0.1:8000/home").expect("");
+    rocket.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
