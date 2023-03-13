@@ -31,6 +31,7 @@ use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::path::Path;
+use std::thread::sleep;
 use std::{fs, mem};
 
 // MAIN
@@ -44,13 +45,22 @@ async fn main() {
         dht.upgrade_table(local_peer_id.to_string().clone()).await;
     }
 
-    let rocket = rocket_main(dht).launch().await;
+    let rocket = rocket_main(dht).await;
 
-    let browser = open::that("http://127.0.0.1:8000/home").expect("");
-    rocket.unwrap();
+    rocket.launch().await.unwrap();
 }
 
-fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
+async fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
+    let rocket_build = rocketa(dht).await;
+    open().await;
+    rocket_build
+}
+
+async fn open() {
+    open::that("http://127.0.0.1:8000").unwrap();
+}
+
+async fn rocketa(dht: dht::network::Client) -> Rocket<Build> {
     rocket::build()
         .register("/", catchers![web::not_found])
         .manage(dht)
