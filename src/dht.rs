@@ -1,13 +1,14 @@
-use crate::{bill_from_byte_array, write_bill_to_file};
+use std::error::Error;
+use std::path::PathBuf;
 
-use crate::dht::network::Client;
 use async_std::io;
 use async_std::task::spawn;
 use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
-use std::error::Error;
-use std::path::PathBuf;
+
+use crate::dht::network::Client;
+use crate::{bill_from_byte_array, write_bill_to_file};
 
 // TODO: take bootstrap node info from config file.
 const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2Bhr";
@@ -18,6 +19,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
         .await
         .expect("Can not to create network module in dht.");
 
+    //Need for testing from console.
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
@@ -63,9 +65,10 @@ enum CliArgument {
 }
 
 pub mod network {
-    use super::*;
-    use crate::constants::BILLS_FOLDER_PATH;
-    use crate::{read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill};
+    use std::collections::{hash_map, HashMap, HashSet};
+    use std::path::Path;
+    use std::{fs, iter};
+
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -87,19 +90,28 @@ pub mod network {
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use std::collections::{hash_map, HashMap, HashSet};
-    use std::path::Path;
-    use std::{fs, iter};
+
+    use crate::constants::{
+        BILLS_FOLDER_PATH, BILLS_PREFIX, IDENTITY_ED_25529_KEYS_FILE_PATH,
+        IDENTITY_PEER_ID_FILE_PATH,
+    };
+    use crate::{
+        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill,
+    };
+
+    use super::*;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        //TODO: If its first time login?
+        //We generate peer_id and keypair.
+        if !Path::new(IDENTITY_PEER_ID_FILE_PATH).exists()
+            && !Path::new(IDENTITY_ED_25529_KEYS_FILE_PATH).exists()
+        {
+            generate_dht_logic();
+        }
+
         let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
         let local_peer_id = read_peer_id_from_file();
-
-        // let local_key = identity::Keypair::generate_ed25519();
-        // let key_copy = local_key.clone();
-        // let local_peer_id = PeerId::from(local_key.public());
 
         println!("Local peer id: {local_peer_id:?}");
 
@@ -184,25 +196,20 @@ pub mod network {
         }
 
         pub async fn check_new_bills(&mut self, node_id: String) {
-            //1) GET_RECORD
-            let node_request = "BILLS".to_string() + &node_id;
-            println!("Request {node_request:?}");
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
             let mut list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
+
             if !value.is_empty() {
                 let record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
                 let split = record_for_saving_in_dht.split(",");
                 for bill_id in split {
-                    // Check if we have bill in folder.
                     if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
                     {
-                        // 2)GET
-                        println!("Look for bill {}", bill_id);
                         let bill_bytes = self.get(bill_id.to_string()).await;
 
-                        // Wright bill in files.
                         if !bill_bytes.is_empty() {
                             let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
                             bill.name.clone();
@@ -214,18 +221,19 @@ pub mod network {
         }
 
         pub async fn upgrade_table(&mut self, node_id: String) {
-            let node_request = "BILLS".to_string() + &node_id;
-            println!("Request {node_request:?}");
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
             let mut list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
+
             if !value.is_empty() {
                 let record_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
                 let mut new_record: String = record_in_dht.clone();
+
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
                     let bill_name = file.unwrap().file_name().into_string().unwrap();
-                    println!("{}", bill_name);
+
                     if !record_in_dht.contains(&bill_name) {
                         new_record += (",".to_string() + &bill_name.clone()).as_str();
                         self.put(&bill_name).await;
@@ -238,7 +246,6 @@ pub mod network {
                 let mut new_record: String = "".to_string();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
                     let bill_name = file.unwrap().file_name().into_string().unwrap();
-                    println!("{}", bill_name);
                     if new_record.is_empty() {
                         new_record = bill_name.clone();
                         self.put(&bill_name).await;
@@ -254,8 +261,7 @@ pub mod network {
         }
 
         pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
-            //1) GET_RECORD
-            let node_request = "BILLS".to_string() + &node_id;
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
             let mut record_for_saving_in_dht = "".to_string();
             let mut list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
@@ -268,7 +274,6 @@ pub mod network {
                 record_for_saving_in_dht = bill_name.clone();
             }
 
-            //2) PUT_RECORD
             self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
                 .await;
         }
@@ -278,51 +283,26 @@ pub mod network {
         }
 
         pub async fn get(&mut self, name: String) -> Vec<u8> {
-            // Locate all nodes providing the file.
             let providers = self.get_providers(name.clone()).await;
             if providers.is_empty() {
                 eprintln!("No providers was found.");
                 Vec::new()
             } else {
-                println!("Providers {providers:?}");
-
-                // Request the content of the file from each node.
-                //TODO: if it's me - don't continue.
+                //TODO: If it's me - don't continue.
                 let requests = providers.into_iter().map(|peer| {
                     let mut network_client = self.clone();
                     let name = name.clone();
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
-                // Await the requests, ignore the remaining once a single one succeeds.
                 let file_content = futures::future::select_ok(requests)
                     .await
                     .map_err(|_| "None of the providers returned file.")
                     .expect("Can not get file content.")
                     .0;
 
-                println!("{file_content:?}");
-
                 file_content
             }
-        }
-
-        /// Dial the given peer at the given address.
-        async fn dial(
-            &mut self,
-            peer_id: PeerId,
-            peer_addr: Multiaddr,
-        ) -> Result<(), Box<dyn Error + Send>> {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::Dial {
-                    peer_id,
-                    peer_addr,
-                    sender,
-                })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not to be dropped.")
         }
 
         async fn put_record(&mut self, key: String, value: String) {
@@ -386,8 +366,6 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    //The place where we explicitly specify to look for the bill is in the bills folder.
-                    println!("{request:?}");
                     let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
                     self.respond_file(
                         std::fs::read(&path_to_bill).expect("Can not respond."),
@@ -400,7 +378,7 @@ pub mod network {
             }
         }
 
-        //TODO: dont delete. Need for testing.
+        //TODO: dont delete. Need for testing from console.
         async fn handle_input_line(&mut self, line: String) {
             let mut args = line.split(' ');
 
@@ -794,10 +772,6 @@ pub mod network {
                     println!("{event:?}")
                 }
 
-                SwarmEvent::Dialing(peer_id) => {
-                    println!("Dialing {peer_id}")
-                }
-
                 SwarmEvent::Behaviour(event) => {
                     println!("New event");
                     println!("{event:?}")
@@ -839,7 +813,7 @@ pub mod network {
                         .swarm
                         .behaviour_mut()
                         .kademlia
-                        //TODO: what quorum use.
+                        //TODO: what quorum use?
                         .put_record(record, Quorum::All)
                         .expect("Can not provide.");
                 }
@@ -990,10 +964,13 @@ pub mod network {
 
     #[derive(Debug, Clone)]
     struct FileExchangeProtocol();
+
     #[derive(Clone)]
     struct FileExchangeCodec();
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct FileRequest(String);
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FileResponse(Vec<u8>);
 
