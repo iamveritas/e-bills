@@ -1,18 +1,9 @@
 #[macro_use]
 extern crate rocket;
 
-mod constants;
-mod dht;
-mod numbers_to_words;
-mod test;
-mod web;
-
-use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO, DHT_FILE_PATH,
-    DHT_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
-    IDENTITY_PEER_ID_FILE_PATH,
-};
-use crate::numbers_to_words::encode;
+use std::collections::HashMap;
+use std::path::Path;
+use std::{fs, mem};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
@@ -28,26 +19,41 @@ use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
-use std::path::Path;
-use std::{fs, mem};
+
+use crate::constants::{
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
+    CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH, CSS_FOLDER_PATH,
+    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
+};
+use crate::numbers_to_words::encode;
+
+mod constants;
+mod dht;
+mod numbers_to_words;
+mod test;
+mod web;
 
 // MAIN
 #[rocket::main]
 async fn main() {
+    init_folders();
+
     let mut dht = dht::dht_main().await.unwrap();
 
-    let rocket = rocket_main(dht).launch().await.unwrap();
+    let local_peer_id = read_peer_id_from_file();
+    dht.check_new_bills(local_peer_id.to_string().clone()).await;
+    dht.upgrade_table(local_peer_id.to_string().clone()).await;
 
-    //TODO: how to stay program online without it.
-    loop {}
+    let rocket = rocket_main(dht).launch().await.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
-    rocket::build()
+    let rocket = rocket::build()
         .register("/", catchers![web::not_found])
         .manage(dht)
-        .mount("/image", FileServer::from("image"))
-        .mount("/css", FileServer::from("css"))
+        .mount("/image", FileServer::from(IMAGE_FOLDER_PATH))
+        .mount("/css", FileServer::from(CSS_FOLDER_PATH))
         .mount("/", routes![web::start])
         .mount(
             "/identity",
@@ -56,21 +62,77 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])
         .mount(
+            "/contacts",
+            routes![web::add_contact, web::new_contact, web::contacts],
+        )
+        .mount(
             "/bill",
             routes![
                 web::get_bill,
                 web::issue_bill,
                 web::new_bill,
-                web::search_bill_dht,
                 web::search_bill
             ],
         )
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
-        }))
+        }));
+
+    //Sometime not work.
+    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+
+    rocket
 }
 
-// CORE
+fn init_folders() {
+    if !Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
+        fs::create_dir(CONTACT_MAP_FOLDER_PATH).expect("Can't create folder contacts.");
+    }
+    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+        fs::create_dir(IDENTITY_FOLDER_PATH).expect("Can't create folder identity.");
+    }
+    if !Path::new(BILLS_FOLDER_PATH).exists() {
+        fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills.");
+    }
+    if !Path::new(CSS_FOLDER_PATH).exists() {
+        fs::create_dir(CSS_FOLDER_PATH).expect("Can't create folder css.");
+    }
+    if !Path::new(IMAGE_FOLDER_PATH).exists() {
+        fs::create_dir(IMAGE_FOLDER_PATH).expect("Can't create folder image.");
+    }
+    if !Path::new(TEMPLATES_FOLDER_PATH).exists() {
+        fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
+    }
+}
+
+fn add_in_contacts_map(name: String, peer_id: String) {
+    if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        create_contacts_map();
+    }
+    let mut contacts: HashMap<String, String> = read_contacts_map();
+    contacts.insert(name, peer_id);
+    write_contacts_map(contacts);
+}
+
+fn create_contacts_map() {
+    let mut contacts: HashMap<String, String> = HashMap::new();
+    write_contacts_map(contacts);
+}
+
+fn read_contacts_map() -> HashMap<String, String> {
+    if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        create_contacts_map();
+    }
+    let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
+    let mut contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    contacts
+}
+
+fn write_contacts_map(map: HashMap<String, String>) {
+    let contacts_byte = map.try_to_vec().unwrap();
+    fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
+    map;
+}
 
 fn generation_rsa_key() -> Rsa<Private> {
     Rsa::generate(2048).unwrap()
@@ -196,15 +258,12 @@ unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
 }
 
-// IDENITY
-
 pub struct IdentityWithAll {
     identity: Identity,
     peer_id: PeerId,
     key_pair: Keypair,
 }
 
-// Private individuals or legal entities.
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct Identity {
@@ -216,17 +275,6 @@ pub struct Identity {
     postal_address: String,
     public_key_pem: String,
     private_key_pem: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct IdentityForm {
-    name: String,
-    date_of_birth: String,
-    city_of_birth: String,
-    country_of_birth: String,
-    email: String,
-    postal_address: String,
 }
 
 pub fn get_whole_identity() -> IdentityWithAll {
@@ -249,38 +297,36 @@ pub fn create_whole_identity(
     email: String,
     postal_address: String,
 ) -> IdentityWithAll {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        let identity = create_new_identity(
-            name,
-            date_of_birth,
-            city_of_birth,
-            country_of_birth,
-            email,
-            postal_address,
-        );
-        let ed25519_keys: Keypair = Keypair::generate_ed25519();
-        let peer_id: PeerId = ed25519_keys.public().to_peer_id();
+    let identity = create_new_identity(
+        name,
+        date_of_birth,
+        city_of_birth,
+        country_of_birth,
+        email,
+        postal_address,
+    );
 
-        write_peer_id_to_file(&peer_id);
-        write_ed25519_keypair_to_file(&ed25519_keys);
-        write_identity_to_file(&identity);
+    let ed25519_keys = read_ed25519_keypair_from_file();
+    let peer_id = read_peer_id_from_file();
 
-        IdentityWithAll {
-            identity,
-            peer_id,
-            key_pair: ed25519_keys,
-        }
-    } else {
-        let identity: Identity = read_identity_from_file();
-        let ed25519_keys: Keypair = read_ed25519_keypair_from_file();
-        let peer_id: PeerId = read_peer_id_from_file();
+    write_identity_to_file(&identity);
 
-        IdentityWithAll {
-            identity,
-            peer_id,
-            key_pair: ed25519_keys,
-        }
+    IdentityWithAll {
+        identity,
+        peer_id,
+        key_pair: ed25519_keys,
     }
+}
+
+pub fn generate_dht_logic() {
+    let ed25519_keys = Keypair::generate_ed25519();
+    let peer_id = ed25519_keys.public().to_peer_id();
+    write_dht_logic(&peer_id, &ed25519_keys);
+}
+
+fn write_dht_logic(peer_id: &PeerId, ed25519_keys: &Keypair) {
+    write_peer_id_to_file(peer_id);
+    write_ed25519_keypair_to_file(ed25519_keys);
 }
 
 fn create_new_identity(
@@ -309,22 +355,12 @@ fn create_new_identity(
 
 fn write_identity_to_file(identity: &Identity) {
     let data: Vec<u8> = identity_to_byte_array(identity);
-
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        fs::create_dir(IDENTITY_FOLDER_PATH).expect("Can't create folder identity.");
-    }
-
     fs::write(IDENTITY_FILE_PATH, data).expect("Unable to write file identity");
 }
 
 fn write_ed25519_keypair_to_file(ed25519_keys: &Keypair) {
     let data: &[u8] = unsafe { structure_as_u8_slice(ed25519_keys) };
     let data_sized = byte_array_to_size_array_keypair(data);
-
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        fs::create_dir(IDENTITY_FOLDER_PATH).expect("Can't create folder ed25519 keypair");
-    }
-
     fs::write(IDENTITY_ED_25529_KEYS_FILE_PATH, *data_sized)
         .expect("Unable to write keypair ed25519 in file");
 }
@@ -332,23 +368,7 @@ fn write_ed25519_keypair_to_file(ed25519_keys: &Keypair) {
 fn write_peer_id_to_file(peer_id: &PeerId) {
     let data: &[u8] = unsafe { structure_as_u8_slice(peer_id) };
     let data_sized = byte_array_to_size_array_peer_id(data);
-
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        fs::create_dir(IDENTITY_FOLDER_PATH).expect("Can't create folder peer id");
-    }
-
     fs::write(IDENTITY_PEER_ID_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
-}
-
-fn write_dht_to_file(dht: &Kademlia<MemoryStore>) {
-    let data: &[u8] = unsafe { structure_as_u8_slice(dht) };
-    let data_sized = byte_array_to_size_array_dht(data);
-
-    if !Path::new(DHT_FOLDER_PATH).exists() {
-        fs::create_dir(DHT_FOLDER_PATH).expect("Can't create folder peer id");
-    }
-
-    fs::write(DHT_FILE_PATH, *data_sized).expect("Unable to write peer id in file");
 }
 
 fn read_identity_from_file() -> Identity {
@@ -370,13 +390,6 @@ fn read_peer_id_from_file() -> PeerId {
     let peer_id_bytes_sized = byte_array_to_size_array_peer_id(data.as_slice());
     let peer_id: PeerId = unsafe { mem::transmute_copy(peer_id_bytes_sized) };
     peer_id
-}
-
-fn read_dht_from_file() -> Kademlia<MemoryStore> {
-    let data: Vec<u8> = fs::read(DHT_FILE_PATH).expect("Unable to read file with dht");
-    let dht_bytes_sized = byte_array_to_size_array_dht(data.as_slice());
-    let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
-    dht
 }
 
 fn identity_to_byte_array(identity: &Identity) -> Vec<u8> {
@@ -401,9 +414,6 @@ fn byte_array_to_size_array_peer_id(array: &[u8]) -> &[u8; ::std::mem::size_of::
     array.try_into().expect("slice with incorrect length")
 }
 
-// BILL
-
-// A cryptographic bill of exchange with future repayment.
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct BitcreditBill {
@@ -444,6 +454,7 @@ pub fn issue_new_bill(
     let rsa: Rsa<Private> = generation_rsa_key();
     let bill_name: String = create_bill_name(&rsa);
 
+    //This if need for no duplicate bill name.
     if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &bill_name).as_str()).exists() {
         issue_new_bill(
             bill_jurisdiction,
@@ -501,21 +512,16 @@ fn create_bill_name(rsa: &Rsa<Private>) -> String {
     let bill_name_hash: Vec<u8> = sha256(public_key_bytes.as_slice()).to_vec();
     let bill_name_hash: String = format!("{:?}", &bill_name_hash);
     let bill_name: String = clear_bill_name(bill_name_hash);
-
     bill_name
 }
 
 fn clear_bill_name(bill_name_hash: String) -> String {
     let bill_name: String = bill_name_hash.replace(", ", "").replace(['[', ']'], "");
-
     bill_name
 }
 
 fn write_bill_to_file(bill: &BitcreditBill) {
     let data: Vec<u8> = bill_to_byte_array(bill);
-    if !Path::new(BILLS_FOLDER_PATH).exists() {
-        fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills");
-    }
     let path: String = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;
     fs::write(path.as_str(), data).expect("Unable to write bill file");
 }
@@ -534,8 +540,6 @@ fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
 }
 
-//FORMS
-
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct BitcreditBillForm {
@@ -548,6 +552,18 @@ pub struct BitcreditBillForm {
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
-pub struct FindBillForm {
-    pub bill_name: String,
+pub struct IdentityForm {
+    name: String,
+    date_of_birth: String,
+    city_of_birth: String,
+    country_of_birth: String,
+    email: String,
+    postal_address: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct NewContactForm {
+    pub name: String,
+    pub node_id: String,
 }

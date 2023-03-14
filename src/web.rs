@@ -1,23 +1,24 @@
-use self::handlebars::{Handlebars, JsonRender};
-
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FOLDER_PATH};
-use crate::dht::network::Client;
-use crate::{
-    create_whole_identity, get_whole_identity, issue_new_bill, read_bill_from_file,
-    read_identity_from_file, BitcreditBill, BitcreditBillForm, FindBillForm, Identity,
-    IdentityForm, IdentityWithAll,
-};
+use std::fs;
+use std::path::Path;
 
 use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
-use std::fs;
-use std::path::Path;
+
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
+use crate::dht::network::Client;
+use crate::{
+    add_in_contacts_map, create_whole_identity, get_whole_identity, issue_new_bill,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    BitcreditBill, BitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
+};
+
+use self::handlebars::{Handlebars, JsonRender};
 
 #[get("/")]
 pub async fn start() -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
         let bills = bills();
@@ -40,11 +41,12 @@ pub async fn info() -> Template {
 
 #[get("/")]
 pub async fn get_identity() -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
         let identity: IdentityWithAll = get_whole_identity();
         let peer_id = identity.peer_id.to_string();
+
         Template::render(
             "hbs/identity",
             context! {
@@ -80,7 +82,7 @@ pub async fn create_identity(identity_form: Form<IdentityForm>) -> Template {
 
 #[get("/")]
 pub async fn bills_list() -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
         let bills = bills();
@@ -96,7 +98,7 @@ pub async fn bills_list() -> Template {
 
 #[get("/<id>")]
 pub async fn get_bill(id: String) -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id).as_str()).exists() {
         let bill: BitcreditBill = read_bill_from_file(&id);
@@ -122,33 +124,22 @@ pub async fn get_bill(id: String) -> Template {
 }
 
 #[get("/dht")]
-pub async fn search_bill() -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+pub async fn search_bill(state: &State<Client>) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        Template::render("hbs/search_bill", context! {})
-    }
-}
-
-#[post("/find", data = "<bill_form>")]
-pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm>) -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
-    } else {
-        let bill: FindBillForm = bill_form.into_inner();
-
-        let bill_name: String = bill.bill_name.clone();
-
         let mut client = state.inner().clone();
+        let local_peer_id = read_peer_id_from_file();
+        client.check_new_bills(local_peer_id.to_string()).await;
 
-        client.get(bill_name).await;
-
-        let bill: BitcreditBill = read_bill_from_file(&bill.bill_name);
+        let bills = bills();
+        let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
-            "hbs/bill",
+            "hbs/home",
             context! {
-                bill: Some(bill),
+                identity: Some(identity.identity),
+                bills: bills,
             },
         )
     }
@@ -156,7 +147,7 @@ pub async fn search_bill_dht(state: &State<Client>, bill_form: Form<FindBillForm
 
 #[get("/")]
 pub async fn new_bill() -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
         let identity: IdentityWithAll = get_whole_identity();
@@ -168,6 +159,7 @@ pub async fn new_bill() -> Template {
             .naive_local()
             .date()
             .to_string();
+
         Template::render(
             "hbs/new_bill",
             context! {
@@ -181,7 +173,7 @@ pub async fn new_bill() -> Template {
 
 #[post("/issue", data = "<bill_form>")]
 pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) -> Template {
-    if !Path::new(IDENTITY_FOLDER_PATH).exists() {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
         let bill: BitcreditBillForm = bill_form.into_inner();
@@ -196,10 +188,27 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         );
 
         let bill_name: String = bill.name.clone();
-
         let mut client = state.inner().clone();
+        let local_peer_id = read_peer_id_from_file().to_string();
 
-        client.put(bill_name).await;
+        let map = read_contacts_map();
+        let mut nodes = Vec::new();
+
+        nodes.push(local_peer_id);
+
+        let mut drawee = "";
+        if map.contains_key(&bill.drawee_name) {
+            drawee = map.get(&bill.drawee_name).expect("Contact not found");
+        }
+        if !drawee.is_empty() {
+            nodes.push(drawee.to_string());
+        }
+
+        for node in nodes {
+            client.add_bill_to_dht(&bill_name, node).await;
+        }
+
+        client.put(&bill_name).await;
 
         let bill: BitcreditBill = read_bill_from_file(&bill.name);
 
@@ -207,6 +216,48 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
             "hbs/bill",
             context! {
                 bill: Some(bill),
+            },
+        )
+    }
+}
+
+#[get("/add")]
+pub async fn add_contact() -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        Template::render("hbs/new_contact", context! {})
+    }
+}
+
+#[post("/new", data = "<new_contact_form>")]
+pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let map = add_in_contacts_map(
+            new_contact_form.name.clone(),
+            new_contact_form.node_id.clone(),
+        );
+        Template::render(
+            "hbs/contacts",
+            context! {
+                contacts: map,
+            },
+        )
+    }
+}
+
+#[get("/")]
+pub async fn contacts() -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let contacts = read_contacts_map();
+        Template::render(
+            "hbs/contacts",
+            context! {
+                contacts: contacts,
             },
         )
     }

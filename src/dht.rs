@@ -1,23 +1,25 @@
-use crate::{bill_from_byte_array, write_bill_to_file};
+use std::error::Error;
+use std::path::PathBuf;
 
-use crate::dht::network::Client;
 use async_std::io;
 use async_std::task::spawn;
 use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
-use std::error::Error;
-use std::path::PathBuf;
+
+use crate::dht::network::Client;
+use crate::{bill_from_byte_array, write_bill_to_file};
 
 // TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWBcg2rfbknTCNGcqLvrUXyAEh2Ybmu5o1FUm5rkWD95xr";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/172.20.77.78/tcp/35723";
+const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2Bhr";
+const BOOTSTRAP_ADDRESS: &str = "/ip4/45.147.248.87/tcp/22745";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, mut network_events, mut network_event_loop) = network::new()
         .await
         .expect("Can not to create network module in dht.");
 
+    //Need for testing from console.
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
@@ -63,9 +65,10 @@ enum CliArgument {
 }
 
 pub mod network {
-    use super::*;
-    use crate::constants::BILLS_FOLDER_PATH;
-    use crate::{BitcreditBill, read_ed25519_keypair_from_file, read_peer_id_from_file};
+    use std::collections::{hash_map, HashMap, HashSet};
+    use std::path::Path;
+    use std::{fs, iter};
+
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::mpsc::Receiver;
@@ -74,23 +77,42 @@ pub mod network {
     use futures::stream::Fuse;
     use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
+    use libp2p::development_transport;
     use libp2p::kad::record::store::MemoryStore;
-    use libp2p::kad::{GetProvidersOk, Kademlia, KademliaEvent, QueryId, QueryResult};
+    use libp2p::kad::record::{Key, Record};
+    use libp2p::kad::{
+        GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
+        PutRecordOk, QueryId, QueryResult, Quorum,
+    };
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::development_transport;
-    use std::collections::{hash_map, HashMap, HashSet};
-    use std::iter;
+
+    use crate::constants::{
+        BILLS_FOLDER_PATH, BILLS_PREFIX, IDENTITY_ED_25529_KEYS_FILE_PATH,
+        IDENTITY_PEER_ID_FILE_PATH,
+    };
+    use crate::{
+        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill,
+    };
+
+    use super::*;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
+        //We generate peer_id and keypair.
+        if !Path::new(IDENTITY_PEER_ID_FILE_PATH).exists()
+            && !Path::new(IDENTITY_ED_25529_KEYS_FILE_PATH).exists()
+        {
+            generate_dht_logic();
+        }
+
         let local_key = read_ed25519_keypair_from_file();
         let key_copy = local_key.clone();
-
         let local_peer_id = read_peer_id_from_file();
+
         println!("Local peer id: {local_peer_id:?}");
 
         let transport = development_transport(local_key).await?;
@@ -121,7 +143,7 @@ pub mod network {
                 .kademlia
                 .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
 
-            Swarm::with_threadpool_executor(transport, behaviour, local_peer_id)
+            Swarm::with_async_std_executor(transport, behaviour, local_peer_id)
         };
 
         swarm
@@ -173,54 +195,127 @@ pub mod network {
             }
         }
 
-        pub async fn put(&mut self, name: String) {
+        pub async fn check_new_bills(&mut self, node_id: String) {
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+
+            if !value.is_empty() {
+                let record_for_saving_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let split = record_for_saving_in_dht.split(",");
+                for bill_id in split {
+                    if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
+                    {
+                        let bill_bytes = self.get(bill_id.to_string()).await;
+
+                        if !bill_bytes.is_empty() {
+                            let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
+                            bill.name.clone();
+                            write_bill_to_file(&bill);
+                        }
+                    }
+                }
+            }
+        }
+
+        pub async fn upgrade_table(&mut self, node_id: String) {
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+
+            if !value.is_empty() {
+                let record_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let mut new_record: String = record_in_dht.clone();
+
+                for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+
+                    if !record_in_dht.contains(&bill_name) {
+                        new_record += (",".to_string() + &bill_name.clone()).as_str();
+                        self.put(&bill_name).await;
+                    }
+                }
+                if !record_in_dht.eq(&new_record) {
+                    self.put_record(node_request.clone(), new_record).await;
+                }
+            } else {
+                let mut new_record: String = "".to_string();
+                for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    if new_record.is_empty() {
+                        new_record = bill_name.clone();
+                        self.put(&bill_name).await;
+                    } else {
+                        new_record += (",".to_string() + &bill_name.clone()).as_str();
+                        self.put(&bill_name).await;
+                    }
+                }
+                if !new_record.is_empty() {
+                    self.put_record(node_request.clone(), new_record).await;
+                }
+            }
+        }
+
+        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
+            let mut record_for_saving_in_dht = "".to_string();
+            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+            if !value.is_empty() {
+                record_for_saving_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                record_for_saving_in_dht = record_for_saving_in_dht.to_string() + "," + bill_name;
+            } else {
+                record_for_saving_in_dht = bill_name.clone();
+            }
+
+            self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
+                .await;
+        }
+
+        pub async fn put(&mut self, name: &String) {
             self.start_providing(name.clone()).await;
         }
 
-        pub async fn get(&mut self, name: String) {
-            // Locate all nodes providing the file.
+        pub async fn get(&mut self, name: String) -> Vec<u8> {
             let providers = self.get_providers(name.clone()).await;
             if providers.is_empty() {
                 eprintln!("No providers was found.");
+                Vec::new()
             } else {
-                println!("Providers {providers:?}");
+                //TODO: If it's me - don't continue.
+                let requests = providers.into_iter().map(|peer| {
+                    let mut network_client = self.clone();
+                    let name = name.clone();
+                    async move { network_client.request_file(peer, name).await }.boxed()
+                });
+
+                let file_content = futures::future::select_ok(requests)
+                    .await
+                    .map_err(|_| "None of the providers returned file.")
+                    .expect("Can not get file content.")
+                    .0;
+
+                file_content
             }
-
-            // Request the content of the file from each node.
-            //TODO: if it's me - don't continue.
-            let requests = providers.into_iter().map(|peer| {
-                let mut network_client = self.clone();
-                let name = name.clone();
-                async move { network_client.request_file(peer, name).await }.boxed()
-            });
-
-            // Await the requests, ignore the remaining once a single one succeeds.
-            let file_content = futures::future::select_ok(requests)
-                .await
-                .map_err(|_| "None of the providers returned file.")
-                .expect("Can not get file content.")
-                .0;
-
-            let bill: BitcreditBill = bill_from_byte_array(&file_content);
-            let bill_name = bill.name.clone();
-            write_bill_to_file(&bill);
-
-            println!("Bill {bill_name:?} was successfully saved.");
         }
 
-        /// Dial the given peer at the given address.
-        async fn dial(
-            &mut self,
-            peer_id: PeerId,
-            peer_addr: Multiaddr,
-        ) -> Result<(), Box<dyn Error + Send>> {
+        async fn put_record(&mut self, key: String, value: String) {
+            self.sender
+                .send(Command::PutRecord { key, value })
+                .await
+                .expect("Command receiver not to be dropped.");
+        }
+
+        async fn get_record(&mut self, key: String) -> Record {
             let (sender, receiver) = oneshot::channel();
             self.sender
-                .send(Command::Dial {
-                    peer_id,
-                    peer_addr,
-                    sender,
-                })
+                .send(Command::GetRecord { key, sender })
                 .await
                 .expect("Command receiver not to be dropped.");
             receiver.await.expect("Sender not to be dropped.")
@@ -271,9 +366,7 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    //The place where we explicitly specify to look for the bill is in the bills folder.
                     let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
-                    println!("{path_to_bill:?}");
                     self.respond_file(
                         std::fs::read(&path_to_bill).expect("Can not respond."),
                         channel,
@@ -285,7 +378,7 @@ pub mod network {
             }
         }
 
-        //TODO: dont delete. Need for testing.
+        //TODO: dont delete. Need for testing from console.
         async fn handle_input_line(&mut self, line: String) {
             let mut args = line.split(' ');
 
@@ -300,8 +393,7 @@ pub mod network {
                             }
                         }
                     };
-
-                    self.start_providing(name.clone()).await;
+                    self.put(&name).await;
                 }
 
                 Some("GET") => {
@@ -314,39 +406,61 @@ pub mod network {
                             }
                         }
                     };
+                    self.get(name).await;
+                    println!("Bill was successfully saved.");
+                }
 
-                    // Locate all nodes providing the file.
-                    let providers = self.get_providers(name.clone()).await;
-                    if providers.is_empty() {
-                        eprintln!("No providers was found.");
-                    } else {
-                        println!("Providers {providers:?}");
-                    }
+                Some("PUT_RECORD") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    let value = {
+                        match args.next() {
+                            Some(value) => String::from(value),
+                            None => {
+                                eprintln!("Expected value");
+                                return;
+                            }
+                        }
+                    };
 
-                    // Request the content of the file from each node.
-                    //TODO: if it's me - don't continue.
-                    let requests = providers.into_iter().map(|peer| {
-                        let mut network_client = self.clone();
-                        let name = name.clone();
-                        async move { network_client.request_file(peer, name).await }.boxed()
-                    });
+                    self.put_record(key, value).await;
+                }
 
-                    // Await the requests, ignore the remaining once a single one succeeds.
-                    let file_content = futures::future::select_ok(requests)
-                        .await
-                        .map_err(|_| "None of the providers returned file.")
-                        .expect("Can not get file content.")
-                        .0;
+                Some("GET_RECORD") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    self.get_record(key).await;
+                }
 
-                    let bill: BitcreditBill = bill_from_byte_array(&file_content);
-                    let bill_name = bill.name.clone();
-                    write_bill_to_file(&bill);
-
-                    println!("Bill {bill_name:?} was successfully saved.");
+                Some("GET_PROVIDERS") => {
+                    let key = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected key");
+                                return;
+                            }
+                        }
+                    };
+                    self.get_providers(key).await;
                 }
 
                 _ => {
-                    eprintln!("expected GET or PUT.");
+                    eprintln!("expected GET, PUT, GET_RECORD, PUT_RECORD or GET_PROVIDERS.");
                 }
             }
         }
@@ -359,6 +473,7 @@ pub mod network {
         pending_dial: HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>,
         pending_start_providing: HashMap<QueryId, oneshot::Sender<()>>,
         pending_get_providers: HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>,
+        pending_get_records: HashMap<QueryId, oneshot::Sender<Record>>,
         pending_request_file:
             HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>,
     }
@@ -376,6 +491,7 @@ pub mod network {
                 pending_dial: Default::default(),
                 pending_start_providing: Default::default(),
                 pending_get_providers: Default::default(),
+                pending_get_records: Default::default(),
                 pending_request_file: Default::default(),
             }
         }
@@ -398,7 +514,10 @@ pub mod network {
             event: SwarmEvent<
                 ComposedEvent,
                 //TODO: change to normal error type.
-                EitherError<EitherError<ConnectionHandlerUpgrErr<io::Error>, io::Error>, io::Error>,
+                EitherError<
+                    EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
+                    std::io::Error,
+                >,
             >,
         ) {
             match event {
@@ -425,6 +544,92 @@ pub mod network {
                         );
                     }
 
+                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
+                        println!(
+                            "Successfully put record {:?}",
+                            std::str::from_utf8(key.as_ref()).unwrap()
+                        );
+                    }
+
+                    QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
+                        record,
+                        ..
+                    }))) => {
+                        if let Some(sender) = self.pending_get_records.remove(&id) {
+                            println!(
+                                "Got record {:?} {:?}",
+                                std::str::from_utf8(&record.key.as_ref()).unwrap(),
+                                std::str::from_utf8(&record.value).unwrap(),
+                            );
+
+                            sender.send(record).expect("Receiver not to be dropped.");
+
+                            // Finish the query. We are only interested in the first result.
+                            //TODO: think how to do it better.
+                            self.swarm
+                                .behaviour_mut()
+                                .kademlia
+                                .query_mut(&id)
+                                .unwrap()
+                                .finish();
+                        }
+                    }
+
+                    QueryResult::GetRecord(Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
+                        ..
+                    })) => {
+                        self.pending_get_records.remove(&id);
+                        println!("No records.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::NotFound { key, .. })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("NotFound.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("Timeout.");
+                    }
+
+                    QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
+                        //TODO: its bad.
+                        let record = Record {
+                            key: key,
+                            value: vec![],
+                            publisher: None,
+                            expires: None,
+                        };
+                        let _ = self
+                            .pending_get_records
+                            .remove(&id)
+                            .expect("Request to still be pending.")
+                            .send(record);
+                        println!("QuorumFailed.");
+                    }
+
                     QueryResult::StartProviding(Err(err)) => {
                         //TODO: do some logic.
                         eprintln!("Failed to put provider record: {err:?}");
@@ -435,6 +640,10 @@ pub mod network {
                         ..
                     })) => {
                         if let Some(sender) = self.pending_get_providers.remove(&id) {
+                            for peer in &providers {
+                                println!("PEER {peer:?}");
+                            }
+
                             sender.send(providers).expect("Receiver not to be dropped.");
 
                             // Finish the query. We are only interested in the first result.
@@ -563,10 +772,6 @@ pub mod network {
                     println!("{event:?}")
                 }
 
-                SwarmEvent::Dialing(peer_id) => {
-                    println!("Dialing {peer_id}")
-                }
-
                 SwarmEvent::Behaviour(event) => {
                     println!("New event");
                     println!("{event:?}")
@@ -593,6 +798,30 @@ pub mod network {
                         .start_providing(file_name.into_bytes().into())
                         .expect("Can not provide.");
                     self.pending_start_providing.insert(query_id, sender);
+                }
+
+                Command::PutRecord { key, value } => {
+                    let key_record = Key::new(&key);
+                    let value_bytes = value.as_bytes().to_vec();
+                    let record = Record {
+                        key: key_record,
+                        value: value_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
+                    let query_id = self
+                        .swarm
+                        .behaviour_mut()
+                        .kademlia
+                        //TODO: what quorum use?
+                        .put_record(record, Quorum::All)
+                        .expect("Can not provide.");
+                }
+
+                Command::GetRecord { key, sender } => {
+                    let key_record = Key::new(&key);
+                    let query_id = self.swarm.behaviour_mut().kademlia.get_record(key_record);
+                    self.pending_get_records.insert(query_id, sender);
                 }
 
                 Command::GetProviders { file_name, sender } => {
@@ -701,6 +930,14 @@ pub mod network {
             file_name: String,
             sender: oneshot::Sender<HashSet<PeerId>>,
         },
+        PutRecord {
+            key: String,
+            value: String,
+        },
+        GetRecord {
+            key: String,
+            sender: oneshot::Sender<Record>,
+        },
         RequestFile {
             file_name: String,
             peer: PeerId,
@@ -727,10 +964,13 @@ pub mod network {
 
     #[derive(Debug, Clone)]
     struct FileExchangeProtocol();
+
     #[derive(Clone)]
     struct FileExchangeCodec();
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct FileRequest(String);
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FileResponse(Vec<u8>);
 
