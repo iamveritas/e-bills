@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COPY_DIR: [&'static str; 6] = ["css", "identity", "image", "contacts", "templates", "bills"];
+const COPY_DIR: [&str; 6] = ["css", "identity", "image", "contacts", "templates", "bills"];
 const IDENTITY_FOLDER_PATH: &str = "identity";
 const BILLS_FOLDER_PATH: &str = "bills";
 const CONTACT_MAP_FOLDER_PATH: &str = "contacts";

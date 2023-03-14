@@ -235,10 +235,13 @@ pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        let map = add_in_contacts_map(
+        add_in_contacts_map(
             new_contact_form.name.clone(),
             new_contact_form.node_id.clone(),
         );
+
+        let map = read_contacts_map();
+
         Template::render(
             "hbs/contacts",
             context! {
