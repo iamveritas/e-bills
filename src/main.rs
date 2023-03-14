@@ -45,7 +45,7 @@ async fn main() {
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
 
-    let rocket = rocket_main(dht).launch().await.unwrap();
+    let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
@@ -115,7 +115,7 @@ fn add_in_contacts_map(name: String, peer_id: String) {
 }
 
 fn create_contacts_map() {
-    let mut contacts: HashMap<String, String> = HashMap::new();
+    let contacts: HashMap<String, String> = HashMap::new();
     write_contacts_map(contacts);
 }
 
@@ -124,14 +124,14 @@ fn read_contacts_map() -> HashMap<String, String> {
         create_contacts_map();
     }
     let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
-    let mut contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
     contacts
 }
 
 fn write_contacts_map(map: HashMap<String, String>) {
     let contacts_byte = map.try_to_vec().unwrap();
     fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
-    map;
+    drop(map);
 }
 
 fn generation_rsa_key() -> Rsa<Private> {

@@ -15,12 +15,12 @@ const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2B
 const BOOTSTRAP_ADDRESS: &str = "/ip4/45.147.248.87/tcp/22745";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
-    let (mut network_client, mut network_events, mut network_event_loop) = network::new()
+    let (mut network_client, network_events, network_event_loop) = network::new()
         .await
         .expect("Can not to create network module in dht.");
 
     //Need for testing from console.
-    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    let stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
 
@@ -197,14 +197,14 @@ pub mod network {
 
         pub async fn check_new_bills(&mut self, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
-            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
 
             if !value.is_empty() {
                 let record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
-                let split = record_for_saving_in_dht.split(",");
+                let split = record_for_saving_in_dht.split(',');
                 for bill_id in split {
                     if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
                     {
@@ -222,7 +222,7 @@ pub mod network {
 
         pub async fn upgrade_table(&mut self, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
-            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
 
             if !value.is_empty() {
@@ -263,7 +263,7 @@ pub mod network {
         pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
             let mut record_for_saving_in_dht = "".to_string();
-            let mut list_bills_for_node = self.get_record(node_request.clone()).await;
+            let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
             if !value.is_empty() {
                 record_for_saving_in_dht = std::str::from_utf8(&value)
@@ -558,7 +558,7 @@ pub mod network {
                         if let Some(sender) = self.pending_get_records.remove(&id) {
                             println!(
                                 "Got record {:?} {:?}",
-                                std::str::from_utf8(&record.key.as_ref()).unwrap(),
+                                std::str::from_utf8(record.key.as_ref()).unwrap(),
                                 std::str::from_utf8(&record.value).unwrap(),
                             );
 
@@ -585,7 +585,7 @@ pub mod network {
                     QueryResult::GetRecord(Err(GetRecordError::NotFound { key, .. })) => {
                         //TODO: its bad.
                         let record = Record {
-                            key: key,
+                            key,
                             value: vec![],
                             publisher: None,
                             expires: None,
@@ -601,7 +601,7 @@ pub mod network {
                     QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
                         //TODO: its bad.
                         let record = Record {
-                            key: key,
+                            key,
                             value: vec![],
                             publisher: None,
                             expires: None,
@@ -617,7 +617,7 @@ pub mod network {
                     QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
                         //TODO: its bad.
                         let record = Record {
-                            key: key,
+                            key,
                             value: vec![],
                             publisher: None,
                             expires: None,
@@ -809,7 +809,7 @@ pub mod network {
                         publisher: None,
                         expires: None,
                     };
-                    let query_id = self
+                    let _query_id = self
                         .swarm
                         .behaviour_mut()
                         .kademlia
