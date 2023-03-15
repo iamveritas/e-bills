@@ -20,11 +20,11 @@ mod test {
 
     use crate::numbers_to_words::encode;
     use crate::{
-        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_dht,
-        byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity,
-        decrypt_bytes, encrypt_bytes, generation_rsa_key, issue_new_bill, pem_private_key_from_rsa,
-        pem_public_key_from_rsa, private_key_from_pem_u8, public_key_from_pem_u8,
-        read_bill_from_file, structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
+        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
+        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
+        generation_rsa_key, issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
+        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file,
+        structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
     };
 
     #[test]
@@ -81,29 +81,6 @@ mod test {
         let s = format!("{:?}", &a);
         let path = "test/".to_owned() + &s.replace(", ", "").replace("[", "").replace("]", "");
         fs::write(path.as_str(), "adsadsadsad".as_bytes()).expect("Unable to write bill in file.");
-    }
-
-    #[test]
-    fn dht_to_bytes() {
-        let local_key = identity::Keypair::generate_ed25519();
-        let local_peer_id = PeerId::from(local_key.public());
-
-        let mut cfg = KademliaConfig::default();
-        cfg.set_query_timeout(Duration::from_secs(5 * 60));
-        let store = MemoryStore::new(local_peer_id);
-        let mut behaviour = Kademlia::with_config(local_peer_id, store, cfg);
-
-        let bytes_behaviour = unsafe { structure_as_u8_slice(&behaviour) };
-        let bytes_behaviour_sized = byte_array_to_size_array_dht(bytes_behaviour);
-
-        if !Path::new("test").exists() {
-            fs::create_dir("test").expect("Can't create folder.");
-        }
-        fs::write("test/dht", *bytes_behaviour_sized).expect("Unable to write dht in file");
-
-        let data_dht: Vec<u8> = fs::read("test/dht").expect("Unable to read file with dht");
-        let dht_bytes_sized = byte_array_to_size_array_dht(data_dht.as_slice());
-        let dht: Kademlia<MemoryStore> = unsafe { mem::transmute_copy(dht_bytes_sized) };
     }
 
     #[test]

@@ -400,12 +400,6 @@ fn identity_from_byte_array(identity: &Vec<u8>) -> Identity {
     Identity::try_from_slice(identity).unwrap()
 }
 
-fn byte_array_to_size_array_dht(
-    array: &[u8],
-) -> &[u8; ::std::mem::size_of::<Kademlia<MemoryStore>>()] {
-    array.try_into().expect("slice with incorrect length")
-}
-
 fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::<Keypair>()] {
     array.try_into().expect("slice with incorrect length")
 }

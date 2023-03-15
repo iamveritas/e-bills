@@ -3,13 +3,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COPY_DIR: [&str; 6] = ["css", "identity", "image", "contacts", "templates", "bills"];
 const IDENTITY_FOLDER_PATH: &str = "identity";
 const BILLS_FOLDER_PATH: &str = "bills";
 const CONTACT_MAP_FOLDER_PATH: &str = "contacts";
 const CSS_FOLDER_PATH: &str = "css";
 const IMAGE_FOLDER_PATH: &str = "image";
 const TEMPLATES_FOLDER_PATH: &str = "templates";
+const COPY_DIR: [&str; 6] = [
+    IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH,
+    CONTACT_MAP_FOLDER_PATH,
+    CSS_FOLDER_PATH,
+    IMAGE_FOLDER_PATH,
+    TEMPLATES_FOLDER_PATH,
+];
 
 /// A helper function for recursively copying a directory.
 fn copy_dir<P, Q>(from: P, to: Q)
