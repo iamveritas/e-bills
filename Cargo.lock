@@ -564,6 +564,9 @@ dependencies = [
  "rocket 0.5.0-rc.2",
  "rocket_contrib",
  "rocket_dyn_templates",
+ "serde",
+ "serde_derive",
+ "serde_json",
  "tokio",
 ]
 

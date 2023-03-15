@@ -8,8 +8,6 @@ use std::{fs, mem};
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
-use libp2p::kad::store::MemoryStore;
-use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
 use openssl::rsa;
@@ -21,9 +19,9 @@ use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
-    CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH, CSS_FOLDER_PATH,
-    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH, BTC,
+    COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
+    CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
@@ -79,7 +77,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         }));
 
     //Sometime not work.
-    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    // open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -102,6 +100,9 @@ fn init_folders() {
     }
     if !Path::new(TEMPLATES_FOLDER_PATH).exists() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
+    }
+    if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
     }
 }
 

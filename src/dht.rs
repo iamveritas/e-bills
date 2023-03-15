@@ -6,13 +6,10 @@ use async_std::task::spawn;
 use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
+use serde_derive::{Deserialize, Serialize};
 
 use crate::dht::network::Client;
 use crate::{bill_from_byte_array, write_bill_to_file};
-
-// TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2Bhr";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/45.147.248.87/tcp/22745";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, network_events, network_event_loop) = network::new()
@@ -92,8 +89,8 @@ pub mod network {
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
     use crate::constants::{
-        BILLS_FOLDER_PATH, BILLS_PREFIX, IDENTITY_ED_25529_KEYS_FILE_PATH,
-        IDENTITY_PEER_ID_FILE_PATH,
+        BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
+        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::{
         generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill,
@@ -138,10 +135,17 @@ pub mod network {
                 kademlia,
                 identify,
             };
+            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
+            let mut boot_nodes =
+                serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
+            for index in 0..boot_nodes.nodes.len() {
+                let node = boot_nodes.nodes[index].node.clone();
+                let address = boot_nodes.nodes[index].address.clone();
 
-            behaviour
-                .kademlia
-                .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
+                behaviour
+                    .kademlia
+                    .add_address(&node.parse()?, address.parse()?);
+            }
 
             Swarm::with_async_std_executor(transport, behaviour, local_peer_id)
         };
@@ -162,6 +166,17 @@ pub mod network {
             event_receiver,
             EventLoop::new(swarm, command_receiver, event_sender),
         ))
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct Nodes {
+        node: String,
+        address: String,
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct NodesJson {
+        nodes: Vec<Nodes>,
     }
 
     #[derive(Clone)]
