@@ -42,6 +42,7 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
+    dht.upgrade_table_for_others_nodes().await;
 
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
@@ -77,7 +78,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         }));
 
     //Sometime not work.
-    // open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -132,7 +133,6 @@ fn read_contacts_map() -> HashMap<String, String> {
 fn write_contacts_map(map: HashMap<String, String>) {
     let contacts_byte = map.try_to_vec().unwrap();
     fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
-    drop(map);
 }
 
 fn generation_rsa_key() -> Rsa<Private> {

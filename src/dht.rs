@@ -25,7 +25,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
-            "/ip4/0.0.0.0/tcp/0"
+            "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
         )
@@ -93,7 +93,8 @@ pub mod network {
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::{
-        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill,
+        generate_dht_logic, read_bill_from_file, read_ed25519_keypair_from_file,
+        read_peer_id_from_file, BitcreditBill,
     };
 
     use super::*;
@@ -136,8 +137,7 @@ pub mod network {
                 identify,
             };
             let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
-            let mut boot_nodes =
-                serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
+            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
             for index in 0..boot_nodes.nodes.len() {
                 let node = boot_nodes.nodes[index].node.clone();
                 let address = boot_nodes.nodes[index].address.clone();
@@ -231,6 +231,45 @@ pub mod network {
                             write_bill_to_file(&bill);
                         }
                     }
+                }
+            }
+        }
+
+        pub async fn upgrade_table_for_others_nodes(&mut self) {
+            for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                let bill_name = file.unwrap().file_name().into_string().unwrap();
+
+                let bill = read_bill_from_file(&bill_name);
+
+                let drawee = bill.drawee_name;
+
+                self.upgrade_table_for_other_node(drawee, &bill_name).await;
+            }
+        }
+
+        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: &String) {
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
+            let list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+
+            if !value.is_empty() {
+                let record_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let mut new_record: String = record_in_dht.clone();
+
+                if !record_in_dht.contains(&bill) {
+                    new_record += (",".to_string() + &bill.clone()).as_str();
+                }
+
+                if !record_in_dht.eq(&new_record) {
+                    self.put_record(node_request.clone(), new_record).await;
+                }
+            } else {
+                let mut new_record: String = bill.clone();
+
+                if !new_record.is_empty() {
+                    self.put_record(node_request.clone(), new_record).await;
                 }
             }
         }
