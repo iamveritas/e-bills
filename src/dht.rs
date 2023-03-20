@@ -243,11 +243,11 @@ pub mod network {
 
                 let drawee = bill.drawee_name;
 
-                self.upgrade_table_for_other_node(drawee, &bill_name).await;
+                self.upgrade_table_for_other_node(drawee, bill_name).await;
             }
         }
 
-        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: &String) {
+        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
             let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
@@ -259,7 +259,7 @@ pub mod network {
                 let mut new_record: String = record_in_dht.clone();
 
                 if !record_in_dht.contains(&bill) {
-                    new_record += (",".to_string() + &bill.clone()).as_str();
+                    new_record += (",".to_string() + &bill).as_str();
                 }
 
                 if !record_in_dht.eq(&new_record) {
