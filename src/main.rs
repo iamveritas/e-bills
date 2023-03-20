@@ -515,6 +515,24 @@ fn clear_bill_name(bill_name_hash: String) -> String {
     bill_name
 }
 
+pub fn get_all_nodes_from_bill(bill_id: &String) -> Vec<String> {
+    let bill = read_bill_from_file(bill_id);
+    let mut nodes: Vec<String> = Vec::new();
+    let map = read_contacts_map();
+    add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
+    nodes
+}
+
+fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
+    let mut node_id = "";
+    if map.contains_key(node) {
+        node_id = map.get(node).expect("Contact not found");
+    }
+    if !node_id.is_empty() {
+        nodes.push(node_id.to_string());
+    }
+}
+
 fn write_bill_to_file(bill: &BitcreditBill) {
     let data: Vec<u8> = bill_to_byte_array(bill);
     let path: String = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;

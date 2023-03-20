@@ -216,13 +216,13 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
     }
 }
 
-pub fn add_to_nodes(map: &HashMap<String, String>, node: &String, mut nodes: &mut Vec<String>) {
-    let mut drawee = "";
+pub fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
+    let mut node_id = "";
     if map.contains_key(node) {
-        drawee = map.get(node).expect("Contact not found");
+        node_id = map.get(node).expect("Contact not found");
     }
-    if !drawee.is_empty() {
-        nodes.push(drawee.to_string());
+    if !node_id.is_empty() {
+        nodes.push(node_id.to_string());
     }
 }
 

@@ -93,7 +93,7 @@ pub mod network {
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::{
-        generate_dht_logic, read_bill_from_file, read_ed25519_keypair_from_file,
+        generate_dht_logic, get_all_nodes_from_bill, read_ed25519_keypair_from_file,
         read_peer_id_from_file, BitcreditBill,
     };
 
@@ -239,11 +239,12 @@ pub mod network {
             for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
                 let bill_name = file.unwrap().file_name().into_string().unwrap();
 
-                let bill = read_bill_from_file(&bill_name);
+                let nodes = get_all_nodes_from_bill(&bill_name);
 
-                let drawee = bill.drawee_name;
-
-                self.upgrade_table_for_other_node(drawee, bill_name).await;
+                for node in nodes {
+                    self.upgrade_table_for_other_node(node, bill_name.clone())
+                        .await;
+                }
             }
         }
 
@@ -461,7 +462,6 @@ pub mod network {
                         }
                     };
                     self.get(name).await;
-                    println!("Bill was successfully saved.");
                 }
 
                 Some("PUT_RECORD") => {
