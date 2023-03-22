@@ -8,8 +8,6 @@ use std::{fs, mem};
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
-use libp2p::kad::store::MemoryStore;
-use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
 use openssl::rsa;
@@ -21,9 +19,9 @@ use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BTC, COMPOUNDING_INTEREST_RATE_ZERO,
-    CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH, CSS_FOLDER_PATH,
-    IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH, BTC,
+    COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
+    CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
@@ -44,6 +42,7 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
+    dht.upgrade_table_for_others_nodes().await;
 
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
@@ -103,6 +102,9 @@ fn init_folders() {
     if !Path::new(TEMPLATES_FOLDER_PATH).exists() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
     }
+    if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
+    }
 }
 
 fn add_in_contacts_map(name: String, peer_id: String) {
@@ -131,7 +133,6 @@ fn read_contacts_map() -> HashMap<String, String> {
 fn write_contacts_map(map: HashMap<String, String>) {
     let contacts_byte = map.try_to_vec().unwrap();
     fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
-    drop(map);
 }
 
 fn generation_rsa_key() -> Rsa<Private> {
@@ -512,6 +513,24 @@ fn create_bill_name(rsa: &Rsa<Private>) -> String {
 fn clear_bill_name(bill_name_hash: String) -> String {
     let bill_name: String = bill_name_hash.replace(", ", "").replace(['[', ']'], "");
     bill_name
+}
+
+pub fn get_all_nodes_from_bill(bill_id: &String) -> Vec<String> {
+    let bill = read_bill_from_file(bill_id);
+    let mut nodes: Vec<String> = Vec::new();
+    let map = read_contacts_map();
+    add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
+    nodes
+}
+
+fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
+    let mut node_id = "";
+    if map.contains_key(node) {
+        node_id = map.get(node).expect("Contact not found");
+    }
+    if !node_id.is_empty() {
+        nodes.push(node_id.to_string());
+    }
 }
 
 fn write_bill_to_file(bill: &BitcreditBill) {

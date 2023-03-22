@@ -9,13 +9,15 @@ const CONTACT_MAP_FOLDER_PATH: &str = "contacts";
 const CSS_FOLDER_PATH: &str = "css";
 const IMAGE_FOLDER_PATH: &str = "image";
 const TEMPLATES_FOLDER_PATH: &str = "templates";
-const COPY_DIR: [&str; 6] = [
+pub const BOOTSTRAP_FOLDER_PATH: &str = "bootstrap";
+const COPY_DIR: [&str; 7] = [
     IDENTITY_FOLDER_PATH,
     BILLS_FOLDER_PATH,
     CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH,
     IMAGE_FOLDER_PATH,
     TEMPLATES_FOLDER_PATH,
+    BOOTSTRAP_FOLDER_PATH,
 ];
 
 /// A helper function for recursively copying a directory.
@@ -54,6 +56,7 @@ fn main() {
     }
 }
 
+//TODO: for cycle.
 fn init_folders() {
     if !Path::new(CONTACT_MAP_FOLDER_PATH).exists() {
         fs::create_dir(CONTACT_MAP_FOLDER_PATH).expect("Can't create folder contacts.");
@@ -72,5 +75,8 @@ fn init_folders() {
     }
     if !Path::new(TEMPLATES_FOLDER_PATH).exists() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
+    }
+    if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
     }
 }

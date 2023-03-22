@@ -6,13 +6,10 @@ use async_std::task::spawn;
 use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
+use serde_derive::{Deserialize, Serialize};
 
 use crate::dht::network::Client;
 use crate::{bill_from_byte_array, write_bill_to_file};
-
-// TODO: take bootstrap node info from config file.
-const BOOTSTRAP_NODE: &str = "12D3KooWNUT9JgnveV9kmUkqKuauLLQZH12kJeXAkypDtQjD2Bhr";
-const BOOTSTRAP_ADDRESS: &str = "/ip4/45.147.248.87/tcp/22745";
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, network_events, network_event_loop) = network::new()
@@ -28,7 +25,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
-            "/ip4/0.0.0.0/tcp/0"
+            "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
         )
@@ -92,11 +89,12 @@ pub mod network {
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
     use crate::constants::{
-        BILLS_FOLDER_PATH, BILLS_PREFIX, IDENTITY_ED_25529_KEYS_FILE_PATH,
-        IDENTITY_PEER_ID_FILE_PATH,
+        BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
+        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::{
-        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file, BitcreditBill,
+        generate_dht_logic, get_all_nodes_from_bill, read_ed25519_keypair_from_file,
+        read_peer_id_from_file, BitcreditBill,
     };
 
     use super::*;
@@ -138,10 +136,16 @@ pub mod network {
                 kademlia,
                 identify,
             };
+            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
+            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
+            for index in 0..boot_nodes.nodes.len() {
+                let node = boot_nodes.nodes[index].node.clone();
+                let address = boot_nodes.nodes[index].address.clone();
 
-            behaviour
-                .kademlia
-                .add_address(&BOOTSTRAP_NODE.parse()?, BOOTSTRAP_ADDRESS.parse()?);
+                behaviour
+                    .kademlia
+                    .add_address(&node.parse()?, address.parse()?);
+            }
 
             Swarm::with_async_std_executor(transport, behaviour, local_peer_id)
         };
@@ -162,6 +166,17 @@ pub mod network {
             event_receiver,
             EventLoop::new(swarm, command_receiver, event_sender),
         ))
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct Nodes {
+        node: String,
+        address: String,
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct NodesJson {
+        nodes: Vec<Nodes>,
     }
 
     #[derive(Clone)]
@@ -216,6 +231,46 @@ pub mod network {
                             write_bill_to_file(&bill);
                         }
                     }
+                }
+            }
+        }
+
+        pub async fn upgrade_table_for_others_nodes(&mut self) {
+            for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                let bill_name = file.unwrap().file_name().into_string().unwrap();
+
+                let nodes = get_all_nodes_from_bill(&bill_name);
+
+                for node in nodes {
+                    self.upgrade_table_for_other_node(node, bill_name.clone())
+                        .await;
+                }
+            }
+        }
+
+        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
+            let node_request = BILLS_PREFIX.to_string() + &node_id;
+            let list_bills_for_node = self.get_record(node_request.clone()).await;
+            let value = list_bills_for_node.value;
+
+            if !value.is_empty() {
+                let record_in_dht = std::str::from_utf8(&value)
+                    .expect("Cant get value.")
+                    .to_string();
+                let mut new_record: String = record_in_dht.clone();
+
+                if !record_in_dht.contains(&bill) {
+                    new_record += (",".to_string() + &bill).as_str();
+                }
+
+                if !record_in_dht.eq(&new_record) {
+                    self.put_record(node_request.clone(), new_record).await;
+                }
+            } else {
+                let mut new_record: String = bill.clone();
+
+                if !new_record.is_empty() {
+                    self.put_record(node_request.clone(), new_record).await;
                 }
             }
         }
@@ -407,7 +462,6 @@ pub mod network {
                         }
                     };
                     self.get(name).await;
-                    println!("Bill was successfully saved.");
                 }
 
                 Some("PUT_RECORD") => {

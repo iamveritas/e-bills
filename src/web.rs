@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -196,13 +197,7 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
 
         nodes.push(local_peer_id);
 
-        let mut drawee = "";
-        if map.contains_key(&bill.drawee_name) {
-            drawee = map.get(&bill.drawee_name).expect("Contact not found");
-        }
-        if !drawee.is_empty() {
-            nodes.push(drawee.to_string());
-        }
+        add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
 
         for node in nodes {
             client.add_bill_to_dht(&bill_name, node).await;
@@ -218,6 +213,16 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
                 bill: Some(bill),
             },
         )
+    }
+}
+
+pub fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
+    let mut node_id = "";
+    if map.contains_key(node) {
+        node_id = map.get(node).expect("Contact not found");
+    }
+    if !node_id.is_empty() {
+        nodes.push(node_id.to_string());
     }
 }
 
