@@ -10,9 +10,10 @@ use rocket_dyn_templates::{context, handlebars, Template};
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
 use crate::{
-    add_in_contacts_map, create_whole_identity, get_whole_identity, issue_new_bill,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    BitcreditBill, BitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
+    add_in_contacts_map, create_whole_identity, get_all_nodes_from_bill, get_whole_identity,
+    hash_bill, issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
+    read_peer_id_from_file, BitcreditBill, BitcreditBillForm, Identity, IdentityForm,
+    IdentityWithAll, NewContactForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -29,6 +30,7 @@ pub async fn start() -> Template {
             "hbs/home",
             context! {
                 identity: Some(identity.identity),
+                //TODO: change
                 bills: bills,
             },
         )
@@ -102,7 +104,7 @@ pub async fn get_bill(id: String) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id).as_str()).exists() {
-        let bill: BitcreditBill = read_bill_from_file(&id);
+        let bill: BitcreditBill = read_bill_from_file(&id, &"delete".to_string());
 
         Template::render(
             "hbs/bill",
@@ -173,47 +175,39 @@ pub async fn new_bill() -> Template {
 }
 
 #[post("/issue", data = "<bill_form>")]
-pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) -> Template {
-    if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
-    } else {
-        let bill: BitcreditBillForm = bill_form.into_inner();
-        let drawer: Identity = read_identity_from_file();
-        let bill = issue_new_bill(
-            bill.bill_jurisdiction,
-            bill.place_of_drawing,
-            bill.amount_numbers,
-            drawer,
-            bill.language,
-            bill.drawee_name,
-        );
+pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) {
+    // if !Path::new(IDENTITY_FILE_PATH).exists() {
+    //     Template::render("hbs/create_identity", context! {})
+    // } else {
+    let bill = bill_form.into_inner();
+    let drawer = read_identity_from_file();
+    let (name_bill, bill) = issue_new_bill(
+        bill.bill_jurisdiction,
+        bill.place_of_drawing,
+        bill.amount_numbers,
+        drawer,
+        bill.language,
+        bill.drawee_name,
+    );
 
-        let bill_name: String = bill.name.clone();
-        let mut client = state.inner().clone();
-        let local_peer_id = read_peer_id_from_file().to_string();
+    let mut client = state.inner().clone();
 
-        let map = read_contacts_map();
-        let mut nodes = Vec::new();
+    let readeble_name = hash_bill(&bill);
+    let nodes = get_all_nodes_from_bill(&name_bill, &readeble_name);
 
-        nodes.push(local_peer_id);
-
-        add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
-
-        for node in nodes {
-            client.add_bill_to_dht(&bill_name, node).await;
-        }
-
-        client.put(&bill_name).await;
-
-        let bill: BitcreditBill = read_bill_from_file(&bill.name);
-
-        Template::render(
-            "hbs/bill",
-            context! {
-                bill: Some(bill),
-            },
-        )
+    for node in nodes {
+        client.add_bill_to_dht(&name_bill, node).await;
     }
+
+    client.put(&name_bill).await;
+
+    // Template::render(
+    //     "hbs/bill",
+    //     context! {
+    //         bill: Some(bill),
+    //     },
+    // )
+    // }
 }
 
 pub fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
@@ -276,6 +270,7 @@ pub fn not_found(req: &Request) -> String {
     format!("We couldn't find the requested path '{}'", req.uri())
 }
 
+//TODO: change
 fn bills() -> Vec<BitcreditBill> {
     let mut bills = Vec::new();
     let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
@@ -283,7 +278,7 @@ fn bills() -> Vec<BitcreditBill> {
         let mut path = _path.unwrap().path().display().to_string();
         let path_vec = path.split('/').collect::<Vec<&str>>();
         path = path_vec[1].to_string();
-        let bill = read_bill_from_file(&path);
+        let bill = read_bill_from_file(&path, &"delete".to_string());
         bills.push(bill);
     }
     bills

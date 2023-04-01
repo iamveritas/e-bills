@@ -56,6 +56,32 @@ mod test {
     }
 
     #[test]
+    fn bill_name() {
+        let bill = issue_new_bill(
+            "fa".to_string(),
+            "".to_string(),
+            0,
+            Identity {
+                name: "".to_string(),
+                date_of_birth: "".to_string(),
+                city_of_birth: "".to_string(),
+                country_of_birth: "".to_string(),
+                email: "".to_string(),
+                postal_address: "".to_string(),
+                public_key_pem: "".to_string(),
+                private_key_pem: "".to_string(),
+            },
+            "".to_string(),
+            "".to_string(),
+        );
+
+        let bill_name_hash: Vec<u8> = sha256(bill_to_byte_array(&bill).as_slice()).to_vec();
+        let name = hex::encode(bill_name_hash);
+
+        assert_ne!("fa".to_string(), name);
+    }
+
+    #[test]
     fn create_new_bill() {
         let bill = issue_new_bill(
             "".to_string(),

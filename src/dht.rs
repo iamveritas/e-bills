@@ -94,7 +94,7 @@ pub mod network {
     };
     use crate::{
         generate_dht_logic, get_all_nodes_from_bill, read_ed25519_keypair_from_file,
-        read_peer_id_from_file, BitcreditBill,
+        read_peer_id_from_file, write_bill_folder_to_file, BitcreditBill,
     };
 
     use super::*;
@@ -219,31 +219,15 @@ pub mod network {
                 let record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
-                let split = record_for_saving_in_dht.split(',');
-                for bill_id in split {
+                let bills = record_for_saving_in_dht.split(',');
+                for bill_id in bills {
                     if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string()).await;
-
                         if !bill_bytes.is_empty() {
-                            let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
-                            bill.name.clone();
-                            write_bill_to_file(&bill);
+                            write_bill_folder_to_file(bill_bytes, bill_id.to_string());
                         }
                     }
-                }
-            }
-        }
-
-        pub async fn upgrade_table_for_others_nodes(&mut self) {
-            for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                let bill_name = file.unwrap().file_name().into_string().unwrap();
-
-                let nodes = get_all_nodes_from_bill(&bill_name);
-
-                for node in nodes {
-                    self.upgrade_table_for_other_node(node, bill_name.clone())
-                        .await;
                 }
             }
         }

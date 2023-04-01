@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate rocket;
+extern crate core;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -26,6 +27,7 @@ use crate::constants::{
 };
 use crate::numbers_to_words::encode;
 
+mod blockchain;
 mod constants;
 mod dht;
 mod numbers_to_words;
@@ -42,9 +44,8 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
-    dht.upgrade_table_for_others_nodes().await;
 
-    let _rocket = rocket_main(dht).launch().await.unwrap();
+    // let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
@@ -78,7 +79,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         }));
 
     //Sometime not work.
-    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    //open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -420,9 +421,10 @@ pub struct BitcreditBill {
     drawee_name: String,
     // The party issuing a Bill
     drawer_name: String,
+    // The person to whom the Payee or a prior holder endorses a bill
+    holder_name: String,
     // Default - the drawer’s address.
     place_of_drawing: String,
-    // In MVP only BTC.
     currency_code: String,
     //TODO: f64
     amount_numbers: u64,
@@ -445,7 +447,7 @@ pub fn issue_new_bill(
     drawer: Identity,
     language: String,
     drawee_name: String,
-) -> BitcreditBill {
+) -> (String, BitcreditBill) {
     let rsa: Rsa<Private> = generation_rsa_key();
     let bill_name: String = create_bill_name(&rsa);
 
@@ -494,54 +496,101 @@ pub fn issue_new_bill(
             language,
             drawee_name,
             drawer_name: drawer.name,
+            holder_name: drawer.name.clone(),
         };
 
-        write_bill_to_file(&new_bill);
+        let readable_hash_name = hash_bill(&new_bill);
 
-        new_bill
+        write_bill_to_file(&new_bill, &readable_hash_name);
+
+        (bill_name.clone(), new_bill)
     }
+}
+
+// fn endorse_bill(bill: BitcreditBill, new_holder: String) {
+//     //Check if we are holder.
+//     if bill.holder_name.eq(&new_holder) {
+//         //Check if we are main in raft.
+//
+//         //Нужно проверить, пересылали ли мы уже данный бил. Для этого нужно создать блокчейн с таким именем и чекать его на изменения
+//
+//         //Find contact in map.
+//         let contacts_map = read_contacts_map();
+//         let mut node_id = "";
+//         if contacts_map.contains_key(&new_holder) {
+//             node_id = contacts_map.get(&new_holder).expect("Contact not found");
+//         }
+//         if !node_id.is_empty() {
+//         //Send bill.
+//
+//         //Make changes in Raft
+//
+//         //Save new bill
+//         }
+//     }
+// }
+
+pub fn hash_bill(bill: &BitcreditBill) -> String {
+    let bill_bytes: Vec<u8> = bill_to_byte_array(bill);
+    let bill_hash: Vec<u8> = sha256(bill_bytes.as_slice()).to_vec();
+    let bill_hash_readable = hex::encode(bill_hash);
+    bill_hash_readable
 }
 
 fn create_bill_name(rsa: &Rsa<Private>) -> String {
     let public_key_bytes: Vec<u8> = rsa.public_key_to_pem().unwrap();
     let bill_name_hash: Vec<u8> = sha256(public_key_bytes.as_slice()).to_vec();
-    let bill_name_hash: String = format!("{:?}", &bill_name_hash);
-    let bill_name: String = clear_bill_name(bill_name_hash);
-    bill_name
+    let bill_name_readable = hex::encode(bill_name_hash);
+    bill_name_readable
 }
 
-fn clear_bill_name(bill_name_hash: String) -> String {
-    let bill_name: String = bill_name_hash.replace(", ", "").replace(['[', ']'], "");
-    bill_name
+pub fn get_all_nodes_from_bill(bill_name: &String, bill_hash_name: &String) -> Vec<String> {
+    let bill = read_bill_from_file(bill_name, bill_hash_name);
+
+    let mut nodes_in_bill: Vec<String> = Vec::new();
+
+    let contact_map = read_contacts_map();
+
+    let mut names_in_bill: Vec<String> = Vec::new();
+    names_in_bill.push(bill.drawee_name);
+    names_in_bill.push(bill.holder_name);
+
+    upgrade_nodes(&contact_map, names_in_bill, nodes_in_bill.as_mut());
+
+    nodes_in_bill
 }
 
-pub fn get_all_nodes_from_bill(bill_id: &String) -> Vec<String> {
-    let bill = read_bill_from_file(bill_id);
-    let mut nodes: Vec<String> = Vec::new();
-    let map = read_contacts_map();
-    add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
-    nodes
-}
-
-fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
-    let mut node_id = "";
-    if map.contains_key(node) {
-        node_id = map.get(node).expect("Contact not found");
+fn upgrade_nodes(map: &HashMap<String, String>, names: Vec<String>, nodes: &mut Vec<String>) {
+    for name in names {
+        let mut node_id = "";
+        if map.contains_key(&name) {
+            node_id = map.get(&name).expect("Contact not found");
+        }
+        if !node_id.is_empty() {
+            nodes.push(node_id.to_string());
+        }
     }
-    if !node_id.is_empty() {
-        nodes.push(node_id.to_string());
+}
+
+pub fn write_bill_folder_to_file(folder: Vec<u8>, name: String) {}
+
+fn write_bill_to_file(bill: &BitcreditBill, hash_name: &String) {
+    let bill_bytes_data: Vec<u8> = bill_to_byte_array(bill);
+
+    let path_to_bill_folder = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;
+
+    if !Path::new(&path_to_bill_folder).exists() {
+        fs::create_dir(&path_to_bill_folder).unwrap();
     }
+
+    let path_to_bill = path_to_bill_folder + "/" + hash_name;
+    fs::write(path_to_bill, bill_bytes_data).expect("Unable to write bill file");
 }
 
-fn write_bill_to_file(bill: &BitcreditBill) {
-    let data: Vec<u8> = bill_to_byte_array(bill);
-    let path: String = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;
-    fs::write(path.as_str(), data).expect("Unable to write bill file");
-}
-
-fn read_bill_from_file(bill_id: &String) -> BitcreditBill {
-    let path: String = BILLS_FOLDER_PATH.to_string() + "/" + bill_id;
-    let data: Vec<u8> = fs::read(path.as_str()).expect("Unable to read file bill");
+fn read_bill_from_file(bill_name: &String, bill_hash_name: &String) -> BitcreditBill {
+    let path_to_bill: String =
+        BILLS_FOLDER_PATH.to_string() + "/" + bill_name + "/" + bill_hash_name;
+    let data: Vec<u8> = fs::read(path_to_bill.as_str()).expect("Unable to read file bill");
     bill_from_byte_array(&data)
 }
 

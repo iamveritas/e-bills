@@ -12,7 +12,6 @@ async-std = { version = "1.12.0" }
 chrono = "0.4.23"
 clap = { version = "4.1.4", features = ["derive"]}
 async-trait = "0.1.64"
-
 libp2p = { version = "0.50.0", features = ["tcp", "dns", "async-std", "noise", "mplex", "yamux", "websocket", "tokio", "macros", "kad", "request-response", "identify"] }
 tokio = { version = "1.26.0", features = ["full"] }
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
@@ -22,3 +21,7 @@ open = "3.4.0"
 serde_json = "1.0.94"
 serde = "1.0.154"
 serde_derive = "1.0.154"
+hex = "0.4.3"
+log = "0.4.17"
+pretty_env_logger = "0.4.0"
+raft = "0.7.0"
