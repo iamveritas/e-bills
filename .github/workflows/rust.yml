@@ -22,6 +22,8 @@ jobs:
       run: sudo apt-get install -y protobuf-compiler
     - name: Check
       run: cargo check --verbose
+    - name: Add component fmt
+      run: rustup component add rustfmt
     - name: Fmt
       run: cargo fmt --verbose
     - name: Clean
