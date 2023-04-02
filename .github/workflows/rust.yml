@@ -16,8 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        toolchain: nightly
+    - name: Switch rust version
+      run: rustup default nightly
     - name: Install protoc
       run: sudo apt-get install -y protobuf-compiler
     - name: Check
