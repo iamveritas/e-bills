@@ -9,7 +9,6 @@ use libp2p::core::{Multiaddr, PeerId};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::dht::network::Client;
-use crate::{bill_from_byte_array, write_bill_to_file};
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, network_events, network_event_loop) = network::new()
@@ -25,6 +24,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
+            //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0
             "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
@@ -92,9 +92,10 @@ pub mod network {
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
+    use crate::zip::zip;
     use crate::{
-        generate_dht_logic, get_all_nodes_from_bill, read_ed25519_keypair_from_file,
-        read_peer_id_from_file, write_bill_folder_to_file, BitcreditBill,
+        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        write_bill_folder,
     };
 
     use super::*;
@@ -225,7 +226,7 @@ pub mod network {
                     {
                         let bill_bytes = self.get(bill_id.to_string()).await;
                         if !bill_bytes.is_empty() {
-                            write_bill_folder_to_file(bill_bytes, bill_id.to_string());
+                            write_bill_folder(bill_bytes, &bill_id.to_string());
                         }
                     }
                 }
@@ -406,11 +407,12 @@ pub mod network {
             match event {
                 Event::InboundRequest { request, channel } => {
                     let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
-                    self.respond_file(
-                        std::fs::read(&path_to_bill).expect("Can not respond."),
-                        channel,
-                    )
-                    .await;
+                    let zip_path = path_to_bill.clone() + ".zip";
+                    zip(&path_to_bill, &zip_path, zip::CompressionMethod::Bzip2)
+                        .expect("Can not zip file.");
+                    self.respond_file(std::fs::read(&zip_path).unwrap(), channel)
+                        .await;
+                    fs::remove_file(&zip_path).unwrap();
                 }
 
                 _ => {}

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
-    use std::io::Read;
-    use std::path::Path;
+    use std::io::{BufReader, Cursor, Read};
+    use std::path::{Path, PathBuf};
     use std::time::Duration;
     use std::{fs, mem};
 
@@ -17,6 +17,7 @@ mod test {
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::Cipher;
     use openssl::{aes, sha};
+    use tokio::fs::File;
 
     use crate::numbers_to_words::encode;
     use crate::{
@@ -28,31 +29,13 @@ mod test {
     };
 
     #[test]
-    fn write_bill_to_file_and_read_it() {
-        let bill = issue_new_bill(
-            "fa".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
-
-        let name = &bill.name;
-
-        write_bill_to_file(&bill);
-        let bill_from_file = read_bill_from_file(name);
-
-        assert_eq!("fa".to_string(), bill_from_file.bill_jurisdiction);
+    fn unzip() {
+        let file_name =
+            "test/e9ee13d98f28c963dadd5853865cc8c5db1d4036cda40260646c2d2501dc9073".to_string();
+        let archive = fs::read(&file_name).unwrap();
+        fs::remove_file(&file_name).unwrap();
+        let target_dir = PathBuf::from(file_name);
+        zip_extract::extract(Cursor::new(archive), &target_dir, false).unwrap();
     }
 
     #[test]

@@ -12,8 +12,8 @@ use crate::dht::network::Client;
 use crate::{
     add_in_contacts_map, create_whole_identity, get_all_nodes_from_bill, get_whole_identity,
     hash_bill, issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file, BitcreditBill, BitcreditBillForm, Identity, IdentityForm,
-    IdentityWithAll, NewContactForm,
+    read_peer_id_from_file, BitcreditBill, BitcreditBillForm, IdentityForm, IdentityWithAll,
+    NewContactForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -193,7 +193,10 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
     let mut client = state.inner().clone();
 
     let readeble_name = hash_bill(&bill);
-    let nodes = get_all_nodes_from_bill(&name_bill, &readeble_name);
+    let mut nodes = get_all_nodes_from_bill(&name_bill, &readeble_name);
+
+    let my_peer_id = read_peer_id_from_file();
+    nodes.push(my_peer_id.to_string());
 
     for node in nodes {
         client.add_bill_to_dht(&name_bill, node).await;

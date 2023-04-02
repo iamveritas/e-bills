@@ -26,6 +26,7 @@ use crate::constants::{
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
+use crate::zip::unzip;
 
 mod blockchain;
 mod constants;
@@ -33,6 +34,7 @@ mod dht;
 mod numbers_to_words;
 mod test;
 mod web;
+mod zip;
 
 // MAIN
 #[rocket::main]
@@ -44,7 +46,7 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
-
+    loop {}
     // let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
@@ -78,8 +80,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             web::customize(&mut engines.handlebars);
         }));
 
-    //Sometime not work.
-    //open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    //TODO TESTTASK loop{}
+    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -478,7 +480,7 @@ pub fn issue_new_bill(
             .to_string();
 
         let new_bill = BitcreditBill {
-            name: bill_name,
+            name: bill_name.clone(),
             to_payee: false,
             bill_jurisdiction,
             timestamp_at_drawing,
@@ -495,7 +497,7 @@ pub fn issue_new_bill(
             private_key_pem: private_key,
             language,
             drawee_name,
-            drawer_name: drawer.name,
+            drawer_name: drawer.name.clone(),
             holder_name: drawer.name.clone(),
         };
 
@@ -552,6 +554,7 @@ pub fn get_all_nodes_from_bill(bill_name: &String, bill_hash_name: &String) -> V
     let contact_map = read_contacts_map();
 
     let mut names_in_bill: Vec<String> = Vec::new();
+    names_in_bill.push(bill.drawer_name);
     names_in_bill.push(bill.drawee_name);
     names_in_bill.push(bill.holder_name);
 
@@ -572,7 +575,10 @@ fn upgrade_nodes(map: &HashMap<String, String>, names: Vec<String>, nodes: &mut 
     }
 }
 
-pub fn write_bill_folder_to_file(folder: Vec<u8>, name: String) {}
+pub fn write_bill_folder(folder: Vec<u8>, name: &String) {
+    let path_to_bill_folder = BILLS_FOLDER_PATH.to_string() + "/" + name;
+    unzip(folder, &path_to_bill_folder);
+}
 
 fn write_bill_to_file(bill: &BitcreditBill, hash_name: &String) {
     let bill_bytes_data: Vec<u8> = bill_to_byte_array(bill);
