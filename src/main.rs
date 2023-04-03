@@ -35,6 +35,7 @@ mod numbers_to_words;
 mod test;
 mod web;
 mod zip;
+// mod raft;
 
 // MAIN
 #[rocket::main]
@@ -72,6 +73,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             routes![
                 web::get_bill,
                 web::issue_bill,
+                web::endorse_bill,
                 web::new_bill,
                 web::search_bill
             ],
@@ -509,28 +511,26 @@ pub fn issue_new_bill(
     }
 }
 
-// fn endorse_bill(bill: BitcreditBill, new_holder: String) {
-//     //Check if we are holder.
-//     if bill.holder_name.eq(&new_holder) {
-//         //Check if we are main in raft.
-//
-//         //Нужно проверить, пересылали ли мы уже данный бил. Для этого нужно создать блокчейн с таким именем и чекать его на изменения
-//
-//         //Find contact in map.
-//         let contacts_map = read_contacts_map();
-//         let mut node_id = "";
-//         if contacts_map.contains_key(&new_holder) {
-//             node_id = contacts_map.get(&new_holder).expect("Contact not found");
-//         }
-//         if !node_id.is_empty() {
-//         //Send bill.
-//
-//         //Make changes in Raft
-//
-//         //Save new bill
-//         }
-//     }
-// }
+pub fn endorse_bill_to_new_holder_and_return_his_node_id(
+    bill_name: &String,
+    readable_hash_name: &String,
+    new_holder: String,
+) -> String {
+    let contacts_map = read_contacts_map();
+    let mut new_holder_node_id = "";
+    if contacts_map.contains_key(&new_holder) {
+        new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
+    }
+    if !new_holder_node_id.is_empty() {
+        let mut bill = read_bill_from_file(&bill_name, &readable_hash_name);
+        bill.holder_name = new_holder;
+        let readable_hash_name = hash_bill(&bill);
+        write_bill_to_file(&bill, &readable_hash_name);
+        new_holder_node_id.to_string()
+    } else {
+        "".to_string()
+    }
+}
 
 pub fn hash_bill(bill: &BitcreditBill) -> String {
     let bill_bytes: Vec<u8> = bill_to_byte_array(bill);
@@ -616,6 +616,14 @@ pub struct BitcreditBillForm {
     pub amount_numbers: u64,
     pub language: String,
     pub drawee_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct EndorseBitcreditBillForm {
+    pub new_holder: String,
+    pub bill_name: String,
+    pub readable_hash_name: String,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]

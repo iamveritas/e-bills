@@ -300,7 +300,7 @@ pub mod network {
             }
         }
 
-        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
+        pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
             let mut record_for_saving_in_dht = "".to_string();
             let list_bills_for_node = self.get_record(node_request.clone()).await;
