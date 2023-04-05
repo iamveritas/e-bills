@@ -1,10 +1,10 @@
+extern crate core;
 #[macro_use]
 extern crate rocket;
-extern crate core;
 
+use std::{fs, mem};
 use std::collections::HashMap;
 use std::path::Path;
-use std::{fs, mem};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
@@ -14,13 +14,13 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
+use rocket::{Build, Rocket};
 use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH, BTC,
+    BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH, BTC,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
@@ -32,10 +32,10 @@ mod blockchain;
 mod constants;
 mod dht;
 mod numbers_to_words;
+mod raft;
 mod test;
 mod web;
 mod zip;
-// mod raft;
 
 // MAIN
 #[rocket::main]

@@ -1,30 +1,53 @@
-use chrono::Utc;
-use openssl::sha::Sha256;
-use serde::{Deserialize, Serialize};
-
-pub struct App {
-    pub blocks: Vec<Block>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Block {
-    pub id: u64,
-    pub hash: String,
-    pub previous_hash: String,
-    pub timestamp: i64,
-    pub data: String,
-}
-
+// use core::slice::SlicePattern;
+// use chrono::prelude::*;
+// use libp2p::{
+//     core::upgrade,
+//     futures::StreamExt,
+//     mplex,
+//     noise::{Keypair, NoiseConfig, X25519Spec},
+//     swarm::{Swarm, SwarmBuilder},
+//     tcp::TokioTcpConfig,
+//     Transport,
+// };
+// use log::{error, info, warn};
+// use serde::{Deserialize, Serialize};
+// use sha2::{Digest, Sha256};
+// use std::time::Duration;
+// use openssl::sha::Sha256;
+// use tokio::{
+//     io::{stdin, AsyncBufReadExt, BufReader},
+//     select, spawn,
+//     sync::mpsc,
+//     time::sleep,
+// };
+//
+// const DIFFICULTY_PREFIX: &str = "00";
+//
+// pub struct App {
+//     pub blocks: Vec<Block>,
+// }
+//
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct Block {
+//     pub id: u64,
+//     pub hash: String,
+//     pub previous_hash: String,
+//     pub timestamp: i64,
+//     pub data: String,
+//     pub nonce: u64,
+// }
+//
 // impl Block {
 //     pub fn new(id: u64, previous_hash: String, data: String) -> Self {
 //         let now = Utc::now();
-//         let (hash) = // mine_block(id, now.timestamp(), &previous_hash, &data); Высчитываем хеш bill
+//         let (nonce, hash) = mine_block(id, now.timestamp(), &previous_hash, &data);
 //         Self {
 //             id,
 //             hash,
 //             timestamp: now.timestamp(),
 //             previous_hash,
 //             data,
+//             nonce,
 //         }
 //     }
 // }
@@ -35,13 +58,14 @@ pub struct Block {
 //         "previous_hash": previous_hash,
 //         "data": data,
 //         "timestamp": timestamp,
+//         "nonce": nonce
 //     });
 //     let mut hasher = Sha256::new();
 //     hasher.update(data.to_string().as_bytes());
-//     hasher.finish().as_slice().to_owned()
+//     hasher.finalize().as_slice().to_owned()
 // }
 //
-// fn mine_block(id: u64,  timestamp: i64, previous_hash: &str, data: &str) -> (u64, String) {
+// fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64, String) {
 //     info!("mining block...");
 //     let mut nonce = 0;
 //
@@ -77,13 +101,14 @@ pub struct Block {
 //         Self { blocks: vec![] }
 //     }
 //
-//     fn genesis(&mut self, hash: String) {
+//     fn genesis(&mut self) {
 //         let genesis_block = Block {
 //             id: 0,
 //             timestamp: Utc::now().timestamp(),
-//             previous_hash: String::from("genesis"),//Самый первый хеш
+//             previous_hash: String::from("genesis"),
 //             data: String::from("genesis!"),
-//             hash,
+//             nonce: 2836,
+//             hash: "0000f816a87f806bb0073dcf026a64fb40c946b5abee2573702828694d5b4c43".to_string(),
 //         };
 //         self.blocks.push(genesis_block);
 //     }

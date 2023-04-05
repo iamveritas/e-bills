@@ -1067,7 +1067,18 @@ version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
- "cipher 0.4.4",
+    "cipher 0.4.4",
+]
+
+[[package]]
+name = "cuckoofilter"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b810a8449931679f64cd7eef1bbd0fa315801b6d5d9cdc1ace2804d6529eee18"
+dependencies = [
+    "byteorder",
+    "fnv",
+    "rand 0.7.3",
 ]
 
 [[package]]
@@ -1076,9 +1087,9 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
 dependencies = [
- "byteorder",
- "digest 0.9.0",
- "rand_core 0.5.1",
+    "byteorder",
+    "digest 0.9.0",
+    "rand_core 0.5.1",
  "subtle",
  "zeroize",
 ]
@@ -2404,23 +2415,24 @@ version = "0.50.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c7b0104790be871edcf97db9bd2356604984e623a08d825c3f27852290266b8"
 dependencies = [
- "bytes",
- "futures",
- "futures-timer",
- "getrandom 0.2.8",
- "instant",
- "libp2p-core 0.38.0",
- "libp2p-dns",
- "libp2p-identify",
- "libp2p-kad",
- "libp2p-mdns",
- "libp2p-metrics",
- "libp2p-mplex",
- "libp2p-noise",
- "libp2p-quic",
- "libp2p-request-response",
- "libp2p-swarm",
- "libp2p-tcp",
+    "bytes",
+    "futures",
+    "futures-timer",
+    "getrandom 0.2.8",
+    "instant",
+    "libp2p-core 0.38.0",
+    "libp2p-dns",
+    "libp2p-floodsub",
+    "libp2p-identify",
+    "libp2p-kad",
+    "libp2p-mdns",
+    "libp2p-metrics",
+    "libp2p-mplex",
+    "libp2p-noise",
+    "libp2p-quic",
+    "libp2p-request-response",
+    "libp2p-swarm",
+    "libp2p-tcp",
  "libp2p-webrtc",
  "libp2p-websocket",
  "libp2p-yamux",
@@ -2498,13 +2510,32 @@ version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e42a271c1b49f789b92f7fc87749fa79ce5c7bdc88cbdfacb818a4bca47fec5"
 dependencies = [
- "async-std-resolver",
- "futures",
- "libp2p-core 0.38.0",
- "log 0.4.17",
- "parking_lot",
- "smallvec",
- "trust-dns-resolver",
+    "async-std-resolver",
+    "futures",
+    "libp2p-core 0.38.0",
+    "log 0.4.17",
+    "parking_lot",
+    "smallvec",
+    "trust-dns-resolver",
+]
+
+[[package]]
+name = "libp2p-floodsub"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0c7ba646a2487bc2883c9cc08a1d2955d5963fb8ca1822b288ae205456aca95"
+dependencies = [
+    "cuckoofilter",
+    "fnv",
+    "futures",
+    "libp2p-core 0.38.0",
+    "libp2p-swarm",
+    "log 0.4.17",
+    "prost",
+    "prost-build",
+    "rand 0.8.5",
+    "smallvec",
+    "thiserror",
 ]
 
 [[package]]
@@ -2513,9 +2544,9 @@ version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c052d0026f4817b44869bfb6810f4e1112f43aec8553f2cb38881c524b563abf"
 dependencies = [
- "asynchronous-codec",
- "futures",
- "futures-timer",
+    "asynchronous-codec",
+    "futures",
+    "futures-timer",
  "libp2p-core 0.38.0",
  "libp2p-swarm",
  "log 0.4.17",

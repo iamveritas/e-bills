@@ -3,18 +3,19 @@ use std::fs;
 use std::path::Path;
 
 use chrono::{Days, Utc};
-use rocket::form::Form;
+use libp2p::floodsub::Topic;
 use rocket::{Request, State};
+use rocket::form::Form;
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
-use crate::dht::network::Client;
 use crate::{
-    add_in_contacts_map, create_whole_identity, dht, endorse_bill_to_new_holder_and_return_his_node_id,
-    get_all_nodes_from_bill, get_whole_identity, hash_bill, issue_new_bill, read_bill_from_file,
-    read_contacts_map, read_identity_from_file, read_peer_id_from_file, BitcreditBill,
-    BitcreditBillForm, EndorseBitcreditBillForm, IdentityForm, IdentityWithAll, NewContactForm,
+    add_in_contacts_map, BitcreditBill, BitcreditBillForm,
+    create_whole_identity, endorse_bill_to_new_holder_and_return_his_node_id, EndorseBitcreditBillForm, get_all_nodes_from_bill, get_whole_identity,
+    hash_bill, IdentityForm, IdentityWithAll, issue_new_bill,
+    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
 };
+use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
+use crate::dht::network::Client;
 
 use self::handlebars::{Handlebars, JsonRender};
 
@@ -202,6 +203,8 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         client.add_bill_to_dht_for_node(&name_bill, node).await;
     }
 
+    client.subscribe_to_topic(Topic::new(&name_bill)).await;
+
     client.put(&name_bill).await;
 
     // Template::render(
@@ -227,7 +230,16 @@ pub async fn endorse_bill(
     );
 
     if !node_id.is_empty() {
-        client.add_bill_to_dht_for_node(&endorse_bill_form.bill_name, node_id).await;
+        client
+            .add_message_to_topic(
+                node_id.as_bytes().to_vec(),
+                Topic::new(endorse_bill_form.bill_name.clone()),
+            )
+            .await;
+
+        client
+            .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, node_id)
+            .await;
     }
 }
 

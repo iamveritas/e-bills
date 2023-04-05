@@ -62,25 +62,26 @@ enum CliArgument {
 }
 
 pub mod network {
+    use std::{fs, iter};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::path::Path;
-    use std::{fs, iter};
 
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
-    use futures::channel::mpsc::Receiver;
     use futures::channel::{mpsc, oneshot};
+    use futures::channel::mpsc::Receiver;
     use futures::io::Lines;
     use futures::stream::Fuse;
     use libp2p::core::either::EitherError;
-    use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
+    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
     use libp2p::development_transport;
-    use libp2p::kad::record::store::MemoryStore;
-    use libp2p::kad::record::{Key, Record};
+    use libp2p::floodsub::Topic;
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
+    use libp2p::kad::record::{Key, Record};
+    use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
@@ -88,15 +89,15 @@ pub mod network {
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
+    use crate::{
+        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        write_bill_folder,
+    };
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::zip::zip;
-    use crate::{
-        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file,
-        write_bill_folder,
-    };
 
     use super::*;
 
@@ -132,10 +133,13 @@ pub mod network {
                 Default::default(),
             );
 
+            let floodsub = libp2p::floodsub::Floodsub::new(local_peer_id);
+
             let mut behaviour = MyBehaviour {
                 request_response,
                 kademlia,
                 identify,
+                floodsub,
             };
             let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
             let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
@@ -222,6 +226,8 @@ pub mod network {
                     .to_string();
                 let bills = record_for_saving_in_dht.split(',');
                 for bill_id in bills {
+                    self.subscribe_to_topic(Topic::new(bill_id.to_string().clone()))
+                        .await;
                     if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string()).await;
@@ -318,6 +324,10 @@ pub mod network {
                 .await;
         }
 
+        pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: Topic) {
+            self.send_message(msg, topic).await;
+        }
+
         pub async fn put(&mut self, name: &String) {
             self.start_providing(name.clone()).await;
         }
@@ -343,6 +353,20 @@ pub mod network {
 
                 file_content
             }
+        }
+
+        pub async fn subscribe_to_topic(&mut self, topic: Topic) {
+            self.sender
+                .send(Command::SubscribeToTopic { topic })
+                .await
+                .expect("Command receiver not to be dropped.");
+        }
+
+        async fn send_message(&mut self, msg: Vec<u8>, topic: Topic) {
+            self.sender
+                .send(Command::SendMessage { msg, topic })
+                .await
+                .expect("Command receiver not to be dropped.");
         }
 
         async fn put_record(&mut self, key: String, value: String) {
@@ -555,8 +579,11 @@ pub mod network {
                 ComposedEvent,
                 //TODO: change to normal error type.
                 EitherError<
-                    EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
-                    std::io::Error,
+                    EitherError<
+                        EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
+                        std::io::Error,
+                    >,
+                    ConnectionHandlerUpgrErr<std::io::Error>,
                 >,
             >,
         ) {
@@ -769,7 +796,7 @@ pub mod network {
 
                 SwarmEvent::Behaviour(ComposedEvent::Identify(
                     libp2p::identify::Event::Received { peer_id, .. },
-                )) => {
+                                      )) => {
                     println!("New node identify.");
                     for address in self.swarm.behaviour_mut().addresses_of_peer(&peer_id) {
                         self.swarm
@@ -777,6 +804,13 @@ pub mod network {
                             .kademlia
                             .add_address(&peer_id, address);
                     }
+                }
+
+                SwarmEvent::Behaviour(ComposedEvent::Floodsub(
+                                          libp2p::floodsub::FloodsubEvent::Message(msg),
+                                      )) => {
+                    let str = std::str::from_utf8(&msg.data).expect("Message is not utf8.");
+                    println!("FloodsubEvent::Message {str:?}");
                 }
 
                 SwarmEvent::IncomingConnection { .. } => {
@@ -858,6 +892,14 @@ pub mod network {
                         .expect("Can not provide.");
                 }
 
+                Command::SendMessage { msg, topic } => {
+                    let _query_id = self.swarm.behaviour_mut().floodsub.publish(topic, msg);
+                }
+
+                Command::SubscribeToTopic { topic } => {
+                    let _query_id = self.swarm.behaviour_mut().floodsub.subscribe(topic);
+                }
+
                 Command::GetRecord { key, sender } => {
                     let key_record = Key::new(&key);
                     let query_id = self.swarm.behaviour_mut().kademlia.get_record(key_record);
@@ -929,6 +971,7 @@ pub mod network {
         request_response: request_response::RequestResponse<FileExchangeCodec>,
         kademlia: Kademlia<MemoryStore>,
         identify: libp2p::identify::Behaviour,
+        floodsub: libp2p::floodsub::Floodsub,
     }
 
     #[derive(Debug)]
@@ -936,6 +979,7 @@ pub mod network {
         RequestResponse(RequestResponseEvent<FileRequest, FileResponse>),
         Kademlia(KademliaEvent),
         Identify(libp2p::identify::Event),
+        Floodsub(libp2p::floodsub::FloodsubEvent),
     }
 
     impl From<RequestResponseEvent<FileRequest, FileResponse>> for ComposedEvent {
@@ -953,6 +997,12 @@ pub mod network {
     impl From<libp2p::identify::Event> for ComposedEvent {
         fn from(event: libp2p::identify::Event) -> Self {
             ComposedEvent::Identify(event)
+        }
+    }
+
+    impl From<libp2p::floodsub::FloodsubEvent> for ComposedEvent {
+        fn from(event: libp2p::floodsub::FloodsubEvent) -> Self {
+            ComposedEvent::Floodsub(event)
         }
     }
 
@@ -986,6 +1036,13 @@ pub mod network {
         RespondFile {
             file: Vec<u8>,
             channel: ResponseChannel<FileResponse>,
+        },
+        SendMessage {
+            msg: Vec<u8>,
+            topic: Topic,
+        },
+        SubscribeToTopic {
+            topic: Topic,
         },
         Dial {
             peer_id: PeerId,
