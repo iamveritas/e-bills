@@ -2,9 +2,9 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
-use std::{fs, mem};
 use std::collections::HashMap;
 use std::path::Path;
+use std::{fs, mem};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
@@ -14,13 +14,13 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-use rocket::{Build, Rocket};
 use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::constants::{
-    BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH, BTC,
+    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH, BTC,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
@@ -47,8 +47,9 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
+    dht.subscribe_to_all_topics().await;
     loop {}
-    // let _rocket = rocket_main(dht).launch().await.unwrap();
+    let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
@@ -82,7 +83,6 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             web::customize(&mut engines.handlebars);
         }));
 
-    //TODO TESTTASK loop{}
     open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
@@ -591,6 +591,18 @@ fn write_bill_to_file(bill: &BitcreditBill, hash_name: &String) {
 
     let path_to_bill = path_to_bill_folder + "/" + hash_name;
     fs::write(path_to_bill, bill_bytes_data).expect("Unable to write bill file");
+}
+
+pub fn read_bills() -> Vec<String> {
+    let path_to_bills = fs::read_dir(BILLS_FOLDER_PATH.to_string()).unwrap();
+
+    let mut bills = Vec::new();
+
+    for path in path_to_bills {
+        bills.push(path.unwrap().file_name().into_string().unwrap());
+    }
+
+    bills
 }
 
 fn read_bill_from_file(bill_name: &String, bill_hash_name: &String) -> BitcreditBill {

@@ -24,8 +24,8 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
-            //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0
-            "/ip4/0.0.0.0/tcp/1908"
+            //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0 (normal 1908)
+            "/ip4/0.0.0.0/tcp/0"
                 .parse()
                 .expect("Can not start listening."),
         )
@@ -62,42 +62,45 @@ enum CliArgument {
 }
 
 pub mod network {
-    use std::{fs, iter};
+    use std::collections::hash_map::DefaultHasher;
     use std::collections::{hash_map, HashMap, HashSet};
+    use std::hash::{Hash, Hasher};
     use std::path::Path;
+    use std::time::Duration;
+    use std::{fs, iter};
 
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
-    use futures::channel::{mpsc, oneshot};
     use futures::channel::mpsc::Receiver;
+    use futures::channel::{mpsc, oneshot};
     use futures::io::Lines;
     use futures::stream::Fuse;
     use libp2p::core::either::EitherError;
-    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
-    use libp2p::development_transport;
-    use libp2p::floodsub::Topic;
+    use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
+    use libp2p::gossipsub::error::GossipsubHandlerError;
+    use libp2p::kad::record::store::MemoryStore;
+    use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
-    use libp2p::kad::record::{Key, Record};
-    use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
+    use libp2p::{development_transport, gossipsub};
 
-    use crate::{
-        generate_dht_logic, read_ed25519_keypair_from_file, read_peer_id_from_file,
-        write_bill_folder,
-    };
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
     };
     use crate::zip::zip;
+    use crate::{
+        generate_dht_logic, read_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        write_bill_folder,
+    };
 
     use super::*;
 
@@ -110,12 +113,11 @@ pub mod network {
         }
 
         let local_key = read_ed25519_keypair_from_file();
-        let key_copy = local_key.clone();
         let local_peer_id = read_peer_id_from_file();
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let transport = development_transport(local_key).await?;
+        let transport = development_transport(local_key.clone()).await?;
 
         let mut swarm = {
             let store = MemoryStore::new(local_peer_id);
@@ -123,7 +125,7 @@ pub mod network {
 
             let cfg_identify = libp2p::identify::Config::new(
                 "protocol identify version 1".to_string(),
-                key_copy.public(),
+                local_key.clone().public(),
             );
             let identify = libp2p::identify::Behaviour::new(cfg_identify);
 
@@ -133,13 +135,33 @@ pub mod network {
                 Default::default(),
             );
 
-            let floodsub = libp2p::floodsub::Floodsub::new(local_peer_id);
+            // To content-address message, we can take the hash of message and use it as an ID.
+            let message_id_fn = |message: &gossipsub::GossipsubMessage| {
+                let mut s = DefaultHasher::new();
+                message.data.hash(&mut s);
+                gossipsub::MessageId::from(s.finish().to_string())
+            };
+
+            // Set a custom gossipsub configuration
+            let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+                .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+                .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+                .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+                .build()
+                .expect("Valid config");
+
+            // build a gossipsub network behaviour
+            let mut gossipsub = gossipsub::Gossipsub::new(
+                gossipsub::MessageAuthenticity::Signed(local_key.clone()),
+                gossipsub_config,
+            )
+            .expect("Correct configuration");
 
             let mut behaviour = MyBehaviour {
                 request_response,
                 kademlia,
                 identify,
-                floodsub,
+                gossipsub,
             };
             let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
             let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
@@ -226,8 +248,6 @@ pub mod network {
                     .to_string();
                 let bills = record_for_saving_in_dht.split(',');
                 for bill_id in bills {
-                    self.subscribe_to_topic(Topic::new(bill_id.to_string().clone()))
-                        .await;
                     if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string()).await;
@@ -324,7 +344,7 @@ pub mod network {
                 .await;
         }
 
-        pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: Topic) {
+        pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: String) {
             self.send_message(msg, topic).await;
         }
 
@@ -355,14 +375,25 @@ pub mod network {
             }
         }
 
-        pub async fn subscribe_to_topic(&mut self, topic: Topic) {
+        pub async fn subscribe_to_all_topics(&mut self) {
+            let bills = read_bills();
+
+            for bill in bills {
+                self.sender
+                    .send(Command::SubscribeToTopic { topic: bill })
+                    .await
+                    .expect("Command receiver not to be dropped.");
+            }
+        }
+
+        pub async fn subscribe_to_topic(&mut self, topic: String) {
             self.sender
                 .send(Command::SubscribeToTopic { topic })
                 .await
                 .expect("Command receiver not to be dropped.");
         }
 
-        async fn send_message(&mut self, msg: Vec<u8>, topic: Topic) {
+        async fn send_message(&mut self, msg: Vec<u8>, topic: String) {
             self.sender
                 .send(Command::SendMessage { msg, topic })
                 .await
@@ -497,6 +528,29 @@ pub mod network {
                     self.put_record(key, value).await;
                 }
 
+                Some("SEND_MESSAGE") => {
+                    let topic = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected topic");
+                                return;
+                            }
+                        }
+                    };
+                    let msg = {
+                        match args.next() {
+                            Some(value) => String::from(value),
+                            None => {
+                                eprintln!("Expected msg");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.send_message(msg.into_bytes(), topic).await;
+                }
+
                 Some("GET_RECORD") => {
                     let key = {
                         match args.next() {
@@ -524,7 +578,9 @@ pub mod network {
                 }
 
                 _ => {
-                    eprintln!("expected GET, PUT, GET_RECORD, PUT_RECORD or GET_PROVIDERS.");
+                    eprintln!(
+                        "expected GET, PUT, SEND_MESSAGE, GET_RECORD, PUT_RECORD or GET_PROVIDERS."
+                    );
                 }
             }
         }
@@ -583,7 +639,7 @@ pub mod network {
                         EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
                         std::io::Error,
                     >,
-                    ConnectionHandlerUpgrErr<std::io::Error>,
+                    GossipsubHandlerError,
                 >,
             >,
         ) {
@@ -605,17 +661,17 @@ pub mod network {
                             .remove(&id)
                             .expect("Completed query to be previously pending.");
                         let _ = sender.send(());
-                        println!(
-                            "Successfully put provider record {:?}",
-                            std::str::from_utf8(key.as_ref()).unwrap()
-                        );
+                        // println!(
+                        //     "Successfully put provider record {:?}",
+                        //     std::str::from_utf8(key.as_ref()).unwrap()
+                        // );
                     }
 
                     QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                        println!(
-                            "Successfully put record {:?}",
-                            std::str::from_utf8(key.as_ref()).unwrap()
-                        );
+                        // println!(
+                        //     "Successfully put record {:?}",
+                        //     std::str::from_utf8(key.as_ref()).unwrap()
+                        // );
                     }
 
                     QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
@@ -662,7 +718,7 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("NotFound.");
+                        // println!("NotFound.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
@@ -678,7 +734,7 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("Timeout.");
+                        // println!("Timeout.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
@@ -694,12 +750,12 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("QuorumFailed.");
+                        // println!("QuorumFailed.");
                     }
 
                     QueryResult::StartProviding(Err(err)) => {
                         //TODO: do some logic.
-                        eprintln!("Failed to put provider record: {err:?}");
+                        // eprintln!("Failed to put provider record: {err:?}");
                     }
 
                     QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders {
@@ -732,7 +788,7 @@ pub mod network {
 
                     QueryResult::GetProviders(Err(err)) => {
                         //TODO: do some logic.
-                        eprintln!("Failed to get providers: {err:?}");
+                        // eprintln!("Failed to get providers: {err:?}");
                     }
 
                     _ => {}
@@ -791,13 +847,13 @@ pub mod network {
                     RequestResponseEvent::ResponseSent { .. },
                 )) => {
                     //TODO: do some logic.
-                    println!("{event:?}")
+                    // println!("{event:?}")
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::Identify(
                     libp2p::identify::Event::Received { peer_id, .. },
-                                      )) => {
-                    println!("New node identify.");
+                )) => {
+                    // println!("New node identify.");
                     for address in self.swarm.behaviour_mut().addresses_of_peer(&peer_id) {
                         self.swarm
                             .behaviour_mut()
@@ -806,16 +862,23 @@ pub mod network {
                     }
                 }
 
-                SwarmEvent::Behaviour(ComposedEvent::Floodsub(
-                                          libp2p::floodsub::FloodsubEvent::Message(msg),
-                                      )) => {
-                    let str = std::str::from_utf8(&msg.data).expect("Message is not utf8.");
-                    println!("FloodsubEvent::Message {str:?}");
+                SwarmEvent::Behaviour(ComposedEvent::Gossipsub(
+                    libp2p::gossipsub::GossipsubEvent::Message {
+                        propagation_source: peer_id,
+                        message_id: id,
+                        message,
+                    },
+                )) => {
+                    let topic = message.topic.clone();
+                    println!(
+                        "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {topic}",
+                        String::from_utf8_lossy(&message.data),
+                    )
                 }
 
                 SwarmEvent::IncomingConnection { .. } => {
                     //TODO: do some logic.
-                    println!("{event:?}")
+                    // println!("{event:?}")
                 }
 
                 SwarmEvent::ConnectionEstablished {
@@ -830,7 +893,7 @@ pub mod network {
 
                 SwarmEvent::ConnectionClosed { .. } => {
                     //TODO: do some logic.;
-                    println!("{event:?}")
+                    // println!("{event:?}")
                 }
 
                 SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
@@ -843,12 +906,12 @@ pub mod network {
 
                 SwarmEvent::IncomingConnectionError { .. } => {
                     //TODO: do some logic.
-                    println!("{event:?}")
+                    // println!("{event:?}")
                 }
 
                 SwarmEvent::Behaviour(event) => {
-                    println!("New event");
-                    println!("{event:?}")
+                    // println!("New event");
+                    // println!("{event:?}")
                 }
 
                 _ => {}
@@ -865,6 +928,7 @@ pub mod network {
                 }
 
                 Command::StartProviding { file_name, sender } => {
+                    println!("Start providing {file_name:?}");
                     let query_id = self
                         .swarm
                         .behaviour_mut()
@@ -875,6 +939,7 @@ pub mod network {
                 }
 
                 Command::PutRecord { key, value } => {
+                    println!("Put record {key:?}");
                     let key_record = Key::new(&key);
                     let value_bytes = value.as_bytes().to_vec();
                     let record = Record {
@@ -893,20 +958,32 @@ pub mod network {
                 }
 
                 Command::SendMessage { msg, topic } => {
-                    let _query_id = self.swarm.behaviour_mut().floodsub.publish(topic, msg);
+                    println!("Send message to topic {topic:?}");
+                    self.swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .publish(gossipsub::IdentTopic::new(topic), msg)
+                        .expect("TODO: panic message");
                 }
 
                 Command::SubscribeToTopic { topic } => {
-                    let _query_id = self.swarm.behaviour_mut().floodsub.subscribe(topic);
+                    println!("Subscribe to topic {topic:?}");
+                    self.swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .subscribe(&gossipsub::IdentTopic::new(topic))
+                        .expect("TODO: panic message");
                 }
 
                 Command::GetRecord { key, sender } => {
+                    println!("Get record {key:?}");
                     let key_record = Key::new(&key);
                     let query_id = self.swarm.behaviour_mut().kademlia.get_record(key_record);
                     self.pending_get_records.insert(query_id, sender);
                 }
 
                 Command::GetProviders { file_name, sender } => {
+                    println!("Get providers {file_name:?}");
                     let query_id = self
                         .swarm
                         .behaviour_mut()
@@ -920,6 +997,7 @@ pub mod network {
                     peer,
                     sender,
                 } => {
+                    println!("Request file {file_name:?}");
                     let request_id = self
                         .swarm
                         .behaviour_mut()
@@ -929,6 +1007,7 @@ pub mod network {
                 }
 
                 Command::RespondFile { file, channel } => {
+                    println!("Respond file");
                     self.swarm
                         .behaviour_mut()
                         .request_response
@@ -971,7 +1050,7 @@ pub mod network {
         request_response: request_response::RequestResponse<FileExchangeCodec>,
         kademlia: Kademlia<MemoryStore>,
         identify: libp2p::identify::Behaviour,
-        floodsub: libp2p::floodsub::Floodsub,
+        gossipsub: libp2p::gossipsub::Gossipsub,
     }
 
     #[derive(Debug)]
@@ -979,7 +1058,7 @@ pub mod network {
         RequestResponse(RequestResponseEvent<FileRequest, FileResponse>),
         Kademlia(KademliaEvent),
         Identify(libp2p::identify::Event),
-        Floodsub(libp2p::floodsub::FloodsubEvent),
+        Gossipsub(libp2p::gossipsub::GossipsubEvent),
     }
 
     impl From<RequestResponseEvent<FileRequest, FileResponse>> for ComposedEvent {
@@ -1000,9 +1079,9 @@ pub mod network {
         }
     }
 
-    impl From<libp2p::floodsub::FloodsubEvent> for ComposedEvent {
-        fn from(event: libp2p::floodsub::FloodsubEvent) -> Self {
-            ComposedEvent::Floodsub(event)
+    impl From<libp2p::gossipsub::GossipsubEvent> for ComposedEvent {
+        fn from(event: libp2p::gossipsub::GossipsubEvent) -> Self {
+            ComposedEvent::Gossipsub(event)
         }
     }
 
@@ -1039,10 +1118,10 @@ pub mod network {
         },
         SendMessage {
             msg: Vec<u8>,
-            topic: Topic,
+            topic: String,
         },
         SubscribeToTopic {
-            topic: Topic,
+            topic: String,
         },
         Dial {
             peer_id: PeerId,
