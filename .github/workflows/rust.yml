@@ -32,5 +32,7 @@ jobs:
       run: cargo clean --verbose
     - name: Update
       run: cargo update --verbose
+    - name: Test
+      run: cargo test
     - name: Build
       run: cargo build --verbose
