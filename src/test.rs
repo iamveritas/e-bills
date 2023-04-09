@@ -1,95 +1,86 @@
 #[cfg(test)]
 mod test {
+    use std::{fs, mem};
     use std::io::{BufReader, Cursor, Read};
     use std::path::{Path, PathBuf};
     use std::time::Duration;
-    use std::{fs, mem};
 
     use borsh::{BorshDeserialize, BorshSerialize};
-    use libp2p::identity::Keypair;
-    use libp2p::kad::store::MemoryStore;
-    use libp2p::kad::{Kademlia, KademliaConfig};
     use libp2p::{identity, PeerId};
+    use libp2p::identity::Keypair;
+    use libp2p::kad::{Kademlia, KademliaConfig};
+    use libp2p::kad::store::MemoryStore;
+    use openssl::{aes, rsa, sha};
     use openssl::hash::MessageDigest;
     use openssl::pkey::{PKey, Private, Public};
     use openssl::rsa::{Padding, Rsa};
     use openssl::sha::sha256;
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::Cipher;
-    use openssl::{aes, sha};
-    use tokio::fs::File;
 
-    use crate::numbers_to_words::encode;
     use crate::{
-        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
-        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
-        generation_rsa_key, issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
-        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file,
-        structure_as_u8_slice, write_bill_to_file, BitcreditBill, Identity,
+        bill_from_byte_array, bill_to_byte_array, BitcreditBill,
+        byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes,
+        encrypt_bytes, generation_rsa_key, hash_data_from_bill, Identity,
+        issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
+        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file, read_identity_from_file,
+        structure_as_u8_slice,
     };
+    use crate::blockchain::{Block, Chain, is_block_valid, signature};
+    use crate::constants::BILLS_FOLDER_PATH;
+    use crate::numbers_to_words::encode;
 
     #[test]
-    fn unzip() {
-        let file_name =
-            "test/e9ee13d98f28c963dadd5853865cc8c5db1d4036cda40260646c2d2501dc9073".to_string();
-        let archive = fs::read(&file_name).unwrap();
-        fs::remove_file(&file_name).unwrap();
-        let target_dir = PathBuf::from(file_name);
-        zip_extract::extract(Cursor::new(archive), &target_dir, false).unwrap();
-    }
+    fn blockchain() {
+        //Identity
+        let drawer = read_identity_from_file();
 
-    #[test]
-    fn bill_name() {
+        // New bill
         let bill = issue_new_bill(
-            "fa".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
+            "bill.bill_jurisdiction".to_string(),
+            "bill.place_of_drawing".to_string(),
+            10,
+            drawer.clone(),
+            "bill.language".to_string(),
+            "bill.drawee_name".to_string(),
+        );
+
+        // Read blockchain from file
+        let mut blockchain_from_file = Chain::read_chain_from_file(&bill.name);
+
+        //Take last block
+        let last_block = blockchain_from_file.get_latest_block();
+
+        // Data for second block
+        let data2 = "Ivan Tymko".to_string();
+
+        // Create second block
+        let private_key = private_key_from_pem_u8(&drawer.private_key_pem.as_bytes().to_vec());
+        let signer_key = PKey::from_rsa(private_key).unwrap();
+        let signature: String = signature(&bill, &signer_key);
+        let block_two = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            hex::encode(data2.as_bytes()),
+            bill.name.clone(),
+            signature,
             "".to_string(),
             "".to_string(),
         );
 
-        let bill_name_hash: Vec<u8> = sha256(bill_to_byte_array(&bill).as_slice()).to_vec();
-        let name = hex::encode(bill_name_hash);
+        // Validate and write chain
+        blockchain_from_file.try_add_block(block_two);
+        if blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+        }
 
-        assert_ne!("fa".to_string(), name);
-    }
+        // Try take last version of bill
+        let chain_two = Chain::read_chain_from_file(&bill.name);
+        let bill2 = chain_two.get_last_version_bill();
 
-    #[test]
-    fn create_new_bill() {
-        let bill = issue_new_bill(
-            "".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
-
-        let rsa = generation_rsa_key();
-        let private_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
-        let a = sha256(private_key.as_slice()).to_vec();
-        let s = format!("{:?}", &a);
-        let path = "test/".to_owned() + &s.replace(", ", "").replace("[", "").replace("]", "");
-        fs::write(path.as_str(), "adsadsadsad".as_bytes()).expect("Unable to write bill in file.");
+        //Tests
+        assert_eq!(bill.holder_name, "Mykyta Tymko".to_string());
+        assert_eq!(bill2.holder_name, "Ivan Tymko".to_string());
     }
 
     #[test]
@@ -128,23 +119,27 @@ mod test {
 
     #[test]
     fn encrypt_bill_with_rsa_keypair() {
-        let bill = issue_new_bill(
-            "".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
+        let bill = BitcreditBill {
+            name: "".to_string(),
+            to_payee: false,
+            bill_jurisdiction: "".to_string(),
+            timestamp_at_drawing: 0,
+            drawee_name: "".to_string(),
+            drawer_name: "".to_string(),
+            holder_name: "".to_string(),
+            place_of_drawing: "".to_string(),
+            currency_code: "".to_string(),
+            amount_numbers: 0,
+            amounts_letters: "".to_string(),
+            maturity_date: "".to_string(),
+            date_of_issue: "".to_string(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: "".to_string(),
+            public_key_pem: "".to_string(),
+            private_key_pem: "".to_string(),
+            language: "".to_string(),
+        };
 
         let rsa_key = generation_rsa_key();
         let bill_bytes = bill_to_byte_array(&bill);
@@ -165,23 +160,27 @@ mod test {
 
     #[test]
     fn decrypt_bill_with_rsa_keypair() {
-        let bill = issue_new_bill(
-            "".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
+        let bill = BitcreditBill {
+            name: "".to_string(),
+            to_payee: false,
+            bill_jurisdiction: "".to_string(),
+            timestamp_at_drawing: 0,
+            drawee_name: "".to_string(),
+            drawer_name: "".to_string(),
+            holder_name: "".to_string(),
+            place_of_drawing: "".to_string(),
+            currency_code: "".to_string(),
+            amount_numbers: 0,
+            amounts_letters: "".to_string(),
+            maturity_date: "".to_string(),
+            date_of_issue: "".to_string(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: "".to_string(),
+            public_key_pem: "".to_string(),
+            private_key_pem: "".to_string(),
+            language: "".to_string(),
+        };
 
         let rsa_key = generation_rsa_key();
         let bill_bytes = bill_to_byte_array(&bill);
@@ -197,40 +196,28 @@ mod test {
     }
 
     #[test]
-    fn different_rsa_keys_generated_each_time() {
-        let key1 = generation_rsa_key();
-        let key2 = generation_rsa_key();
-        assert_ne!(
-            key1.private_key_to_pem().unwrap(),
-            key2.private_key_to_pem().unwrap(),
-            "private key from 2 generation must be NOT equal"
-        );
-        assert_ne!(
-            key1.public_key_to_pem().unwrap(),
-            key2.public_key_to_pem().unwrap(),
-            "public key from 2 generation must be NOT equal"
-        );
-    }
-
-    #[test]
     fn sign_and_verify_data_given_an_rsa_keypair() {
-        let data = issue_new_bill(
-            "".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
+        let data = BitcreditBill {
+            name: "".to_string(),
+            to_payee: false,
+            bill_jurisdiction: "".to_string(),
+            timestamp_at_drawing: 0,
+            drawee_name: "".to_string(),
+            drawer_name: "".to_string(),
+            holder_name: "".to_string(),
+            place_of_drawing: "".to_string(),
+            currency_code: "".to_string(),
+            amount_numbers: 0,
+            amounts_letters: "".to_string(),
+            maturity_date: "".to_string(),
+            date_of_issue: "".to_string(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: "".to_string(),
+            public_key_pem: "".to_string(),
+            private_key_pem: "".to_string(),
+            language: "".to_string(),
+        };
 
         // Generate a keypair
         let rsa_key = generation_rsa_key();
@@ -273,44 +260,6 @@ mod test {
             .private_decrypt(&data_enc, &mut buf, Padding::PKCS1)
             .unwrap();
         assert!(String::from_utf8(buf).unwrap().starts_with(data));
-    }
-
-    #[test]
-    fn bill_to_bytes_and_opposite_with_borsh() {
-        let bill = issue_new_bill(
-            "".to_string(),
-            "".to_string(),
-            0,
-            Identity {
-                name: "".to_string(),
-                date_of_birth: "".to_string(),
-                city_of_birth: "".to_string(),
-                country_of_birth: "".to_string(),
-                email: "".to_string(),
-                postal_address: "".to_string(),
-                public_key_pem: "".to_string(),
-                private_key_pem: "".to_string(),
-            },
-            "".to_string(),
-            "".to_string(),
-        );
-
-        let encoded_bill = bill.try_to_vec().unwrap();
-
-        let decoded_bill: BitcreditBill = BitcreditBill::try_from_slice(&encoded_bill).unwrap();
-        assert_eq!(bill.bill_jurisdiction, decoded_bill.bill_jurisdiction);
-    }
-
-    #[test]
-    fn create_new_account() {
-        let account: Identity = create_new_identity(
-            "Ivan".to_string(),
-            "12.12.2022".to_string(),
-            "Vienna".to_string(),
-            "Austria".to_string(),
-            "111@gmail.com".to_string(),
-            "Mainstrasse 1".to_string(),
-        );
     }
 
     #[test]

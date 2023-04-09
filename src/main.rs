@@ -2,31 +2,31 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
+use std::{fs, mem, path};
 use std::collections::HashMap;
 use std::path::Path;
-use std::{fs, mem};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
-use openssl::pkey::{Private, Public};
+use openssl::pkey::{PKey, Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
+use rocket::{Build, Rocket};
 use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
+use crate::blockchain::{Chain, hash_data_from_bill, start_blockchain_for_new_bill};
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH, BTC,
+    BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH, BTC,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
-use crate::zip::unzip;
 
 mod blockchain;
 mod constants;
@@ -47,8 +47,8 @@ async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
-    dht.subscribe_to_all_topics().await;
-    loop {}
+    dht.subscribe_to_all_bills_topics().await;
+    // loop {}
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
@@ -83,7 +83,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             web::customize(&mut engines.handlebars);
         }));
 
-    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    // open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -112,6 +112,16 @@ fn init_folders() {
     }
 }
 
+//-------------------------Contacts map-------------------------
+fn read_contacts_map() -> HashMap<String, String> {
+    if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        create_contacts_map();
+    }
+    let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
+    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    contacts
+}
+
 fn add_in_contacts_map(name: String, peer_id: String) {
     if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
         create_contacts_map();
@@ -126,20 +136,22 @@ fn create_contacts_map() {
     write_contacts_map(contacts);
 }
 
-fn read_contacts_map() -> HashMap<String, String> {
-    if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
-        create_contacts_map();
-    }
-    let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
-    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
-    contacts
-}
-
 fn write_contacts_map(map: HashMap<String, String>) {
     let contacts_byte = map.try_to_vec().unwrap();
     fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
 }
 
+fn get_contact_from_map(name: &String) -> String {
+    let contacts = read_contacts_map();
+    if contacts.contains_key(name) {
+        contacts.get(name).unwrap().to_string()
+    } else {
+        String::new()
+    }
+}
+//--------------------------------------------------------------
+
+//-------------------------RSA----------------------------------
 fn generation_rsa_key() -> Rsa<Private> {
     Rsa::generate(2048).unwrap()
 }
@@ -161,7 +173,9 @@ fn private_key_from_pem_u8(private_key_u8: &Vec<u8>) -> Rsa<Private> {
 fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
     rsa::Rsa::public_key_from_pem(public_key_u8).unwrap()
 }
+//--------------------------------------------------------------
 
+//-------------------------Bytes common-------------------------
 fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size: usize = (rsa_key.size() / 2) as usize; //128
 
@@ -263,14 +277,16 @@ fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
 unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
 }
+//--------------------------------------------------------------
 
+//-------------------------Identity-----------------------------
 pub struct IdentityWithAll {
     identity: Identity,
     peer_id: PeerId,
     key_pair: Keypair,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct Identity {
     name: String,
@@ -413,7 +429,9 @@ fn byte_array_to_size_array_keypair(array: &[u8]) -> &[u8; ::std::mem::size_of::
 fn byte_array_to_size_array_peer_id(array: &[u8]) -> &[u8; ::std::mem::size_of::<PeerId>()] {
     array.try_into().expect("slice with incorrect length")
 }
+//--------------------------------------------------------------
 
+//-------------------------Bill---------------------------------
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct BitcreditBill {
@@ -444,6 +462,33 @@ pub struct BitcreditBill {
     language: String,
 }
 
+//TODO change
+impl BitcreditBill {
+    pub fn new() -> Self {
+        BitcreditBill {
+            name: String::new(),
+            to_payee: false,
+            bill_jurisdiction: String::new(),
+            timestamp_at_drawing: 0,
+            drawee_name: String::new(),
+            drawer_name: String::new(),
+            holder_name: String::new(),
+            place_of_drawing: String::new(),
+            currency_code: String::new(),
+            amount_numbers: 0,
+            amounts_letters: String::new(),
+            maturity_date: String::new(),
+            date_of_issue: String::new(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: String::new(),
+            public_key_pem: String::new(),
+            private_key_pem: String::new(),
+            language: String::new(),
+        }
+    }
+}
+
 pub fn issue_new_bill(
     bill_jurisdiction: String,
     place_of_drawing: String,
@@ -451,7 +496,7 @@ pub fn issue_new_bill(
     drawer: Identity,
     language: String,
     drawee_name: String,
-) -> (String, BitcreditBill) {
+) -> BitcreditBill {
     let rsa: Rsa<Private> = generation_rsa_key();
     let bill_name: String = create_bill_name(&rsa);
 
@@ -466,8 +511,8 @@ pub fn issue_new_bill(
             drawee_name,
         )
     } else {
-        let private_key: String = pem_private_key_from_rsa(&rsa);
-        let public_key: String = pem_public_key_from_rsa(&rsa);
+        let private_key_pem: String = pem_private_key_from_rsa(&rsa);
+        let public_key_pem: String = pem_public_key_from_rsa(&rsa);
 
         let amount_letters: String = encode(&amount_numbers);
 
@@ -495,22 +540,53 @@ pub fn issue_new_bill(
             compounding_interest_rate: COMPOUNDING_INTEREST_RATE_ZERO,
             type_of_interest_calculation: false,
             place_of_payment: drawer.postal_address,
-            public_key_pem: public_key,
-            private_key_pem: private_key,
+            public_key_pem,
+            private_key_pem,
             language,
             drawee_name,
             drawer_name: drawer.name.clone(),
             holder_name: drawer.name.clone(),
         };
 
-        let readable_hash_name = hash_bill(&new_bill);
+        let private_key = private_key_from_pem_u8(&drawer.private_key_pem.as_bytes().to_vec());
+        let signer_key = PKey::from_rsa(private_key).unwrap();
 
-        write_bill_to_file(&new_bill, &readable_hash_name);
+        start_blockchain_for_new_bill(&new_bill, &signer_key);
 
-        (bill_name.clone(), new_bill)
+        new_bill
     }
 }
 
+fn create_bill_name(rsa: &Rsa<Private>) -> String {
+    let public_key_bytes: Vec<u8> = rsa.public_key_to_pem().unwrap();
+    let bill_name_hash: Vec<u8> = sha256(public_key_bytes.as_slice()).to_vec();
+    let bill_name_readable = hex::encode(bill_name_hash);
+    bill_name_readable
+}
+
+pub fn get_bills() -> Vec<BitcreditBill> {
+    let mut bills = Vec::new();
+    let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
+    for _path in paths {
+        let mut file_name = _path
+            .unwrap()
+            .file_name()
+            .to_str()
+            .expect("File name error")
+            .to_string();
+        //TODO change
+        let path_without_extension = path::Path::file_stem(path::Path::new(&file_name))
+            .expect("File name error")
+            .to_str()
+            .expect("File name error")
+            .to_string();
+        let bill = read_bill_from_file(&path_without_extension);
+        bills.push(bill);
+    }
+    bills
+}
+
+//TODO change
 pub fn endorse_bill_to_new_holder_and_return_his_node_id(
     bill_name: &String,
     readable_hash_name: &String,
@@ -522,94 +598,20 @@ pub fn endorse_bill_to_new_holder_and_return_his_node_id(
         new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
     }
     if !new_holder_node_id.is_empty() {
-        let mut bill = read_bill_from_file(&bill_name, &readable_hash_name);
+        let mut bill = read_bill_from_file(&bill_name);
         bill.holder_name = new_holder;
-        let readable_hash_name = hash_bill(&bill);
-        write_bill_to_file(&bill, &readable_hash_name);
+        let readable_hash_name = hash_data_from_bill(&bill);
+        fs::write("delete", &readable_hash_name).expect("Unable to write file");
         new_holder_node_id.to_string()
     } else {
         "".to_string()
     }
 }
 
-pub fn hash_bill(bill: &BitcreditBill) -> String {
-    let bill_bytes: Vec<u8> = bill_to_byte_array(bill);
-    let bill_hash: Vec<u8> = sha256(bill_bytes.as_slice()).to_vec();
-    let bill_hash_readable = hex::encode(bill_hash);
-    bill_hash_readable
-}
-
-fn create_bill_name(rsa: &Rsa<Private>) -> String {
-    let public_key_bytes: Vec<u8> = rsa.public_key_to_pem().unwrap();
-    let bill_name_hash: Vec<u8> = sha256(public_key_bytes.as_slice()).to_vec();
-    let bill_name_readable = hex::encode(bill_name_hash);
-    bill_name_readable
-}
-
-pub fn get_all_nodes_from_bill(bill_name: &String, bill_hash_name: &String) -> Vec<String> {
-    let bill = read_bill_from_file(bill_name, bill_hash_name);
-
-    let mut nodes_in_bill: Vec<String> = Vec::new();
-
-    let contact_map = read_contacts_map();
-
-    let mut names_in_bill: Vec<String> = Vec::new();
-    names_in_bill.push(bill.drawer_name);
-    names_in_bill.push(bill.drawee_name);
-    names_in_bill.push(bill.holder_name);
-
-    upgrade_nodes(&contact_map, names_in_bill, nodes_in_bill.as_mut());
-
-    nodes_in_bill
-}
-
-fn upgrade_nodes(map: &HashMap<String, String>, names: Vec<String>, nodes: &mut Vec<String>) {
-    for name in names {
-        let mut node_id = "";
-        if map.contains_key(&name) {
-            node_id = map.get(&name).expect("Contact not found");
-        }
-        if !node_id.is_empty() {
-            nodes.push(node_id.to_string());
-        }
-    }
-}
-
-pub fn write_bill_folder(folder: Vec<u8>, name: &String) {
-    let path_to_bill_folder = BILLS_FOLDER_PATH.to_string() + "/" + name;
-    unzip(folder, &path_to_bill_folder);
-}
-
-fn write_bill_to_file(bill: &BitcreditBill, hash_name: &String) {
-    let bill_bytes_data: Vec<u8> = bill_to_byte_array(bill);
-
-    let path_to_bill_folder = BILLS_FOLDER_PATH.to_string() + "/" + &bill.name;
-
-    if !Path::new(&path_to_bill_folder).exists() {
-        fs::create_dir(&path_to_bill_folder).unwrap();
-    }
-
-    let path_to_bill = path_to_bill_folder + "/" + hash_name;
-    fs::write(path_to_bill, bill_bytes_data).expect("Unable to write bill file");
-}
-
-pub fn read_bills() -> Vec<String> {
-    let path_to_bills = fs::read_dir(BILLS_FOLDER_PATH.to_string()).unwrap();
-
-    let mut bills = Vec::new();
-
-    for path in path_to_bills {
-        bills.push(path.unwrap().file_name().into_string().unwrap());
-    }
-
-    bills
-}
-
-fn read_bill_from_file(bill_name: &String, bill_hash_name: &String) -> BitcreditBill {
-    let path_to_bill: String =
-        BILLS_FOLDER_PATH.to_string() + "/" + bill_name + "/" + bill_hash_name;
-    let data: Vec<u8> = fs::read(path_to_bill.as_str()).expect("Unable to read file bill");
-    bill_from_byte_array(&data)
+fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
+    let chain = Chain::read_chain_from_file(bill_name);
+    let bill = chain.get_last_version_bill();
+    bill
 }
 
 fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
@@ -619,7 +621,9 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
 }
+//--------------------------------------------------------------
 
+//-------------------------Forms--------------------------------
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct BitcreditBillForm {
@@ -655,3 +659,4 @@ pub struct NewContactForm {
     pub name: String,
     pub node_id: String,
 }
+//-------------------------------------------------------------

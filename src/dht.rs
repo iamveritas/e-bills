@@ -37,6 +37,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     Ok(network_client_to_return)
 }
 
+//Need for testing from console.
 #[derive(Parser, Debug)]
 #[clap(name = "Bitcredit first version dht")]
 struct Opt {
@@ -47,6 +48,7 @@ struct Opt {
     argument: CliArgument,
 }
 
+//Need for testing from console.
 #[derive(Debug, Parser)]
 enum CliArgument {
     Provide {
@@ -62,50 +64,47 @@ enum CliArgument {
 }
 
 pub mod network {
-    use std::collections::hash_map::DefaultHasher;
+    use std::{fs, iter, path};
     use std::collections::{hash_map, HashMap, HashSet};
+    use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     use std::path::Path;
     use std::time::Duration;
-    use std::{fs, iter};
 
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
-    use futures::channel::mpsc::Receiver;
     use futures::channel::{mpsc, oneshot};
+    use futures::channel::mpsc::Receiver;
     use futures::io::Lines;
     use futures::stream::Fuse;
+    use libp2p::{development_transport, gossipsub};
     use libp2p::core::either::EitherError;
-    use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
+    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
     use libp2p::gossipsub::error::GossipsubHandlerError;
-    use libp2p::kad::record::store::MemoryStore;
-    use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
+    use libp2p::kad::record::{Key, Record};
+    use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
         ResponseChannel,
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
-    use libp2p::{development_transport, gossipsub};
 
+    use crate::{
+        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+    };
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
-    };
-    use crate::zip::zip;
-    use crate::{
-        generate_dht_logic, read_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
-        write_bill_folder,
     };
 
     use super::*;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        //We generate peer_id and keypair.
         if !Path::new(IDENTITY_PEER_ID_FILE_PATH).exists()
             && !Path::new(IDENTITY_ED_25529_KEYS_FILE_PATH).exists()
         {
@@ -124,7 +123,7 @@ pub mod network {
             let kademlia = Kademlia::new(local_peer_id, store);
 
             let cfg_identify = libp2p::identify::Config::new(
-                "protocol identify version 1".to_string(),
+                "Protocol identify version 1".to_string(),
                 local_key.clone().public(),
             );
             let identify = libp2p::identify::Behaviour::new(cfg_identify);
@@ -134,6 +133,8 @@ pub mod network {
                 iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
                 Default::default(),
             );
+
+            //Create topics logic-------------------
 
             // To content-address message, we can take the hash of message and use it as an ID.
             let message_id_fn = |message: &gossipsub::GossipsubMessage| {
@@ -155,7 +156,8 @@ pub mod network {
                 gossipsub::MessageAuthenticity::Signed(local_key.clone()),
                 gossipsub_config,
             )
-            .expect("Correct configuration");
+                .expect("Correct configuration");
+            //--------------------------------------
 
             let mut behaviour = MyBehaviour {
                 request_response,
@@ -163,8 +165,10 @@ pub mod network {
                 identify,
                 gossipsub,
             };
-            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
-            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
+            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)
+                .expect("Can't read bootstrap nodes file.");
+            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string)
+                .expect("Can't parse bootstrap nodes file.");
             for index in 0..boot_nodes.nodes.len() {
                 let node = boot_nodes.nodes[index].node.clone();
                 let address = boot_nodes.nodes[index].address.clone();
@@ -248,43 +252,48 @@ pub mod network {
                     .to_string();
                 let bills = record_for_saving_in_dht.split(',');
                 for bill_id in bills {
-                    if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
+                    if !Path::new(
+                        (BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json").as_str(),
+                    )
+                        .exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string()).await;
                         if !bill_bytes.is_empty() {
-                            write_bill_folder(bill_bytes, &bill_id.to_string());
+                            let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
+                            fs::write(path, bill_bytes).expect("Can't write file.");
                         }
                     }
                 }
             }
         }
 
-        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
-            let node_request = BILLS_PREFIX.to_string() + &node_id;
-            let list_bills_for_node = self.get_record(node_request.clone()).await;
-            let value = list_bills_for_node.value;
-
-            if !value.is_empty() {
-                let record_in_dht = std::str::from_utf8(&value)
-                    .expect("Cant get value.")
-                    .to_string();
-                let mut new_record: String = record_in_dht.clone();
-
-                if !record_in_dht.contains(&bill) {
-                    new_record += (",".to_string() + &bill).as_str();
-                }
-
-                if !record_in_dht.eq(&new_record) {
-                    self.put_record(node_request.clone(), new_record).await;
-                }
-            } else {
-                let mut new_record: String = bill.clone();
-
-                if !new_record.is_empty() {
-                    self.put_record(node_request.clone(), new_record).await;
-                }
-            }
-        }
+        //TODO: change
+        // pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
+        //     let node_request = BILLS_PREFIX.to_string() + &node_id;
+        //     let list_bills_for_node = self.get_record(node_request.clone()).await;
+        //     let value = list_bills_for_node.value;
+        //
+        //     if !value.is_empty() {
+        //         let record_in_dht = std::str::from_utf8(&value)
+        //             .expect("Cant get value.")
+        //             .to_string();
+        //         let mut new_record: String = record_in_dht.clone();
+        //
+        //         if !record_in_dht.contains(&bill) {
+        //             new_record += (",".to_string() + &bill).as_str();
+        //         }
+        //
+        //         if !record_in_dht.eq(&new_record) {
+        //             self.put_record(node_request.clone(), new_record).await;
+        //         }
+        //     } else {
+        //         let mut new_record: String = bill.clone();
+        //
+        //         if !new_record.is_empty() {
+        //             self.put_record(node_request.clone(), new_record).await;
+        //         }
+        //     }
+        // }
 
         pub async fn upgrade_table(&mut self, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
@@ -298,7 +307,13 @@ pub mod network {
                 let mut new_record: String = record_in_dht.clone();
 
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
 
                     if !record_in_dht.contains(&bill_name) {
                         new_record += (",".to_string() + &bill_name.clone()).as_str();
@@ -311,7 +326,13 @@ pub mod network {
             } else {
                 let mut new_record: String = "".to_string();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
+
                     if new_record.is_empty() {
                         new_record = bill_name.clone();
                         self.put(&bill_name).await;
@@ -326,8 +347,8 @@ pub mod network {
             }
         }
 
-        pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: String) {
-            let node_request = BILLS_PREFIX.to_string() + &node_id;
+        pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: &String) {
+            let node_request = BILLS_PREFIX.to_string() + node_id;
             let mut record_for_saving_in_dht = "".to_string();
             let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
@@ -375,12 +396,12 @@ pub mod network {
             }
         }
 
-        pub async fn subscribe_to_all_topics(&mut self) {
-            let bills = read_bills();
+        pub async fn subscribe_to_all_bills_topics(&mut self) {
+            let bills = get_bills();
 
             for bill in bills {
                 self.sender
-                    .send(Command::SubscribeToTopic { topic: bill })
+                    .send(Command::SubscribeToTopic { topic: bill.name })
                     .await
                     .expect("Command receiver not to be dropped.");
             }
@@ -461,20 +482,16 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
-                    let zip_path = path_to_bill.clone() + ".zip";
-                    zip(&path_to_bill, &zip_path, zip::CompressionMethod::Bzip2)
-                        .expect("Can not zip file.");
-                    self.respond_file(std::fs::read(&zip_path).unwrap(), channel)
+                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request + ".json";
+                    self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
                         .await;
-                    fs::remove_file(&zip_path).unwrap();
                 }
 
                 _ => {}
             }
         }
 
-        //TODO: dont delete. Need for testing from console.
+        //Need for testing from console.
         async fn handle_input_line(&mut self, line: String) {
             let mut args = line.split(' ');
 
