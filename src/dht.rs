@@ -257,7 +257,11 @@ pub mod network {
                     )
                         .exists()
                     {
-                        let bill_bytes = self.get(bill_id.to_string()).await;
+                        let bill_bytes = self.get(bill_id.to_string().clone()).await;
+                        self.sender
+                            .send(Command::SubscribeToTopic { topic: bill_id.to_string().clone() })
+                            .await
+                            .expect("Command receiver not to be dropped.");
                         if !bill_bytes.is_empty() {
                             let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
                             fs::write(path, bill_bytes).expect("Can't write file.");
@@ -568,6 +572,20 @@ pub mod network {
                     self.send_message(msg.into_bytes(), topic).await;
                 }
 
+                Some("SUBSCRIBE") => {
+                    let topic = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected topic");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.subscribe_to_topic(topic).await;
+                }
+
                 Some("GET_RECORD") => {
                     let key = {
                         match args.next() {
@@ -596,7 +614,7 @@ pub mod network {
 
                 _ => {
                     eprintln!(
-                        "expected GET, PUT, SEND_MESSAGE, GET_RECORD, PUT_RECORD or GET_PROVIDERS."
+                        "expected GET, PUT, SEND_MESSAGE, SUBSCRIBE, GET_RECORD, PUT_RECORD or GET_PROVIDERS."
                     );
                 }
             }
