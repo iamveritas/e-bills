@@ -6,10 +6,10 @@ use rocket::form::Form;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::{
-    add_in_contacts_map, BitcreditBill, BitcreditBillForm,
-    create_whole_identity, endorse_bill_to_new_holder_and_return_his_node_id, EndorseBitcreditBillForm, get_bills, get_contact_from_map,
-    get_whole_identity, IdentityForm, IdentityWithAll, issue_new_bill,
-    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    add_in_contacts_map, BitcreditBill, BitcreditBillForm, create_whole_identity,
+    EndorseBitcreditBillForm, get_bills, get_contact_from_map, get_whole_identity,
+    IdentityForm, IdentityWithAll, issue_new_bill, NewContactForm,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
 };
 use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
@@ -226,26 +226,26 @@ pub async fn endorse_bill(
     state: &State<Client>,
     endorse_bill_form: Form<EndorseBitcreditBillForm>,
 ) {
-    let mut client = state.inner().clone();
-
-    let node_id = endorse_bill_to_new_holder_and_return_his_node_id(
-        &endorse_bill_form.bill_name,
-        &endorse_bill_form.readable_hash_name,
-        endorse_bill_form.new_holder.clone(),
-    );
-
-    if !node_id.is_empty() {
-        client
-            .add_message_to_topic(
-                node_id.as_bytes().to_vec(),
-                endorse_bill_form.bill_name.clone(),
-            )
-            .await;
-
-        client
-            .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &node_id)
-            .await;
-    }
+    // let mut client = state.inner().clone();
+    //
+    // let node_id = endorse_bill_to_new_holder_and_return_his_node_id(
+    //     &endorse_bill_form.bill_name,
+    //     &endorse_bill_form.readable_hash_name,
+    //     endorse_bill_form.new_holder.clone(),
+    // );
+    //
+    // if !node_id.is_empty() {
+    //     client
+    //         .add_message_to_topic(
+    //             node_id.as_bytes().to_vec(),
+    //             endorse_bill_form.bill_name.clone(),
+    //         )
+    //         .await;
+    //
+    //     client
+    //         .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &node_id)
+    //         .await;
+    // }
 }
 
 #[get("/add")]

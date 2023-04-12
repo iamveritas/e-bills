@@ -19,7 +19,9 @@ use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_dyn_templates::Template;
 
-use crate::blockchain::{Chain, hash_data_from_bill, start_blockchain_for_new_bill};
+use crate::blockchain::{
+    Block, Chain, hash_data_from_bill, OperationCode, signature, start_blockchain_for_new_bill,
+};
 use crate::constants::{
     BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH, BTC,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
@@ -551,7 +553,7 @@ pub fn issue_new_bill(
         let private_key = private_key_from_pem_u8(&drawer.private_key_pem.as_bytes().to_vec());
         let signer_key = PKey::from_rsa(private_key).unwrap();
 
-        start_blockchain_for_new_bill(&new_bill, &signer_key);
+        start_blockchain_for_new_bill(&new_bill, &signer_key, OperationCode::Issue);
 
         new_bill
     }
@@ -587,24 +589,37 @@ pub fn get_bills() -> Vec<BitcreditBill> {
 }
 
 //TODO change
-pub fn endorse_bill_to_new_holder_and_return_his_node_id(
-    bill_name: &String,
-    readable_hash_name: &String,
-    new_holder: String,
-) -> String {
+pub fn endorse_bill(bill_name: &String, new_holder: String) {
     let contacts_map = read_contacts_map();
     let mut new_holder_node_id = "";
     if contacts_map.contains_key(&new_holder) {
         new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
     }
     if !new_holder_node_id.is_empty() {
-        let mut bill = read_bill_from_file(&bill_name);
-        bill.holder_name = new_holder;
-        let readable_hash_name = hash_data_from_bill(&bill);
-        fs::write("delete", &readable_hash_name).expect("Unable to write file");
-        new_holder_node_id.to_string()
-    } else {
-        "".to_string()
+        let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+
+        let last_block = blockchain_from_file.get_latest_block();
+
+        let identity = read_identity_from_file();
+
+        let private_key = private_key_from_pem_u8(&identity.private_key_pem.as_bytes().to_vec());
+        let signer_key = PKey::from_rsa(private_key).unwrap();
+        let signature: String = signature(&bill, &signer_key);
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            hex::encode(new_holder_node_id.clone().as_bytes()),
+            bill_name.clone(),
+            signature,
+            "".to_string(),
+            "".to_string(),
+            OperationCode::Endorse,
+        );
+
+        blockchain_from_file.try_add_block(new_block);
+        if blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+        }
     }
 }
 

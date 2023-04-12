@@ -886,7 +886,7 @@ pub mod network {
                         message,
                     },
                 )) => {
-                    let topic = message.topic.clone();
+                    let topic = message.topic.clone().into_string();
                     println!(
                         "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {topic}",
                         String::from_utf8_lossy(&message.data),

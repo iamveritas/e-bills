@@ -110,6 +110,14 @@ impl Chain {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum OperationCode {
+    Issue,
+    Accept,
+    Decline,
+    Endorse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub id: u64,
     pub bill_name: String,
@@ -120,6 +128,7 @@ pub struct Block {
     pub signature: String,
     pub node_id: String,
     pub public_key: String,
+    pub operation_code: OperationCode,
 }
 
 impl Block {
@@ -131,6 +140,7 @@ impl Block {
         signature: String,
         node_id: String,
         public_key: String,
+        operation_code: OperationCode,
     ) -> Self {
         let now = Utc::now();
         let timestamp = now.timestamp();
@@ -143,6 +153,7 @@ impl Block {
             &signature,
             &node_id,
             &public_key,
+            &operation_code,
         );
         Self {
             id,
@@ -154,6 +165,7 @@ impl Block {
             node_id,
             data,
             public_key,
+            operation_code,
         }
     }
 }
@@ -167,6 +179,7 @@ fn mine_block(
     signature: &str,
     node_id: &str,
     public_key: &str,
+    operation_code: &OperationCode,
 ) -> String {
     let hash = calculate_hash(
         id,
@@ -177,6 +190,7 @@ fn mine_block(
         signature,
         node_id,
         public_key,
+        operation_code,
     );
     let binary_hash = hex::encode(&hash);
     info!(
@@ -196,6 +210,7 @@ fn calculate_hash(
     signature: &str,
     node_id: &str,
     public_key: &str,
+    operation_code: &OperationCode,
 ) -> Vec<u8> {
     let data = serde_json::json!({
         "id": id,
@@ -206,6 +221,7 @@ fn calculate_hash(
         "signature": signature,
         "node_id": node_id,
         "public_key": public_key,
+        "operation_code": operation_code,
     });
     let mut hasher = Sha256::new();
     hasher.update(data.to_string().as_bytes());
@@ -218,7 +234,11 @@ pub fn hash_data_from_bill(bill: &BitcreditBill) -> String {
     data_from_bill_hash_readable
 }
 
-pub fn start_blockchain_for_new_bill(bill: &BitcreditBill, signer_key: &PKey<Private>) {
+pub fn start_blockchain_for_new_bill(
+    bill: &BitcreditBill,
+    signer_key: &PKey<Private>,
+    operation_code: OperationCode,
+) {
     let genesis_hash: String = hash_data_from_bill(&bill);
 
     let bill_data: String = hash_data_from_bill(&bill);
@@ -233,6 +253,7 @@ pub fn start_blockchain_for_new_bill(bill: &BitcreditBill, signer_key: &PKey<Pri
         signature,
         "".to_string(),
         "".to_string(),
+        operation_code,
     );
 
     let chain = Chain::new(first_block);
@@ -275,6 +296,7 @@ pub fn is_block_valid(block: &Block, previous_block: &Block) -> bool {
         &block.signature,
         &block.node_id,
         &block.public_key,
+        &block.operation_code,
     )) != block.hash
     {
         warn!("block with id: {} has invalid hash", block.id);
