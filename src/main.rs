@@ -602,6 +602,10 @@ pub fn endorse_bill(bill_name: &String, new_holder: String) {
 
         let identity = read_identity_from_file();
 
+        let mut bill = read_bill_from_file(&bill_name);
+
+        bill.holder_name = new_holder.clone();
+
         let private_key = private_key_from_pem_u8(&identity.private_key_pem.as_bytes().to_vec());
         let signer_key = PKey::from_rsa(private_key).unwrap();
         let signature: String = signature(&bill, &signer_key);
