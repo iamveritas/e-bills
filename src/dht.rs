@@ -95,8 +95,10 @@ pub mod network {
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
     use crate::{
-        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        blockchain, generate_dht_logic, get_bills, read_ed25519_keypair_from_file,
+        read_peer_id_from_file,
     };
+    use crate::blockchain::{Block, Chain};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
@@ -259,7 +261,9 @@ pub mod network {
                     {
                         let bill_bytes = self.get(bill_id.to_string().clone()).await;
                         self.sender
-                            .send(Command::SubscribeToTopic { topic: bill_id.to_string().clone() })
+                            .send(Command::SubscribeToTopic {
+                                topic: bill_id.to_string().clone(),
+                            })
                             .await
                             .expect("Command receiver not to be dropped.");
                         if !bill_bytes.is_empty() {
@@ -404,10 +408,7 @@ pub mod network {
             let bills = get_bills();
 
             for bill in bills {
-                self.sender
-                    .send(Command::SubscribeToTopic { topic: bill.name })
-                    .await
-                    .expect("Command receiver not to be dropped.");
+                self.subscribe_to_topic(bill.name).await;
             }
         }
 
@@ -904,11 +905,19 @@ pub mod network {
                         message,
                     },
                 )) => {
-                    let topic = message.topic.clone().into_string();
+                    let bill_name = message.topic.clone().into_string();
                     println!(
-                        "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {topic}",
+                        "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {bill_name}",
                         String::from_utf8_lossy(&message.data),
-                    )
+                    );
+
+                    let block: Block =
+                        serde_json::from_slice(&message.data).expect("Block are not valid.");
+                    let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
+                    chain.try_add_block(block);
+                    if chain.is_chain_valid() {
+                        chain.write_chain_to_file(&bill_name);
+                    }
                 }
 
                 SwarmEvent::IncomingConnection { .. } => {

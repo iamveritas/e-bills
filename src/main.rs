@@ -589,7 +589,7 @@ pub fn get_bills() -> Vec<BitcreditBill> {
 }
 
 //TODO change
-pub fn endorse_bill(bill_name: &String, new_holder: String) {
+pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: String) -> String {
     let contacts_map = read_contacts_map();
     let mut new_holder_node_id = "";
     if contacts_map.contains_key(&new_holder) {
@@ -620,11 +620,12 @@ pub fn endorse_bill(bill_name: &String, new_holder: String) {
             OperationCode::Endorse,
         );
 
-        blockchain_from_file.try_add_block(new_block);
+        blockchain_from_file.try_add_block(new_block.clone());
         if blockchain_from_file.is_chain_valid() {
             blockchain_from_file.write_chain_to_file(&bill.name);
         }
     }
+    new_holder_node_id.to_string().clone()
 }
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
@@ -658,7 +659,6 @@ pub struct BitcreditBillForm {
 pub struct EndorseBitcreditBillForm {
     pub new_holder: String,
     pub bill_name: String,
-    pub readable_hash_name: String,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
