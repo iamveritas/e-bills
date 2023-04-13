@@ -211,11 +211,12 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         client.put(&bill.name).await;
 
         let bills = get_bills();
+        let identity = read_identity_from_file();
 
         Template::render(
             "hbs/home",
             context! {
-                identity: Some(drawer),
+                identity: Some(identity),
                 bills: bills,
             },
         )
