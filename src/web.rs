@@ -8,8 +8,9 @@ use rocket_dyn_templates::{context, handlebars, Template};
 use crate::{
     add_in_contacts_map, BitcreditBill, BitcreditBillForm, create_whole_identity,
     endorse_bill_and_return_new_holder_id, EndorseBitcreditBillForm, get_bills, get_contact_from_map,
-    get_whole_identity, IdentityForm, IdentityWithAll, issue_new_bill,
-    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    get_whole_identity, Identity, IdentityForm, IdentityWithAll,
+    issue_new_bill, NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file,
+    read_peer_id_from_file,
 };
 use crate::blockchain::{Block, Chain};
 use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
@@ -236,27 +237,29 @@ pub async fn endorse_bill(
             &endorse_bill_form.bill_name,
             endorse_bill_form.new_holder.clone(),
         );
+        if !new_holder_id.is_empty() {
+            let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
+            let block = chain.get_latest_block();
 
-        let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
-        let block = chain.get_latest_block();
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    endorse_bill_form.bill_name.clone(),
+                )
+                .await;
 
-        client
-            .add_message_to_topic(
-                serde_json::to_vec(block).expect("Error serializing block"),
-                endorse_bill_form.bill_name.clone(),
-            )
-            .await;
-
-        client
-            .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &new_holder_id)
-            .await;
+            client
+                .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &new_holder_id)
+                .await;
+        }
 
         let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
 
         Template::render(
             "hbs/home",
             context! {
-                identity: Some(drawer),
+                identity: Some(identity),
                 bills: bills,
             },
         )

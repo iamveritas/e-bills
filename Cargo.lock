@@ -1923,8 +1923,8 @@ dependencies = [
     "indexmap",
     "slab",
     "tokio",
- "tokio-util",
- "tracing",
+    "tokio-util",
+    "tracing",
 ]
 
 [[package]]
@@ -4057,11 +4057,11 @@ dependencies = [
     "petgraph",
     "prettyplease",
     "prost",
- "prost-types",
- "regex",
- "syn 1.0.109",
- "tempfile",
- "which",
+    "prost-types",
+    "regex",
+    "syn 1.0.109",
+    "tempfile",
+    "which",
 ]
 
 [[package]]

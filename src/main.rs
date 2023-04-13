@@ -2,7 +2,7 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
-use std::{fs, mem, path};
+use std::{env, fs, mem, path};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -42,6 +42,8 @@ mod zip;
 // MAIN
 #[rocket::main]
 async fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
+
     init_folders();
 
     let mut dht = dht::dht_main().await.unwrap();
