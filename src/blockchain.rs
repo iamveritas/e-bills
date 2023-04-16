@@ -2,12 +2,15 @@ use borsh::BorshSerialize;
 use chrono::prelude::*;
 use log::{info, warn};
 use openssl::hash::MessageDigest;
-use openssl::pkey::{PKey, Private};
+use openssl::pkey::PKey;
 use openssl::sha::Sha256;
-use openssl::sign::Signer;
+use openssl::sign::{Signer, Verifier};
 use serde::{Deserialize, Serialize};
 
-use crate::{bill_from_byte_array, bill_to_byte_array, BitcreditBill};
+use crate::{
+    bill_from_byte_array, bill_to_byte_array, BitcreditBill, private_key_from_pem_u8,
+    public_key_from_pem_u8,
+};
 use crate::constants::BILLS_FOLDER_PATH;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -126,7 +129,6 @@ pub struct Block {
     pub data: String,
     pub previous_hash: String,
     pub signature: String,
-    pub node_id: String,
     pub public_key: String,
     pub operation_code: OperationCode,
 }
@@ -137,10 +139,9 @@ impl Block {
         previous_hash: String,
         data: String,
         bill_name: String,
-        signature: String,
-        node_id: String,
         public_key: String,
         operation_code: OperationCode,
+        private_key: String,
     ) -> Self {
         let now = Utc::now();
         let timestamp = now.timestamp();
@@ -150,11 +151,12 @@ impl Block {
             &previous_hash,
             &data,
             &timestamp,
-            &signature,
-            &node_id,
+            // &node_id,
             &public_key,
             &operation_code,
         );
+        let signature = signature(hash.clone(), private_key.clone());
+
         Self {
             id,
             bill_name,
@@ -162,11 +164,25 @@ impl Block {
             timestamp: now.timestamp(),
             previous_hash,
             signature,
-            node_id,
+            // node_id,
             data,
             public_key,
             operation_code,
         }
+    }
+
+    pub fn verifier(&self) -> bool {
+        let public_key_bytes = self.public_key.as_bytes();
+        let public_key_rsa = public_key_from_pem_u8(&public_key_bytes.to_vec());
+        let verifier_key = PKey::from_rsa(public_key_rsa).unwrap();
+
+        let mut verifier = Verifier::new(MessageDigest::sha256(), verifier_key.as_ref()).unwrap();
+
+        let data_to_check = self.hash.as_bytes();
+        verifier.update(data_to_check).unwrap();
+
+        let signature_bytes = hex::decode(&self.signature).unwrap();
+        verifier.verify(signature_bytes.as_slice()).unwrap()
     }
 }
 
@@ -176,8 +192,6 @@ fn mine_block(
     previous_hash: &str,
     data: &str,
     timestamp: &i64,
-    signature: &str,
-    node_id: &str,
     public_key: &str,
     operation_code: &OperationCode,
 ) -> String {
@@ -187,8 +201,6 @@ fn mine_block(
         previous_hash,
         data,
         timestamp,
-        signature,
-        node_id,
         public_key,
         operation_code,
     );
@@ -207,8 +219,6 @@ fn calculate_hash(
     previous_hash: &str,
     data: &str,
     timestamp: &i64,
-    signature: &str,
-    node_id: &str,
     public_key: &str,
     operation_code: &OperationCode,
 ) -> Vec<u8> {
@@ -218,14 +228,28 @@ fn calculate_hash(
         "previous_hash": previous_hash,
         "data": data,
         "timestamp": timestamp,
-        "signature": signature,
-        "node_id": node_id,
         "public_key": public_key,
         "operation_code": operation_code,
     });
     let mut hasher = Sha256::new();
     hasher.update(data.to_string().as_bytes());
     hasher.finish().try_to_vec().unwrap()
+}
+
+pub fn signature(hash: String, private_key_pem: String) -> String {
+    let private_key_bytes = private_key_pem.as_bytes();
+    let private_key_rsa = private_key_from_pem_u8(&private_key_bytes.to_vec());
+    let signer_key = PKey::from_rsa(private_key_rsa).unwrap();
+
+    let mut signer: Signer = Signer::new(MessageDigest::sha256(), signer_key.as_ref()).unwrap();
+
+    let data_to_sign = hash.as_bytes();
+    signer.update(data_to_sign).unwrap();
+
+    let signature: Vec<u8> = signer.sign_to_vec().unwrap();
+    let signature_readable = hex::encode(signature.as_slice());
+
+    signature_readable
 }
 
 pub fn hash_data_from_bill(bill: &BitcreditBill) -> String {
@@ -236,24 +260,22 @@ pub fn hash_data_from_bill(bill: &BitcreditBill) -> String {
 
 pub fn start_blockchain_for_new_bill(
     bill: &BitcreditBill,
-    signer_key: &PKey<Private>,
     operation_code: OperationCode,
+    public_key: String,
+    private_key: String,
 ) {
     let genesis_hash: String = hash_data_from_bill(&bill);
 
     let bill_data: String = hash_data_from_bill(&bill);
-
-    let signature: String = signature(&bill, signer_key);
 
     let first_block = Block::new(
         1,
         genesis_hash,
         bill_data,
         bill.name.clone(),
-        signature,
-        "".to_string(),
-        "".to_string(),
+        public_key,
         operation_code,
+        private_key,
     );
 
     let chain = Chain::new(first_block);
@@ -265,16 +287,6 @@ pub fn start_blockchain_for_new_bill(
         serde_json::to_string_pretty(&chain).unwrap(),
     )
         .unwrap();
-}
-
-pub fn signature(bill: &BitcreditBill, signer_key: &PKey<Private>) -> String {
-    let mut signer: Signer = Signer::new(MessageDigest::sha256(), signer_key.as_ref()).unwrap();
-
-    signer.update(bill_to_byte_array(bill).as_slice()).unwrap();
-    let signature: Vec<u8> = signer.sign_to_vec().unwrap();
-    let signature_readable = hex::encode(signature.as_slice());
-
-    signature_readable
 }
 
 pub fn is_block_valid(block: &Block, previous_block: &Block) -> bool {
@@ -293,13 +305,14 @@ pub fn is_block_valid(block: &Block, previous_block: &Block) -> bool {
         &block.previous_hash,
         &block.data,
         &block.timestamp,
-        &block.signature,
-        &block.node_id,
         &block.public_key,
         &block.operation_code,
     )) != block.hash
     {
         warn!("block with id: {} has invalid hash", block.id);
+        return false;
+    } else if !block.verifier() {
+        warn!("block with id: {} has invalid signature", block.id);
         return false;
     }
     true

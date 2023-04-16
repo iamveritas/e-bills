@@ -10,7 +10,7 @@ use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::{Days, Utc};
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
-use openssl::pkey::{PKey, Private, Public};
+use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
@@ -19,9 +19,7 @@ use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_dyn_templates::Template;
 
-use crate::blockchain::{
-    Block, Chain, hash_data_from_bill, OperationCode, signature, start_blockchain_for_new_bill,
-};
+use crate::blockchain::{Block, Chain, OperationCode, start_blockchain_for_new_bill};
 use crate::constants::{
     BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH, BTC,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
@@ -553,9 +551,13 @@ pub fn issue_new_bill(
         };
 
         let private_key = private_key_from_pem_u8(&drawer.private_key_pem.as_bytes().to_vec());
-        let signer_key = PKey::from_rsa(private_key).unwrap();
 
-        start_blockchain_for_new_bill(&new_bill, &signer_key, OperationCode::Issue);
+        start_blockchain_for_new_bill(
+            &new_bill,
+            OperationCode::Issue,
+            drawer.public_key_pem.clone(),
+            drawer.private_key_pem.clone(),
+        );
 
         new_bill
     }
@@ -608,18 +610,14 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
 
         bill.holder_name = new_holder.clone();
 
-        let private_key = private_key_from_pem_u8(&identity.private_key_pem.as_bytes().to_vec());
-        let signer_key = PKey::from_rsa(private_key).unwrap();
-        let signature: String = signature(&bill, &signer_key);
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
             hex::encode(new_holder_node_id.clone().as_bytes()),
             bill_name.clone(),
-            signature,
-            "".to_string(),
-            "".to_string(),
+            identity.public_key_pem.clone(),
             OperationCode::Endorse,
+            identity.private_key_pem.clone(),
         );
 
         blockchain_from_file.try_add_block(new_block.clone());

@@ -12,7 +12,7 @@ use crate::{
     issue_new_bill, NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file,
     read_peer_id_from_file,
 };
-use crate::blockchain::{Block, Chain};
+use crate::blockchain::Chain;
 use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
 

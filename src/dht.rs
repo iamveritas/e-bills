@@ -66,10 +66,7 @@ enum CliArgument {
 pub mod network {
     use std::{fs, iter, path};
     use std::collections::{hash_map, HashMap, HashSet};
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
     use std::path::Path;
-    use std::time::Duration;
 
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
@@ -95,8 +92,7 @@ pub mod network {
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
     use crate::{
-        blockchain, generate_dht_logic, get_bills, read_ed25519_keypair_from_file,
-        read_peer_id_from_file,
+        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
     };
     use crate::blockchain::{Block, Chain};
     use crate::constants::{
@@ -138,17 +134,13 @@ pub mod network {
 
             //Create topics logic-------------------
 
-
             // Set a custom gossipsub configuration
             let gossipsub_config = gossipsub::GossipsubConfig::default();
 
             let message_authenticity = gossipsub::MessageAuthenticity::Signed(local_key.clone());
 
             // build a gossipsub network behaviour
-            let mut gossipsub = gossipsub::Gossipsub::new(
-                message_authenticity,
-                gossipsub_config,
-            )
+            let mut gossipsub = gossipsub::Gossipsub::new(message_authenticity, gossipsub_config)
                 .expect("Correct configuration");
             //--------------------------------------
 
