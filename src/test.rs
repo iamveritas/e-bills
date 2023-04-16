@@ -21,10 +21,9 @@ mod test {
     use crate::{
         bill_from_byte_array, bill_to_byte_array, BitcreditBill,
         byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes,
-        encrypt_bytes, generation_rsa_key, hash_data_from_bill, Identity,
-        issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
-        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file, read_identity_from_file,
-        structure_as_u8_slice,
+        encrypt_bytes, generation_rsa_key, Identity, issue_new_bill,
+        pem_private_key_from_rsa, pem_public_key_from_rsa, private_key_from_pem_u8,
+        public_key_from_pem_u8, read_bill_from_file, read_identity_from_file, structure_as_u8_slice,
     };
     use crate::blockchain::{Block, Chain, is_block_valid, signature};
     use crate::constants::BILLS_FOLDER_PATH;
