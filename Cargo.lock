@@ -2108,15 +2108,15 @@ version = "0.14.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab302d72a6f11a3b910431ff93aae7e773078c769f0a3ef15fb9ec692ed147d4"
 dependencies = [
-    "bytes",
-    "futures-channel",
-    "futures-core",
-    "futures-util",
-    "h2",
-    "http",
-    "http-body",
-    "httparse",
-    "httpdate",
+ "bytes",
+ "futures-channel",
+ "futures-core",
+ "futures-util",
+ "h2",
+ "http",
+ "http-body",
+ "httparse",
+ "httpdate",
  "itoa",
  "pin-project-lite 0.2.9",
  "socket2",
@@ -2331,8 +2331,8 @@ checksum = "bd302af1b90f2463a98fa5ad469fc212c8e3175a41c3068601bfa2727591c5be"
 dependencies = [
  "socket2",
  "widestring",
-    "winapi 0.3.9",
-    "winreg",
+ "winapi 0.3.9",
+ "winreg",
 ]
 
 [[package]]
@@ -2347,7 +2347,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "928bae27f42bc99b60d9ac7334e3a21d10ad8f1835a4e12ec3ec0464765ed1b3"
 dependencies = [
-    "once_cell",
+ "once_cell",
 ]
 
 [[package]]
@@ -2356,10 +2356,10 @@ version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adcf93614601c8129ddf72e2d5633df827ba6551541c6d8c59520a371475be1f"
 dependencies = [
-    "hermit-abi 0.3.1",
-    "io-lifetimes",
-    "rustix",
-    "windows-sys 0.48.0",
+ "hermit-abi 0.3.1",
+ "io-lifetimes",
+ "rustix",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -2368,8 +2368,8 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
 dependencies = [
-    "is-docker",
-    "once_cell",
+ "is-docker",
+ "once_cell",
 ]
 
 [[package]]
@@ -2378,7 +2378,7 @@ version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
-    "either",
+ "either",
 ]
 
 [[package]]
@@ -3520,8 +3520,8 @@ version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "873240a4a404d44c8cd1bf394359245d466a5695771fea15a79cafbc5e5cf4d7"
 dependencies = [
-    "is-wsl",
-    "pathdiff",
+ "is-wsl",
+ "pathdiff",
 ]
 
 [[package]]
@@ -4517,21 +4517,21 @@ version = "0.5.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "936012c99162a03a67f37f9836d5f938f662e26f2717809761a9ac46432090f4"
 dependencies = [
-    "cookie 0.17.0",
-    "either",
-    "futures",
-    "http",
-    "hyper 0.14.26",
-    "indexmap",
-    "log 0.4.17",
-    "memchr",
-    "pear 0.2.4",
-    "percent-encoding 2.2.0",
-    "pin-project-lite 0.2.9",
-    "ref-cast",
-    "serde",
-    "smallvec",
-    "stable-pattern",
+ "cookie 0.17.0",
+ "either",
+ "futures",
+ "http",
+ "hyper 0.14.26",
+ "indexmap",
+ "log 0.4.17",
+ "memchr",
+ "pear 0.2.4",
+ "percent-encoding 2.2.0",
+ "pin-project-lite 0.2.9",
+ "ref-cast",
+ "serde",
+ "smallvec",
+ "stable-pattern",
  "state 0.5.3",
  "time 0.3.20",
  "tokio",

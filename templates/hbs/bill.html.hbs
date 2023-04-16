@@ -16,9 +16,9 @@
     <h3>Holder: {{bill.holder_name}}</h3>
     <h3>Amount numbers: {{bill.amount_numbers}}</h3>
     <h3>Amounts letters: {{bill.amounts_letters}}</h3>
-    <h3>Currency code: {{bill.currency_code}}</h3>
-    <h3>Date of issue: {{bill.date_of_issue}}</h3>
-    <h3>Maturity date: {{bill.maturity_date}}</h3>
+  <h3>Currency code: {{bill.currency_code}}</h3>
+  <h3>Date of issue: {{bill.date_of_issue}}</h3>
+  <h3>Maturity date: {{bill.maturity_date}}</h3>
   <h3>Place of drawing: {{bill.place_of_drawing}}</h3>
   <h3>Place of payment: {{bill.place_of_payment}}</h3>
   <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
@@ -26,13 +26,16 @@
   <h3>Public key: {{bill.public_key_pem}}</h3>
   <!--blockchain-->
 </div>
-<form class="content" action="http://localhost:8000/bill/endorse" method="post">
-  <label for="new_holder">New holder name:</label><br>
-  <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
-  <label for="bill_name">Bill name:</label><br>
-  <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
-  <input type="submit" id="button_submit" value="Endorse">
-</form>
+
+{{#if (eq str_peer_id bill.holder_name)}}
+  <form class="content" action="http://localhost:8000/bill/endorse" method="post">
+    <label for="new_holder">New holder name:</label><br>
+    <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
+    <label for="bill_name">Bill name:</label><br>
+    <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+    <input type="submit" id="button_submit" value="Endorse">
+  </form>
+{{/if}}
 </body>
 <footer>
   {{> hbs/footer}}

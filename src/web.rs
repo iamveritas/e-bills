@@ -105,9 +105,13 @@ pub async fn get_bill(id: String) -> Template {
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
         let bill: BitcreditBill = read_bill_from_file(&id);
 
+        let peer_id = read_peer_id_from_file();
+        let str_peer_id = peer_id.to_string();
+
         Template::render(
             "hbs/bill",
             context! {
+                peer_id: str_peer_id,
                 bill: Some(bill),
             },
         )

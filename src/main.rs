@@ -595,37 +595,43 @@ pub fn get_bills() -> Vec<BitcreditBill> {
 //TODO change
 pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: String) -> String {
     let contacts_map = read_contacts_map();
-    let mut new_holder_node_id = "";
-    if contacts_map.contains_key(&new_holder) {
-        new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
-    }
-    if !new_holder_node_id.is_empty() {
-        let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
 
-        let last_block = blockchain_from_file.get_latest_block();
+    let my_peer_id = read_peer_id_from_file().to_string();
+    let mut bill = read_bill_from_file(&bill_name);
 
-        let identity = read_identity_from_file();
-
-        let mut bill = read_bill_from_file(&bill_name);
-
-        bill.holder_name = new_holder.clone();
-
-        let new_block = Block::new(
-            last_block.id + 1,
-            last_block.hash.clone(),
-            hex::encode(new_holder_node_id.clone().as_bytes()),
-            bill_name.clone(),
-            identity.public_key_pem.clone(),
-            OperationCode::Endorse,
-            identity.private_key_pem.clone(),
-        );
-
-        blockchain_from_file.try_add_block(new_block.clone());
-        if blockchain_from_file.is_chain_valid() {
-            blockchain_from_file.write_chain_to_file(&bill.name);
+    if my_peer_id.eq(&bill.holder_name) {
+        let mut new_holder_node_id = "";
+        if contacts_map.contains_key(&new_holder) {
+            new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
         }
+        if !new_holder_node_id.is_empty() {
+            let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+
+            let last_block = blockchain_from_file.get_latest_block();
+
+            let identity = read_identity_from_file();
+
+            bill.holder_name = new_holder.clone();
+
+            let new_block = Block::new(
+                last_block.id + 1,
+                last_block.hash.clone(),
+                hex::encode(new_holder_node_id.clone().as_bytes()),
+                bill_name.clone(),
+                identity.public_key_pem.clone(),
+                OperationCode::Endorse,
+                identity.private_key_pem.clone(),
+            );
+
+            blockchain_from_file.try_add_block(new_block.clone());
+            if blockchain_from_file.is_chain_valid() {
+                blockchain_from_file.write_chain_to_file(&bill.name);
+            }
+        }
+        new_holder_node_id.to_string().clone()
+    } else {
+        "".to_string()
     }
-    new_holder_node_id.to_string().clone()
 }
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
