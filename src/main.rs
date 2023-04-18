@@ -515,6 +515,7 @@ pub fn issue_new_bill(
     } else {
         let private_key_pem: String = pem_private_key_from_rsa(&rsa);
         let public_key_pem: String = pem_public_key_from_rsa(&rsa);
+        let node_id = read_peer_id_from_file();
 
         let amount_letters: String = encode(&amount_numbers);
 
@@ -547,10 +548,8 @@ pub fn issue_new_bill(
             language,
             drawee_name,
             drawer_name: drawer.name.clone(),
-            holder_name: drawer.name.clone(),
+            holder_name: node_id.to_string(),
         };
-
-        let private_key = private_key_from_pem_u8(&drawer.private_key_pem.as_bytes().to_vec());
 
         start_blockchain_for_new_bill(
             &new_bill,

@@ -905,7 +905,7 @@ pub mod network {
 
                 SwarmEvent::IncomingConnection { .. } => {
                     //TODO: do some logic.
-                    // println!("{event:?}")
+                    println!("{event:?}")
                 }
 
                 SwarmEvent::ConnectionEstablished {
@@ -920,7 +920,7 @@ pub mod network {
 
                 SwarmEvent::ConnectionClosed { .. } => {
                     //TODO: do some logic.;
-                    // println!("{event:?}")
+                    println!("{event:?}")
                 }
 
                 SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
@@ -933,12 +933,12 @@ pub mod network {
 
                 SwarmEvent::IncomingConnectionError { .. } => {
                     //TODO: do some logic.
-                    // println!("{event:?}")
+                    println!("{event:?}")
                 }
 
                 SwarmEvent::Behaviour(event) => {
-                    // println!("New event");
-                    // println!("{event:?}")
+                    println!("New event");
+                    println!("{event:?}")
                 }
 
                 _ => {}
