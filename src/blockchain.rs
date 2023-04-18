@@ -118,9 +118,10 @@ pub enum OperationCode {
     Accept,
     Decline,
     Endorse,
+    RequestToAccept,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Block {
     pub id: u64,
     pub bill_name: String,

@@ -243,16 +243,16 @@ pub mod network {
                         .exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string().clone()).await;
+                        if !bill_bytes.is_empty() {
+                            let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
+                            fs::write(path, bill_bytes).expect("Can't write file.");
+                        }
                         self.sender
                             .send(Command::SubscribeToTopic {
                                 topic: bill_id.to_string().clone(),
                             })
                             .await
                             .expect("Command receiver not to be dropped.");
-                        if !bill_bytes.is_empty() {
-                            let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
-                            fs::write(path, bill_bytes).expect("Can't write file.");
-                        }
                     }
                 }
             }
