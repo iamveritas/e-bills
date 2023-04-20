@@ -10,7 +10,7 @@ use crate::{
     endorse_bill_and_return_new_holder_id, EndorseBitcreditBillForm, get_bills, get_contact_from_map,
     get_whole_identity, Identity, IdentityForm, IdentityWithAll,
     issue_new_bill, NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file,
+    read_peer_id_from_file, request_acceptance, RequestToAcceptBitcreditBillForm,
 };
 use crate::blockchain::Chain;
 use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
@@ -108,9 +108,15 @@ pub async fn get_bill(id: String) -> Template {
         let peer_id = read_peer_id_from_file();
         let str_peer_id = peer_id.to_string();
 
+        let last_block = Chain::read_chain_from_file(&bill.name)
+            .get_latest_block()
+            .clone();
+        let operation_code = last_block.operation_code;
+
         Template::render(
             "hbs/bill",
             context! {
+                operation_code: operation_code,
                 peer_id: str_peer_id,
                 bill: Some(bill),
             },
@@ -255,6 +261,43 @@ pub async fn endorse_bill(
 
             client
                 .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &new_holder_id)
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[post("/request_to_accept", data = "<request_to_accept_bill_form>")]
+pub async fn request_to_accept_bill(
+    state: &State<Client>,
+    request_to_accept_bill_form: Form<RequestToAcceptBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let correct = request_acceptance(&request_to_accept_bill_form.bill_name);
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&request_to_accept_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    request_to_accept_bill_form.bill_name.clone(),
+                )
                 .await;
         }
 

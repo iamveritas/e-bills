@@ -72,6 +72,69 @@ impl Chain {
         self.blocks.first().expect("there is at least one block")
     }
 
+    pub fn get_last_version_block_with_operation_code(
+        &self,
+        operation_code: OperationCode,
+    ) -> &Block {
+        let mut last_version_block: &Block = &self.get_first_block();
+        for block in &self.blocks {
+            if block.operation_code == operation_code {
+                last_version_block = block;
+            }
+        }
+        last_version_block
+    }
+
+    pub fn exist_block_with_operation_code(&self, operation_code: OperationCode) -> bool {
+        let mut exist_block_with_operation_code = false;
+        for block in &self.blocks {
+            if block.operation_code == operation_code {
+                exist_block_with_operation_code = true;
+            }
+        }
+        exist_block_with_operation_code
+    }
+
+    pub fn get_last_version_bill_with_operation_code(&self, operation_code: OperationCode) -> BitcreditBill {
+        let first_block_data = &self.get_first_block().data;
+        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
+        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
+
+        let mut holder_bill_last_version: String = bill_first_version.holder_name.clone();
+
+        if self.blocks.len() > 1 && self.exist_block_with_operation_code(operation_code.clone()) {
+            let last_version_block =
+                self.get_last_version_block_with_operation_code(operation_code);
+            let last_version_block_data = &last_version_block.data;
+            let holder_bill_last_version_u8 = hex::decode(last_version_block_data).unwrap();
+            holder_bill_last_version = String::from_utf8(holder_bill_last_version_u8).unwrap();
+        }
+
+        let bill = BitcreditBill {
+            name: bill_first_version.name,
+            to_payee: bill_first_version.to_payee,
+            bill_jurisdiction: bill_first_version.bill_jurisdiction,
+            timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
+            drawee_name: bill_first_version.drawee_name,
+            drawer_name: bill_first_version.drawer_name,
+            holder_name: holder_bill_last_version.clone(),
+            place_of_drawing: bill_first_version.place_of_drawing,
+            currency_code: bill_first_version.currency_code,
+            amount_numbers: bill_first_version.amount_numbers,
+            amounts_letters: bill_first_version.amounts_letters,
+            maturity_date: bill_first_version.maturity_date,
+            date_of_issue: bill_first_version.date_of_issue,
+            compounding_interest_rate: bill_first_version.compounding_interest_rate,
+            type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
+            place_of_payment: bill_first_version.place_of_payment,
+            public_key_pem: bill_first_version.public_key_pem,
+            private_key_pem: bill_first_version.private_key_pem,
+            language: bill_first_version.language,
+        };
+
+        bill
+    }
+
     pub fn get_last_version_bill(&self) -> BitcreditBill {
         let first_block_data = &self.get_first_block().data;
         let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();

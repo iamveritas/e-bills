@@ -78,7 +78,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::issue_bill,
                 web::endorse_bill,
                 web::new_bill,
-                web::search_bill
+                web::search_bill,
+                web::request_to_accept_bill,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -597,68 +598,80 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
     let my_peer_id = read_peer_id_from_file().to_string();
     let mut bill = read_bill_from_file(&bill_name);
 
+    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    let last_block = blockchain_from_file.get_latest_block();
+
     if my_peer_id.eq(&bill.holder_name) {
-        let mut new_holder_node_id = "";
-        if contacts_map.contains_key(&new_holder) {
-            new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
+        if last_block.operation_code.eq(&OperationCode::Endorse)
+            || last_block.operation_code.eq(&OperationCode::Issue)
+        {
+            let mut new_holder_node_id = "";
+            if contacts_map.contains_key(&new_holder) {
+                new_holder_node_id = contacts_map.get(&new_holder).expect("Contact not found");
+            }
+            if !new_holder_node_id.is_empty() {
+                let identity = read_identity_from_file();
+
+                bill.holder_name = new_holder.clone();
+
+                let new_block = Block::new(
+                    last_block.id + 1,
+                    last_block.hash.clone(),
+                    //TODO change to data with text
+                    hex::encode(new_holder_node_id.clone().as_bytes()),
+                    bill_name.clone(),
+                    identity.public_key_pem.clone(),
+                    OperationCode::Endorse,
+                    identity.private_key_pem.clone(),
+                );
+
+                blockchain_from_file.try_add_block(new_block.clone());
+                if blockchain_from_file.is_chain_valid() {
+                    blockchain_from_file.write_chain_to_file(&bill.name);
+                }
+            }
+            new_holder_node_id.to_string().clone()
+        } else {
+            "".to_string()
         }
-        if !new_holder_node_id.is_empty() {
-            let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    } else {
+        "".to_string()
+    }
+}
 
-            let last_block = blockchain_from_file.get_latest_block();
+pub fn request_acceptance(bill_name: &String) -> bool {
+    let my_peer_id = read_peer_id_from_file().to_string();
+    let bill = read_bill_from_file(bill_name);
 
+    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    let last_block = blockchain_from_file.get_latest_block();
+
+    if my_peer_id.eq(&bill.holder_name) {
+        if last_block
+            .operation_code
+            .eq(&OperationCode::Endorse)    //TODO: correct?
+            || last_block.operation_code.eq(&OperationCode::Issue)
+        {
             let identity = read_identity_from_file();
-
-            bill.holder_name = new_holder.clone();
 
             let new_block = Block::new(
                 last_block.id + 1,
                 last_block.hash.clone(),
-                //TODO change to data with text
-                hex::encode(new_holder_node_id.clone().as_bytes()),
+                "".to_string(),
                 bill_name.clone(),
                 identity.public_key_pem.clone(),
-                OperationCode::Endorse,
+                OperationCode::RequestToAccept,
                 identity.private_key_pem.clone(),
             );
 
             blockchain_from_file.try_add_block(new_block.clone());
             if blockchain_from_file.is_chain_valid() {
                 blockchain_from_file.write_chain_to_file(&bill.name);
+                return true;
             }
         }
-        new_holder_node_id.to_string().clone()
-    } else {
-        "".to_string()
     }
-}
-
-pub fn request_acceptance(bill_name: &String) {
-    let my_peer_id = read_peer_id_from_file().to_string();
-    let bill = read_bill_from_file(bill_name);
-
-    if my_peer_id.eq(&bill.holder_name) {
-        let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
-
-        let last_block = blockchain_from_file.get_latest_block();
-
-        let identity = read_identity_from_file();
-
-        let new_block = Block::new(
-            last_block.id + 1,
-            last_block.hash.clone(),
-            "Request accept".to_string(),
-            bill_name.clone(),
-            identity.public_key_pem.clone(),
-            OperationCode::RequestToAccept,
-            identity.private_key_pem.clone(),
-        );
-
-        blockchain_from_file.try_add_block(new_block.clone());
-        if blockchain_from_file.is_chain_valid() {
-            blockchain_from_file.write_chain_to_file(&bill.name);
-        }
-    }
+    return false;
 }
 
 pub fn accept_bill(bill_name: &String) {
@@ -678,7 +691,7 @@ pub fn accept_bill(bill_name: &String) {
             let new_block = Block::new(
                 last_block.id + 1,
                 last_block.hash.clone(),
-                "Accept".to_string(),
+                "".to_string(),
                 bill_name.clone(),
                 identity.public_key_pem.clone(),
                 OperationCode::Accept,
@@ -710,7 +723,7 @@ pub fn decline_bill(bill_name: &String) {
             let new_block = Block::new(
                 last_block.id + 1,
                 last_block.hash.clone(),
-                "Decline".to_string(),
+                "".to_string(),
                 bill_name.clone(),
                 identity.public_key_pem.clone(),
                 OperationCode::Decline,
@@ -727,7 +740,7 @@ pub fn decline_bill(bill_name: &String) {
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
     let chain = Chain::read_chain_from_file(bill_name);
-    let bill = chain.get_last_version_bill();
+    let bill = chain.get_last_version_bill_with_operation_code(OperationCode::Endorse);
     bill
 }
 
@@ -755,6 +768,12 @@ pub struct BitcreditBillForm {
 #[serde(crate = "rocket::serde")]
 pub struct EndorseBitcreditBillForm {
     pub new_holder: String,
+    pub bill_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct RequestToAcceptBitcreditBillForm {
     pub bill_name: String,
 }
 
