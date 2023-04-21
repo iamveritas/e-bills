@@ -24,6 +24,7 @@
   <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
   <h3>Language: {{bill.language}}</h3>
   <h3>Operation code: {{operation_code}}</h3>
+  <h3>Operation code: {{codes}}</h3>
 </div>
 
 {{#if (eq peer_id bill.holder_name)}}
@@ -34,14 +35,31 @@
     <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
     <input type="submit" id="button_submit" value="Endorse">
   </form>
+  {{#if (eq operation_code codes.[3])}}
+    <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <input type="submit" id="button_submit" value="Request to accept">
+    </form>
+  {{/if}}
+  {{#if (eq operation_code codes.[0])}}
+    <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <input type="submit" id="button_submit" value="Request to accept">
+    </form>
+  {{/if}}
 {{/if}}
-
-{{#if (eq peer_id bill.holder_name)}}
-  <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
-    <label for="bill_name">Bill name:</label><br>
-    <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
-    <input type="submit" id="button_submit" value="Request to accept">
-  </form>
+{{#if (eq identity.name bill.drawee_name)}}
+  {{#if (eq operation_code codes.[3])}}
+    <form class="content" action="http://localhost:8000/bill/accept_or_decline_bill" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <label for="operation_code">Operation code:</label><br>
+      <input type="text" required="required" id="operation_code" name="operation_code" placeholder="Operation Code"><br>
+      <input type="submit" id="button_submit" value="Send">
+    </form>
+  {{/if}}
 {{/if}}
 </body>
 <footer>

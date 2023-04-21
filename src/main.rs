@@ -40,7 +40,7 @@ mod zip;
 // MAIN
 #[rocket::main]
 async fn main() {
-    env::set_var("RUST_BACKTRACE", "1");
+    env::set_var("RUST_BACKTRACE", "full");
 
     init_folders();
 
@@ -80,6 +80,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::new_bill,
                 web::search_bill,
                 web::request_to_accept_bill,
+                web::accept_or_decline_bill,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -674,7 +675,7 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     return false;
 }
 
-pub fn accept_bill(bill_name: &String) {
+pub fn accept_bill(bill_name: &String) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -701,12 +702,14 @@ pub fn accept_bill(bill_name: &String) {
             blockchain_from_file.try_add_block(new_block.clone());
             if blockchain_from_file.is_chain_valid() {
                 blockchain_from_file.write_chain_to_file(&bill.name);
+                return true;
             }
         }
     }
+    return false;
 }
 
-pub fn decline_bill(bill_name: &String) {
+pub fn decline_bill(bill_name: &String) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -733,9 +736,11 @@ pub fn decline_bill(bill_name: &String) {
             blockchain_from_file.try_add_block(new_block.clone());
             if blockchain_from_file.is_chain_valid() {
                 blockchain_from_file.write_chain_to_file(&bill.name);
+                return true;
             }
         }
     }
+    return false;
 }
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
@@ -775,6 +780,13 @@ pub struct EndorseBitcreditBillForm {
 #[serde(crate = "rocket::serde")]
 pub struct RequestToAcceptBitcreditBillForm {
     pub bill_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct AcceptOrDeclineBitcreditBillForm {
+    pub bill_name: String,
+    pub operation_code: OperationCode,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]

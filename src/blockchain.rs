@@ -38,7 +38,7 @@ impl Chain {
             output_path.clone(),
             serde_json::to_string_pretty(&self).unwrap(),
         )
-            .unwrap();
+        .unwrap();
     }
 
     pub fn is_chain_valid(&self) -> bool {
@@ -95,7 +95,10 @@ impl Chain {
         exist_block_with_operation_code
     }
 
-    pub fn get_last_version_bill_with_operation_code(&self, operation_code: OperationCode) -> BitcreditBill {
+    pub fn get_last_version_bill_with_operation_code(
+        &self,
+        operation_code: OperationCode,
+    ) -> BitcreditBill {
         let first_block_data = &self.get_first_block().data;
         let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
         let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
@@ -175,13 +178,35 @@ impl Chain {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromFormField)]
 pub enum OperationCode {
     Issue,
     Accept,
     Decline,
     Endorse,
     RequestToAccept,
+}
+
+impl OperationCode {
+    pub fn get_all_operation_codes() -> Vec<OperationCode> {
+        vec![
+            OperationCode::Issue,
+            OperationCode::Accept,
+            OperationCode::Decline,
+            OperationCode::Endorse,
+            OperationCode::RequestToAccept,
+        ]
+    }
+
+    pub fn get_string_from_operation_code(self) -> String {
+        match self {
+            OperationCode::Issue => "Issue".to_string(),
+            OperationCode::Accept => "Accept".to_string(),
+            OperationCode::Decline => "Decline".to_string(),
+            OperationCode::Endorse => "Endorse".to_string(),
+            OperationCode::RequestToAccept => "RequestToAccept".to_string(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -350,7 +375,7 @@ pub fn start_blockchain_for_new_bill(
         output_path.clone(),
         serde_json::to_string_pretty(&chain).unwrap(),
     )
-        .unwrap();
+    .unwrap();
 }
 
 pub fn is_block_valid(block: &Block, previous_block: &Block) -> bool {

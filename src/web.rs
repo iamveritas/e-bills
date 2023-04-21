@@ -6,13 +6,14 @@ use rocket::form::Form;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::{
-    add_in_contacts_map, BitcreditBill, BitcreditBillForm, create_whole_identity,
-    endorse_bill_and_return_new_holder_id, EndorseBitcreditBillForm, get_bills, get_contact_from_map,
-    get_whole_identity, Identity, IdentityForm, IdentityWithAll,
-    issue_new_bill, NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file, request_acceptance, RequestToAcceptBitcreditBillForm,
+    accept_bill, AcceptOrDeclineBitcreditBillForm, add_in_contacts_map, BitcreditBill, BitcreditBillForm,
+    blockchain, create_whole_identity, decline_bill, endorse_bill_and_return_new_holder_id,
+    EndorseBitcreditBillForm, get_bills, get_contact_from_map, get_whole_identity,
+    Identity, IdentityForm, IdentityWithAll, issue_new_bill,
+    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    request_acceptance, RequestToAcceptBitcreditBillForm,
 };
-use crate::blockchain::Chain;
+use crate::blockchain::{Chain, OperationCode};
 use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
 
@@ -113,12 +114,16 @@ pub async fn get_bill(id: String) -> Template {
             .clone();
         let operation_code = last_block.operation_code;
 
+        let identity: IdentityWithAll = get_whole_identity();
+
         Template::render(
             "hbs/bill",
             context! {
+                codes: blockchain::OperationCode::get_all_operation_codes(),
                 operation_code: operation_code,
                 peer_id: str_peer_id,
                 bill: Some(bill),
+                // identity: Some(identity.identity),
             },
         )
     } else {
@@ -297,6 +302,55 @@ pub async fn request_to_accept_bill(
                 .add_message_to_topic(
                     serde_json::to_vec(block).expect("Error serializing block"),
                     request_to_accept_bill_form.bill_name.clone(),
+                )
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[post("/accept_or_decline", data = "<accept_or_decline_bill_form>")]
+pub async fn accept_or_decline_bill(
+    state: &State<Client>,
+    accept_or_decline_bill_form: Form<AcceptOrDeclineBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let mut correct = false;
+
+        if accept_or_decline_bill_form
+            .operation_code
+            .eq(&OperationCode::Accept)
+        {
+            correct = accept_bill(&accept_or_decline_bill_form.bill_name);
+        } else if accept_or_decline_bill_form
+            .operation_code
+            .eq(&OperationCode::Decline)
+        {
+            correct = decline_bill(&accept_or_decline_bill_form.bill_name);
+        }
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&accept_or_decline_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    accept_or_decline_bill_form.bill_name.clone(),
                 )
                 .await;
         }

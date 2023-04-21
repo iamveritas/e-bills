@@ -240,7 +240,7 @@ pub mod network {
                     if !Path::new(
                         (BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json").as_str(),
                     )
-                        .exists()
+                    .exists()
                     {
                         let bill_bytes = self.get(bill_id.to_string().clone()).await;
                         if !bill_bytes.is_empty() {
