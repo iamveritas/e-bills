@@ -123,7 +123,7 @@ pub async fn get_bill(id: String) -> Template {
                 operation_code: operation_code,
                 peer_id: str_peer_id,
                 bill: Some(bill),
-                // identity: Some(identity.identity),
+                identity: Some(identity.identity),
             },
         )
     } else {
@@ -333,12 +333,12 @@ pub async fn accept_or_decline_bill(
 
         if accept_or_decline_bill_form
             .operation_code
-            .eq(&OperationCode::Accept)
+            .eq(&OperationCode::Accept.get_string_from_operation_code())
         {
             correct = accept_bill(&accept_or_decline_bill_form.bill_name);
         } else if accept_or_decline_bill_form
             .operation_code
-            .eq(&OperationCode::Decline)
+            .eq(&OperationCode::Decline.get_string_from_operation_code())
         {
             correct = decline_bill(&accept_or_decline_bill_form.bill_name);
         }

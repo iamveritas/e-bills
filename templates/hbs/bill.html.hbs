@@ -24,7 +24,10 @@
   <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
   <h3>Language: {{bill.language}}</h3>
   <h3>Operation code: {{operation_code}}</h3>
+
   <h3>Operation code: {{codes}}</h3>
+  <h3>Operation code: {{codes.[4]}}</h3>
+  <h3>Operation code: {{identity.name}}</h3>
 </div>
 
 {{#if (eq peer_id bill.holder_name)}}
@@ -51,8 +54,8 @@
   {{/if}}
 {{/if}}
 {{#if (eq identity.name bill.drawee_name)}}
-  {{#if (eq operation_code codes.[3])}}
-    <form class="content" action="http://localhost:8000/bill/accept_or_decline_bill" method="post">
+  {{#if (eq operation_code codes.[4])}}
+    <form class="content" action="http://localhost:8000/bill/accept_or_decline" method="post">
       <label for="bill_name">Bill name:</label><br>
       <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
       <label for="operation_code">Operation code:</label><br>

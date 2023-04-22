@@ -25,7 +25,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     network_client
         .start_listening(
             //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0 (normal 1908)
-            "/ip4/0.0.0.0/tcp/0"
+            "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
         )
