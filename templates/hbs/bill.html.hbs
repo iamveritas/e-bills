@@ -1,31 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Bill info</title>
+  <title>Bill info</title>
 </head>
 <header>
-    {{> hbs/nav}}
+  {{> hbs/nav}}
 </header>
 <body>
 <div class="content">
-    <div class="headline">
-        <h1>Information about your bill {{bill.name}}</h1>
-    </div>
-    <h3>Drawer: {{bill.drawer_name}}</h3>
-    <h3>Drawee: {{bill.drawee_name}}</h3>
-    <h3>Amount numbers: {{bill.amount_numbers}}</h3>
-    <h3>Amounts letters: {{bill.amounts_letters}}</h3>
-    <h3>Currency code: {{bill.currency_code}}</h3>
-    <h3>Date of issue: {{bill.date_of_issue}}</h3>
-    <h3>Maturity date: {{bill.maturity_date}}</h3>
-    <h3>Place of drawing: {{bill.place_of_drawing}}</h3>
-    <h3>Place of payment: {{bill.place_of_payment}}</h3>
-    <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
-    <h3>Language: {{bill.language}}</h3>
-    <h3>Public key: {{bill.public_key_pem}}</h3>
+  <div class="headline">
+    <h1>Information about your bill {{bill.name}}</h1>
+  </div>
+  <h3>Drawer: {{bill.drawer_name}}</h3>
+  <h3>Drawee: {{bill.drawee_name}}</h3>
+  <h3>Holder: {{bill.holder_name}}</h3>
+  <h3>Amount numbers: {{bill.amount_numbers}}</h3>
+  <h3>Amounts letters: {{bill.amounts_letters}}</h3>
+  <h3>Currency code: {{bill.currency_code}}</h3>
+  <h3>Date of issue: {{bill.date_of_issue}}</h3>
+  <h3>Maturity date: {{bill.maturity_date}}</h3>
+  <h3>Place of drawing: {{bill.place_of_drawing}}</h3>
+  <h3>Place of payment: {{bill.place_of_payment}}</h3>
+  <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
+  <h3>Language: {{bill.language}}</h3>
+  <h3>Operation code: {{operation_code}}</h3>
+
+  <h3>Operation code: {{codes}}</h3>
+  <h3>Operation code: {{codes.[4]}}</h3>
+  <h3>Operation code: {{identity.name}}</h3>
 </div>
+
+{{#if (eq peer_id bill.holder_name)}}
+  <form class="content" action="http://localhost:8000/bill/endorse" method="post">
+    <label for="new_holder">New holder name:</label><br>
+    <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
+    <label for="bill_name">Bill name:</label><br>
+    <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+    <input type="submit" id="button_submit" value="Endorse">
+  </form>
+  {{#if (eq operation_code codes.[3])}}
+    <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <input type="submit" id="button_submit" value="Request to accept">
+    </form>
+  {{/if}}
+  {{#if (eq operation_code codes.[0])}}
+    <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <input type="submit" id="button_submit" value="Request to accept">
+    </form>
+  {{/if}}
+{{/if}}
+{{#if (eq identity.name bill.drawee_name)}}
+  {{#if (eq operation_code codes.[4])}}
+    <form class="content" action="http://localhost:8000/bill/accept_or_decline" method="post">
+      <label for="bill_name">Bill name:</label><br>
+      <input type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}" placeholder="Bill name" readonly><br>
+      <label for="operation_code">Operation code:</label><br>
+      <input type="text" required="required" id="operation_code" name="operation_code" placeholder="Operation Code"><br>
+      <input type="submit" id="button_submit" value="Send">
+    </form>
+  {{/if}}
+{{/if}}
 </body>
 <footer>
-    {{> hbs/footer}}
+  {{> hbs/footer}}
 </footer>
 </html>

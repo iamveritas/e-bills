@@ -9,7 +9,6 @@ use libp2p::core::{Multiaddr, PeerId};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::dht::network::Client;
-use crate::{bill_from_byte_array, write_bill_to_file};
 
 pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     let (mut network_client, network_events, network_event_loop) = network::new()
@@ -25,6 +24,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
+            //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0 (normal 1908)
             "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
@@ -37,6 +37,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     Ok(network_client_to_return)
 }
 
+//Need for testing from console.
 #[derive(Parser, Debug)]
 #[clap(name = "Bitcredit first version dht")]
 struct Opt {
@@ -47,6 +48,7 @@ struct Opt {
     argument: CliArgument,
 }
 
+//Need for testing from console.
 #[derive(Debug, Parser)]
 enum CliArgument {
     Provide {
@@ -62,25 +64,26 @@ enum CliArgument {
 }
 
 pub mod network {
+    use std::{fs, iter, path};
     use std::collections::{hash_map, HashMap, HashSet};
     use std::path::Path;
-    use std::{fs, iter};
 
     use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
-    use futures::channel::mpsc::Receiver;
     use futures::channel::{mpsc, oneshot};
+    use futures::channel::mpsc::Receiver;
     use futures::io::Lines;
     use futures::stream::Fuse;
+    use libp2p::{development_transport, gossipsub};
     use libp2p::core::either::EitherError;
-    use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
-    use libp2p::development_transport;
-    use libp2p::kad::record::store::MemoryStore;
-    use libp2p::kad::record::{Key, Record};
+    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
+    use libp2p::gossipsub::error::GossipsubHandlerError;
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
+    use libp2p::kad::record::{Key, Record};
+    use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
@@ -88,19 +91,18 @@ pub mod network {
     };
     use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
 
+    use crate::{
+        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+    };
+    use crate::blockchain::{Block, Chain};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
-    };
-    use crate::{
-        generate_dht_logic, get_all_nodes_from_bill, read_ed25519_keypair_from_file,
-        read_peer_id_from_file, BitcreditBill,
     };
 
     use super::*;
 
     pub async fn new() -> Result<(Client, Receiver<Event>, EventLoop), Box<dyn Error>> {
-        //We generate peer_id and keypair.
         if !Path::new(IDENTITY_PEER_ID_FILE_PATH).exists()
             && !Path::new(IDENTITY_ED_25529_KEYS_FILE_PATH).exists()
         {
@@ -108,20 +110,19 @@ pub mod network {
         }
 
         let local_key = read_ed25519_keypair_from_file();
-        let key_copy = local_key.clone();
         let local_peer_id = read_peer_id_from_file();
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let transport = development_transport(local_key).await?;
+        let transport = development_transport(local_key.clone()).await?;
 
         let mut swarm = {
             let store = MemoryStore::new(local_peer_id);
             let kademlia = Kademlia::new(local_peer_id, store);
 
             let cfg_identify = libp2p::identify::Config::new(
-                "protocol identify version 1".to_string(),
-                key_copy.public(),
+                "Protocol identify version 1".to_string(),
+                local_key.clone().public(),
             );
             let identify = libp2p::identify::Behaviour::new(cfg_identify);
 
@@ -131,13 +132,28 @@ pub mod network {
                 Default::default(),
             );
 
+            //Create topics logic-------------------
+
+            // Set a custom gossipsub configuration
+            let gossipsub_config = gossipsub::GossipsubConfig::default();
+
+            let message_authenticity = gossipsub::MessageAuthenticity::Signed(local_key.clone());
+
+            // build a gossipsub network behaviour
+            let mut gossipsub = gossipsub::Gossipsub::new(message_authenticity, gossipsub_config)
+                .expect("Correct configuration");
+            //--------------------------------------
+
             let mut behaviour = MyBehaviour {
                 request_response,
                 kademlia,
                 identify,
+                gossipsub,
             };
-            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)?;
-            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string).unwrap();
+            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)
+                .expect("Can't read bootstrap nodes file.");
+            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string)
+                .expect("Can't parse bootstrap nodes file.");
             for index in 0..boot_nodes.nodes.len() {
                 let node = boot_nodes.nodes[index].node.clone();
                 let address = boot_nodes.nodes[index].address.clone();
@@ -219,61 +235,56 @@ pub mod network {
                 let record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
-                let split = record_for_saving_in_dht.split(',');
-                for bill_id in split {
-                    if !Path::new((BILLS_FOLDER_PATH.to_string() + "/" + bill_id).as_str()).exists()
+                let bills = record_for_saving_in_dht.split(',');
+                for bill_id in bills {
+                    if !Path::new(
+                        (BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json").as_str(),
+                    )
+                    .exists()
                     {
-                        let bill_bytes = self.get(bill_id.to_string()).await;
-
+                        let bill_bytes = self.get(bill_id.to_string().clone()).await;
                         if !bill_bytes.is_empty() {
-                            let bill: BitcreditBill = bill_from_byte_array(&bill_bytes);
-                            bill.name.clone();
-                            write_bill_to_file(&bill);
+                            let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
+                            fs::write(path, bill_bytes).expect("Can't write file.");
                         }
+                        self.sender
+                            .send(Command::SubscribeToTopic {
+                                topic: bill_id.to_string().clone(),
+                            })
+                            .await
+                            .expect("Command receiver not to be dropped.");
                     }
                 }
             }
         }
 
-        pub async fn upgrade_table_for_others_nodes(&mut self) {
-            for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                let bill_name = file.unwrap().file_name().into_string().unwrap();
-
-                let nodes = get_all_nodes_from_bill(&bill_name);
-
-                for node in nodes {
-                    self.upgrade_table_for_other_node(node, bill_name.clone())
-                        .await;
-                }
-            }
-        }
-
-        pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
-            let node_request = BILLS_PREFIX.to_string() + &node_id;
-            let list_bills_for_node = self.get_record(node_request.clone()).await;
-            let value = list_bills_for_node.value;
-
-            if !value.is_empty() {
-                let record_in_dht = std::str::from_utf8(&value)
-                    .expect("Cant get value.")
-                    .to_string();
-                let mut new_record: String = record_in_dht.clone();
-
-                if !record_in_dht.contains(&bill) {
-                    new_record += (",".to_string() + &bill).as_str();
-                }
-
-                if !record_in_dht.eq(&new_record) {
-                    self.put_record(node_request.clone(), new_record).await;
-                }
-            } else {
-                let mut new_record: String = bill.clone();
-
-                if !new_record.is_empty() {
-                    self.put_record(node_request.clone(), new_record).await;
-                }
-            }
-        }
+        //TODO: change
+        // pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
+        //     let node_request = BILLS_PREFIX.to_string() + &node_id;
+        //     let list_bills_for_node = self.get_record(node_request.clone()).await;
+        //     let value = list_bills_for_node.value;
+        //
+        //     if !value.is_empty() {
+        //         let record_in_dht = std::str::from_utf8(&value)
+        //             .expect("Cant get value.")
+        //             .to_string();
+        //         let mut new_record: String = record_in_dht.clone();
+        //
+        //         if !record_in_dht.contains(&bill) {
+        //             new_record += (",".to_string() + &bill).as_str();
+        //         }
+        //
+        //         if !record_in_dht.eq(&new_record) {
+        //             self.put_record(node_request.clone(), new_record).await;
+        //         }
+        //     } else {
+        //         let mut new_record: String = bill.clone();
+        //
+        //         if !new_record.is_empty() {
+        //             self.put_record(node_request.clone(), new_record).await;
+        //         }
+        //     }
+        // }
 
         pub async fn upgrade_table(&mut self, node_id: String) {
             let node_request = BILLS_PREFIX.to_string() + &node_id;
@@ -287,7 +298,13 @@ pub mod network {
                 let mut new_record: String = record_in_dht.clone();
 
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
 
                     if !record_in_dht.contains(&bill_name) {
                         new_record += (",".to_string() + &bill_name.clone()).as_str();
@@ -300,7 +317,13 @@ pub mod network {
             } else {
                 let mut new_record: String = "".to_string();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
+
                     if new_record.is_empty() {
                         new_record = bill_name.clone();
                         self.put(&bill_name).await;
@@ -315,8 +338,8 @@ pub mod network {
             }
         }
 
-        pub async fn add_bill_to_dht(&mut self, bill_name: &String, node_id: String) {
-            let node_request = BILLS_PREFIX.to_string() + &node_id;
+        pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: &String) {
+            let node_request = BILLS_PREFIX.to_string() + node_id;
             let mut record_for_saving_in_dht = "".to_string();
             let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
@@ -331,6 +354,10 @@ pub mod network {
 
             self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
                 .await;
+        }
+
+        pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: String) {
+            self.send_message(msg, topic).await;
         }
 
         pub async fn put(&mut self, name: &String) {
@@ -358,6 +385,28 @@ pub mod network {
 
                 file_content
             }
+        }
+
+        pub async fn subscribe_to_all_bills_topics(&mut self) {
+            let bills = get_bills();
+
+            for bill in bills {
+                self.subscribe_to_topic(bill.name).await;
+            }
+        }
+
+        pub async fn subscribe_to_topic(&mut self, topic: String) {
+            self.sender
+                .send(Command::SubscribeToTopic { topic })
+                .await
+                .expect("Command receiver not to be dropped.");
+        }
+
+        async fn send_message(&mut self, msg: Vec<u8>, topic: String) {
+            self.sender
+                .send(Command::SendMessage { msg, topic })
+                .await
+                .expect("Command receiver not to be dropped.");
         }
 
         async fn put_record(&mut self, key: String, value: String) {
@@ -421,19 +470,16 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request;
-                    self.respond_file(
-                        std::fs::read(&path_to_bill).expect("Can not respond."),
-                        channel,
-                    )
-                    .await;
+                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request + ".json";
+                    self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
+                        .await;
                 }
 
                 _ => {}
             }
         }
 
-        //TODO: dont delete. Need for testing from console.
+        //Need for testing from console.
         async fn handle_input_line(&mut self, line: String) {
             let mut args = line.split(' ');
 
@@ -487,6 +533,43 @@ pub mod network {
                     self.put_record(key, value).await;
                 }
 
+                Some("SEND_MESSAGE") => {
+                    let topic = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected topic");
+                                return;
+                            }
+                        }
+                    };
+                    let msg = {
+                        match args.next() {
+                            Some(value) => String::from(value),
+                            None => {
+                                eprintln!("Expected msg");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.send_message(msg.into_bytes(), topic).await;
+                }
+
+                Some("SUBSCRIBE") => {
+                    let topic = {
+                        match args.next() {
+                            Some(key) => String::from(key),
+                            None => {
+                                eprintln!("Expected topic");
+                                return;
+                            }
+                        }
+                    };
+
+                    self.subscribe_to_topic(topic).await;
+                }
+
                 Some("GET_RECORD") => {
                     let key = {
                         match args.next() {
@@ -514,7 +597,9 @@ pub mod network {
                 }
 
                 _ => {
-                    eprintln!("expected GET, PUT, GET_RECORD, PUT_RECORD or GET_PROVIDERS.");
+                    eprintln!(
+                        "expected GET, PUT, SEND_MESSAGE, SUBSCRIBE, GET_RECORD, PUT_RECORD or GET_PROVIDERS."
+                    );
                 }
             }
         }
@@ -569,8 +654,11 @@ pub mod network {
                 ComposedEvent,
                 //TODO: change to normal error type.
                 EitherError<
-                    EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
-                    std::io::Error,
+                    EitherError<
+                        EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
+                        std::io::Error,
+                    >,
+                    GossipsubHandlerError,
                 >,
             >,
         ) {
@@ -592,17 +680,17 @@ pub mod network {
                             .remove(&id)
                             .expect("Completed query to be previously pending.");
                         let _ = sender.send(());
-                        println!(
-                            "Successfully put provider record {:?}",
-                            std::str::from_utf8(key.as_ref()).unwrap()
-                        );
+                        // println!(
+                        //     "Successfully put provider record {:?}",
+                        //     std::str::from_utf8(key.as_ref()).unwrap()
+                        // );
                     }
 
                     QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                        println!(
-                            "Successfully put record {:?}",
-                            std::str::from_utf8(key.as_ref()).unwrap()
-                        );
+                        // println!(
+                        //     "Successfully put record {:?}",
+                        //     std::str::from_utf8(key.as_ref()).unwrap()
+                        // );
                     }
 
                     QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
@@ -649,7 +737,7 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("NotFound.");
+                        // println!("NotFound.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
@@ -665,7 +753,7 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("Timeout.");
+                        // println!("Timeout.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
@@ -681,12 +769,12 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        println!("QuorumFailed.");
+                        // println!("QuorumFailed.");
                     }
 
                     QueryResult::StartProviding(Err(err)) => {
                         //TODO: do some logic.
-                        eprintln!("Failed to put provider record: {err:?}");
+                        // eprintln!("Failed to put provider record: {err:?}");
                     }
 
                     QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders {
@@ -719,7 +807,7 @@ pub mod network {
 
                     QueryResult::GetProviders(Err(err)) => {
                         //TODO: do some logic.
-                        eprintln!("Failed to get providers: {err:?}");
+                        // eprintln!("Failed to get providers: {err:?}");
                     }
 
                     _ => {}
@@ -778,18 +866,40 @@ pub mod network {
                     RequestResponseEvent::ResponseSent { .. },
                 )) => {
                     //TODO: do some logic.
-                    println!("{event:?}")
+                    // println!("{event:?}")
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::Identify(
                     libp2p::identify::Event::Received { peer_id, .. },
                 )) => {
-                    println!("New node identify.");
+                    // println!("New node identify.");
                     for address in self.swarm.behaviour_mut().addresses_of_peer(&peer_id) {
                         self.swarm
                             .behaviour_mut()
                             .kademlia
                             .add_address(&peer_id, address);
+                    }
+                }
+
+                SwarmEvent::Behaviour(ComposedEvent::Gossipsub(
+                    libp2p::gossipsub::GossipsubEvent::Message {
+                        propagation_source: peer_id,
+                        message_id: id,
+                        message,
+                    },
+                )) => {
+                    let bill_name = message.topic.clone().into_string();
+                    println!(
+                        "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {bill_name}",
+                        String::from_utf8_lossy(&message.data),
+                    );
+
+                    let block: Block =
+                        serde_json::from_slice(&message.data).expect("Block are not valid.");
+                    let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
+                    chain.try_add_block(block);
+                    if chain.is_chain_valid() {
+                        chain.write_chain_to_file(&bill_name);
                     }
                 }
 
@@ -845,6 +955,7 @@ pub mod network {
                 }
 
                 Command::StartProviding { file_name, sender } => {
+                    println!("Start providing {file_name:?}");
                     let query_id = self
                         .swarm
                         .behaviour_mut()
@@ -855,6 +966,7 @@ pub mod network {
                 }
 
                 Command::PutRecord { key, value } => {
+                    println!("Put record {key:?}");
                     let key_record = Key::new(&key);
                     let value_bytes = value.as_bytes().to_vec();
                     let record = Record {
@@ -872,13 +984,33 @@ pub mod network {
                         .expect("Can not provide.");
                 }
 
+                Command::SendMessage { msg, topic } => {
+                    println!("Send message to topic {topic:?}");
+                    self.swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .publish(gossipsub::IdentTopic::new(topic), msg)
+                        .expect("TODO: panic message");
+                }
+
+                Command::SubscribeToTopic { topic } => {
+                    println!("Subscribe to topic {topic:?}");
+                    self.swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .subscribe(&gossipsub::IdentTopic::new(topic))
+                        .expect("TODO: panic message");
+                }
+
                 Command::GetRecord { key, sender } => {
+                    println!("Get record {key:?}");
                     let key_record = Key::new(&key);
                     let query_id = self.swarm.behaviour_mut().kademlia.get_record(key_record);
                     self.pending_get_records.insert(query_id, sender);
                 }
 
                 Command::GetProviders { file_name, sender } => {
+                    println!("Get providers {file_name:?}");
                     let query_id = self
                         .swarm
                         .behaviour_mut()
@@ -892,6 +1024,7 @@ pub mod network {
                     peer,
                     sender,
                 } => {
+                    println!("Request file {file_name:?}");
                     let request_id = self
                         .swarm
                         .behaviour_mut()
@@ -901,6 +1034,7 @@ pub mod network {
                 }
 
                 Command::RespondFile { file, channel } => {
+                    println!("Respond file");
                     self.swarm
                         .behaviour_mut()
                         .request_response
@@ -943,6 +1077,7 @@ pub mod network {
         request_response: request_response::RequestResponse<FileExchangeCodec>,
         kademlia: Kademlia<MemoryStore>,
         identify: libp2p::identify::Behaviour,
+        gossipsub: libp2p::gossipsub::Gossipsub,
     }
 
     #[derive(Debug)]
@@ -950,6 +1085,7 @@ pub mod network {
         RequestResponse(RequestResponseEvent<FileRequest, FileResponse>),
         Kademlia(KademliaEvent),
         Identify(libp2p::identify::Event),
+        Gossipsub(libp2p::gossipsub::GossipsubEvent),
     }
 
     impl From<RequestResponseEvent<FileRequest, FileResponse>> for ComposedEvent {
@@ -967,6 +1103,12 @@ pub mod network {
     impl From<libp2p::identify::Event> for ComposedEvent {
         fn from(event: libp2p::identify::Event) -> Self {
             ComposedEvent::Identify(event)
+        }
+    }
+
+    impl From<libp2p::gossipsub::GossipsubEvent> for ComposedEvent {
+        fn from(event: libp2p::gossipsub::GossipsubEvent) -> Self {
+            ComposedEvent::Gossipsub(event)
         }
     }
 
@@ -1000,6 +1142,13 @@ pub mod network {
         RespondFile {
             file: Vec<u8>,
             channel: ResponseChannel<FileResponse>,
+        },
+        SendMessage {
+            msg: Vec<u8>,
+            topic: String,
+        },
+        SubscribeToTopic {
+            topic: String,
         },
         Dial {
             peer_id: PeerId,

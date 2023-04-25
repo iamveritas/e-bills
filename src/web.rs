@@ -1,19 +1,21 @@
-use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 
 use chrono::{Days, Utc};
-use rocket::form::Form;
 use rocket::{Request, State};
+use rocket::form::Form;
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
-use crate::dht::network::Client;
 use crate::{
-    add_in_contacts_map, create_whole_identity, get_whole_identity, issue_new_bill,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    BitcreditBill, BitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
+    accept_bill, AcceptOrDeclineBitcreditBillForm, add_in_contacts_map, BitcreditBill, BitcreditBillForm,
+    blockchain, create_whole_identity, decline_bill, endorse_bill_and_return_new_holder_id,
+    EndorseBitcreditBillForm, get_bills, get_contact_from_map, get_whole_identity,
+    Identity, IdentityForm, IdentityWithAll, issue_new_bill,
+    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    request_acceptance, RequestToAcceptBitcreditBillForm,
 };
+use crate::blockchain::{Chain, OperationCode};
+use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
+use crate::dht::network::Client;
 
 use self::handlebars::{Handlebars, JsonRender};
 
@@ -22,7 +24,7 @@ pub async fn start() -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        let bills = bills();
+        let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
@@ -70,7 +72,7 @@ pub async fn create_identity(identity_form: Form<IdentityForm>) -> Template {
         identity.postal_address,
     );
     let identity: IdentityWithAll = get_whole_identity();
-    let bills = bills();
+    let bills = get_bills();
 
     Template::render(
         "hbs/home",
@@ -86,7 +88,7 @@ pub async fn bills_list() -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        let bills = bills();
+        let bills = get_bills();
 
         Template::render(
             "hbs/bills_list",
@@ -101,17 +103,31 @@ pub async fn bills_list() -> Template {
 pub async fn get_bill(id: String) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
-    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id).as_str()).exists() {
+    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
         let bill: BitcreditBill = read_bill_from_file(&id);
+
+        let peer_id = read_peer_id_from_file();
+        let str_peer_id = peer_id.to_string();
+
+        let last_block = Chain::read_chain_from_file(&bill.name)
+            .get_latest_block()
+            .clone();
+        let operation_code = last_block.operation_code;
+
+        let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
             "hbs/bill",
             context! {
+                codes: blockchain::OperationCode::get_all_operation_codes(),
+                operation_code: operation_code,
+                peer_id: str_peer_id,
                 bill: Some(bill),
+                identity: Some(identity.identity),
             },
         )
     } else {
-        let bills = bills();
+        let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
@@ -133,7 +149,7 @@ pub async fn search_bill(state: &State<Client>) -> Template {
         let local_peer_id = read_peer_id_from_file();
         client.check_new_bills(local_peer_id.to_string()).await;
 
-        let bills = bills();
+        let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
 
         Template::render(
@@ -177,52 +193,178 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else {
-        let bill: BitcreditBillForm = bill_form.into_inner();
-        let drawer: Identity = read_identity_from_file();
+        let bill = bill_form.into_inner();
+        let drawer = read_identity_from_file();
         let bill = issue_new_bill(
             bill.bill_jurisdiction,
             bill.place_of_drawing,
             bill.amount_numbers,
-            drawer,
+            drawer.clone(),
             bill.language,
             bill.drawee_name,
         );
 
-        let bill_name: String = bill.name.clone();
         let mut client = state.inner().clone();
-        let local_peer_id = read_peer_id_from_file().to_string();
 
-        let map = read_contacts_map();
-        let mut nodes = Vec::new();
+        let mut nodes: Vec<String> = Vec::new();
 
-        nodes.push(local_peer_id);
+        let my_peer_id = read_peer_id_from_file();
+        nodes.push(my_peer_id.to_string());
 
-        add_to_nodes(&map, &bill.drawee_name, nodes.as_mut());
+        let drawee_peer_id = get_contact_from_map(&bill.drawee_name);
+        nodes.push(drawee_peer_id);
 
         for node in nodes {
-            client.add_bill_to_dht(&bill_name, node).await;
+            if !node.is_empty() {
+                println!("Add {} for node {}", &bill.name, &node);
+                client.add_bill_to_dht_for_node(&bill.name, &node).await;
+            }
         }
 
-        client.put(&bill_name).await;
+        client.subscribe_to_topic(bill.name.clone()).await;
 
-        let bill: BitcreditBill = read_bill_from_file(&bill.name);
+        client.put(&bill.name).await;
+
+        let bills = get_bills();
+        let identity = read_identity_from_file();
 
         Template::render(
-            "hbs/bill",
+            "hbs/home",
             context! {
-                bill: Some(bill),
+                identity: Some(identity),
+                bills: bills,
             },
         )
     }
 }
 
-pub fn add_to_nodes(map: &HashMap<String, String>, node: &String, nodes: &mut Vec<String>) {
-    let mut node_id = "";
-    if map.contains_key(node) {
-        node_id = map.get(node).expect("Contact not found");
+//TODO: change
+#[post("/endorse", data = "<endorse_bill_form>")]
+pub async fn endorse_bill(
+    state: &State<Client>,
+    endorse_bill_form: Form<EndorseBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let new_holder_id = endorse_bill_and_return_new_holder_id(
+            &endorse_bill_form.bill_name,
+            endorse_bill_form.new_holder.clone(),
+        );
+        if !new_holder_id.is_empty() {
+            let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    endorse_bill_form.bill_name.clone(),
+                )
+                .await;
+
+            client
+                .add_bill_to_dht_for_node(&endorse_bill_form.bill_name, &new_holder_id)
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
     }
-    if !node_id.is_empty() {
-        nodes.push(node_id.to_string());
+}
+
+#[post("/request_to_accept", data = "<request_to_accept_bill_form>")]
+pub async fn request_to_accept_bill(
+    state: &State<Client>,
+    request_to_accept_bill_form: Form<RequestToAcceptBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let correct = request_acceptance(&request_to_accept_bill_form.bill_name);
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&request_to_accept_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    request_to_accept_bill_form.bill_name.clone(),
+                )
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[post("/accept_or_decline", data = "<accept_or_decline_bill_form>")]
+pub async fn accept_or_decline_bill(
+    state: &State<Client>,
+    accept_or_decline_bill_form: Form<AcceptOrDeclineBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let mut correct = false;
+
+        if accept_or_decline_bill_form
+            .operation_code
+            .eq(&OperationCode::Accept.get_string_from_operation_code())
+        {
+            correct = accept_bill(&accept_or_decline_bill_form.bill_name);
+        } else if accept_or_decline_bill_form
+            .operation_code
+            .eq(&OperationCode::Decline.get_string_from_operation_code())
+        {
+            correct = decline_bill(&accept_or_decline_bill_form.bill_name);
+        }
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&accept_or_decline_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            client
+                .add_message_to_topic(
+                    serde_json::to_vec(block).expect("Error serializing block"),
+                    accept_or_decline_bill_form.bill_name.clone(),
+                )
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
     }
 }
 
@@ -274,19 +416,6 @@ pub async fn contacts() -> Template {
 #[catch(404)]
 pub fn not_found(req: &Request) -> String {
     format!("We couldn't find the requested path '{}'", req.uri())
-}
-
-fn bills() -> Vec<BitcreditBill> {
-    let mut bills = Vec::new();
-    let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
-    for _path in paths {
-        let mut path = _path.unwrap().path().display().to_string();
-        let path_vec = path.split('/').collect::<Vec<&str>>();
-        path = path_vec[1].to_string();
-        let bill = read_bill_from_file(&path);
-        bills.push(bill);
-    }
-    bills
 }
 
 pub fn customize(hbs: &mut Handlebars) {
