@@ -657,7 +657,14 @@ pub mod network {
             &mut self,
             event: SwarmEvent<
                 ComposedEvent,
-                rocket::Either<rocket::Either<rocket::Either<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>, std::io::Error>, HandlerError>>
+                rocket::Either<
+                    rocket::Either<
+                        rocket::Either<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
+                        std::io::Error,
+                    >,
+                    HandlerError,
+                >,
+            >,
         ) {
             match event {
                 SwarmEvent::NewListenAddr { address, .. } => {
@@ -822,7 +829,7 @@ pub mod network {
                                           libp2p::request_response::Event::OutboundFailure {
                                               request_id, error, ..
                                           },
-                )) => {
+                                      )) => {
                     let _ = self
                         .pending_request_file
                         .remove(&request_id)
@@ -884,7 +891,7 @@ pub mod network {
                                               message_id: id,
                                               message,
                                           },
-                )) => {
+                                      )) => {
                     let bill_name = message.topic.clone().into_string();
                     println!(
                         "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {bill_name}",
