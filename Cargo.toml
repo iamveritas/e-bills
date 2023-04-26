@@ -8,12 +8,12 @@ build = "build.rs"
 openssl = "0.10.40"
 borsh = "0.10.2"
 futures = "0.3.25"
-async-std = { version = "1.12.0" }
+#async-std = { version = "1.12.0" }
 chrono = "0.4.23"
-clap = { version = "4.1.4", features = ["derive"]}
+clap = { version = "4.1.4", features = ["derive"] }
 async-trait = "0.1.64"
-libp2p = { version = "0.50.0", features = ["tcp", "dns", "async-std", "noise", "mplex", "yamux", "websocket", "tokio", "macros", "kad", "request-response", "identify", "gossipsub"] }
-#tokio = { version = "1.26.0", features = ["full"] }
+libp2p = { version = "0.51.2", features = ["tcp", "dns", "async-std", "noise", "mplex", "yamux", "websocket", "tokio", "macros", "kad", "request-response", "identify", "gossipsub"] }
+tokio = { version = "1.26.0", features = ["full"] }
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
 rocket_dyn_templates = { version = "0.1.0-rc.2", features = ["handlebars"] }
 rocket_contrib = "0.4.11"
@@ -24,7 +24,6 @@ serde_derive = "1.0.154"
 hex = "0.4.3"
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
-#raft = "0.7.0"
 zip = "0.6.4"
 walkdir = "2.3.3"
 zip-extract = "0.1.2"

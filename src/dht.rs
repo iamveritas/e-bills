@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use async_std::io;
-use async_std::task::spawn;
 use clap::Parser;
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
 use serde_derive::{Deserialize, Serialize};
+use tokio::{io, spawn};
+use tokio::io::AsyncBufReadExt;
 
 use crate::dht::network::Client;
 
@@ -16,7 +16,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
         .expect("Can not to create network module in dht.");
 
     //Need for testing from console.
-    let stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    // let stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
 
@@ -24,7 +24,6 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     network_client
         .start_listening(
-            //TODO TESTTASK change to /ip4/0.0.0.0/tcp/0 (normal 1908)
             "/ip4/0.0.0.0/tcp/1908"
                 .parse()
                 .expect("Can not start listening."),
@@ -32,7 +31,10 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
         .await
         .expect("Listening not to fail.");
 
-    spawn(network_client.run(stdin, network_events));
+    spawn(network_client.run(
+        // stdin,
+        network_events,
+    ));
 
     Ok(network_client_to_return)
 }
@@ -68,16 +70,14 @@ pub mod network {
     use std::collections::{hash_map, HashMap, HashSet};
     use std::path::Path;
 
-    use async_std::io::{BufReader, Stdin};
     use async_trait::async_trait;
     use futures::channel::{mpsc, oneshot};
     use futures::channel::mpsc::Receiver;
     use futures::io::Lines;
     use futures::stream::Fuse;
     use libp2p::{development_transport, gossipsub};
-    use libp2p::core::either::EitherError;
     use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
-    use libp2p::gossipsub::error::GossipsubHandlerError;
+    use libp2p::gossipsub::HandlerError;
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
@@ -89,7 +89,11 @@ pub mod network {
         self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
         ResponseChannel,
     };
-    use libp2p::swarm::{ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmEvent};
+    use libp2p::swarm::{
+        ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
+    };
+    use libp2p::swarm::dummy::Behaviour;
+    use tokio::io::{BufReader, Stdin};
 
     use crate::{
         generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
@@ -126,7 +130,7 @@ pub mod network {
             );
             let identify = libp2p::identify::Behaviour::new(cfg_identify);
 
-            let request_response = request_response::RequestResponse::new(
+            let request_response = libp2p::request_response::Behaviour::new(
                 FileExchangeCodec(),
                 iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
                 Default::default(),
@@ -135,13 +139,14 @@ pub mod network {
             //Create topics logic-------------------
 
             // Set a custom gossipsub configuration
-            let gossipsub_config = gossipsub::GossipsubConfig::default();
+            let gossipsub_config = libp2p::gossipsub::Config::default();
 
             let message_authenticity = gossipsub::MessageAuthenticity::Signed(local_key.clone());
 
             // build a gossipsub network behaviour
-            let mut gossipsub = gossipsub::Gossipsub::new(message_authenticity, gossipsub_config)
-                .expect("Correct configuration");
+            let mut gossipsub =
+                libp2p::gossipsub::Behaviour::new(message_authenticity, gossipsub_config)
+                    .expect("Correct configuration");
             //--------------------------------------
 
             let mut behaviour = MyBehaviour {
@@ -163,8 +168,10 @@ pub mod network {
                     .add_address(&node.parse()?, address.parse()?);
             }
 
-            Swarm::with_async_std_executor(transport, behaviour, local_peer_id)
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
         };
+
+        let mut swarm = swarm.build();
 
         swarm
             .behaviour_mut()
@@ -215,12 +222,12 @@ pub mod network {
 
         pub async fn run(
             mut self,
-            mut stdin: Fuse<Lines<BufReader<Stdin>>>,
+            // mut stdin: Fuse<Lines<BufReader<Stdin>>>,
             mut network_events: Receiver<Event>,
         ) {
             loop {
                 futures::select! {
-                    line = stdin.select_next_some() => self.handle_input_line(line.expect("Stdin not to close.")).await,
+                    // line = stdin.select_next_some() => self.handle_input_line(line.expect("Stdin not to close.")).await,
                     event = network_events.next() => self.handle_event(event.expect("Swarm stream to be infinite.")).await,
                 }
             }
@@ -652,15 +659,7 @@ pub mod network {
             &mut self,
             event: SwarmEvent<
                 ComposedEvent,
-                //TODO: change to normal error type.
-                EitherError<
-                    EitherError<
-                        EitherError<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
-                        std::io::Error,
-                    >,
-                    GossipsubHandlerError,
-                >,
-            >,
+                rocket::Either<rocket::Either<rocket::Either<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>, std::io::Error>, HandlerError>>
         ) {
             match event {
                 SwarmEvent::NewListenAddr { address, .. } => {
@@ -822,9 +821,9 @@ pub mod network {
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                    RequestResponseEvent::OutboundFailure {
-                        request_id, error, ..
-                    },
+                                          libp2p::request_response::Event::OutboundFailure {
+                                              request_id, error, ..
+                                          },
                 )) => {
                     let _ = self
                         .pending_request_file
@@ -834,9 +833,9 @@ pub mod network {
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                    RequestResponseEvent::Message { message, .. },
-                )) => match message {
-                    RequestResponseMessage::Request {
+                                          libp2p::request_response::Event::Message { message, .. },
+                                      )) => match message {
+                    libp2p::request_response::Message::Request {
                         request, channel, ..
                     } => {
                         self.event_sender
@@ -848,7 +847,7 @@ pub mod network {
                             .expect("Event receiver not to be dropped.");
                     }
 
-                    RequestResponseMessage::Response {
+                    libp2p::request_response::Message::Response {
                         request_id,
                         response,
                     } => {
@@ -863,8 +862,8 @@ pub mod network {
                 },
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                    RequestResponseEvent::ResponseSent { .. },
-                )) => {
+                                          libp2p::request_response::Event::ResponseSent { .. },
+                                      )) => {
                     //TODO: do some logic.
                     // println!("{event:?}")
                 }
@@ -882,11 +881,11 @@ pub mod network {
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::Gossipsub(
-                    libp2p::gossipsub::GossipsubEvent::Message {
-                        propagation_source: peer_id,
-                        message_id: id,
-                        message,
-                    },
+                                          libp2p::gossipsub::Event::Message {
+                                              propagation_source: peer_id,
+                                              message_id: id,
+                                              message,
+                                          },
                 )) => {
                     let bill_name = message.topic.clone().into_string();
                     println!(
@@ -1074,22 +1073,22 @@ pub mod network {
     #[derive(NetworkBehaviour)]
     #[behaviour(out_event = "ComposedEvent")]
     struct MyBehaviour {
-        request_response: request_response::RequestResponse<FileExchangeCodec>,
+        request_response: libp2p::request_response::Behaviour<FileExchangeCodec>,
         kademlia: Kademlia<MemoryStore>,
         identify: libp2p::identify::Behaviour,
-        gossipsub: libp2p::gossipsub::Gossipsub,
+        gossipsub: libp2p::gossipsub::Behaviour,
     }
 
     #[derive(Debug)]
     enum ComposedEvent {
-        RequestResponse(RequestResponseEvent<FileRequest, FileResponse>),
+        RequestResponse(libp2p::request_response::Event<FileRequest, FileResponse>),
         Kademlia(KademliaEvent),
         Identify(libp2p::identify::Event),
-        Gossipsub(libp2p::gossipsub::GossipsubEvent),
+        Gossipsub(libp2p::gossipsub::Event),
     }
 
-    impl From<RequestResponseEvent<FileRequest, FileResponse>> for ComposedEvent {
-        fn from(event: request_response::RequestResponseEvent<FileRequest, FileResponse>) -> Self {
+    impl From<libp2p::request_response::Event<FileRequest, FileResponse>> for ComposedEvent {
+        fn from(event: libp2p::request_response::Event<FileRequest, FileResponse>) -> Self {
             ComposedEvent::RequestResponse(event)
         }
     }
@@ -1106,8 +1105,8 @@ pub mod network {
         }
     }
 
-    impl From<libp2p::gossipsub::GossipsubEvent> for ComposedEvent {
-        fn from(event: libp2p::gossipsub::GossipsubEvent) -> Self {
+    impl From<libp2p::gossipsub::Event> for ComposedEvent {
+        fn from(event: libp2p::gossipsub::Event) -> Self {
             ComposedEvent::Gossipsub(event)
         }
     }
@@ -1184,7 +1183,7 @@ pub mod network {
     }
 
     #[async_trait]
-    impl request_response::RequestResponseCodec for FileExchangeCodec {
+    impl libp2p::request_response::Codec for FileExchangeCodec {
         type Protocol = FileExchangeProtocol;
         type Request = FileRequest;
         type Response = FileResponse;
@@ -1194,7 +1193,7 @@ pub mod network {
             _: &FileExchangeProtocol,
             io: &mut T,
         ) -> io::Result<Self::Request>
-        where
+            where
             T: AsyncRead + Unpin + Send,
         {
             let vec = read_length_prefixed(io, 1_000_000).await?; // TODO: update transfer maximum.

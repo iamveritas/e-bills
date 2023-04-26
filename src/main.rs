@@ -32,7 +32,6 @@ mod blockchain;
 mod constants;
 mod dht;
 mod numbers_to_words;
-mod raft;
 mod test;
 mod web;
 mod zip;
