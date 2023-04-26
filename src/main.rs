@@ -37,8 +37,9 @@ mod web;
 mod zip;
 
 // MAIN
+// #[rocket::main]
 #[tokio::main]
-pub async fn main() {
+async fn main() {
     env::set_var("RUST_BACKTRACE", "full");
 
     init_folders();
@@ -48,9 +49,9 @@ pub async fn main() {
     let local_peer_id = read_peer_id_from_file();
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
-    // dht.subscribe_to_all_bills_topics().await;
+    dht.subscribe_to_all_bills_topics().await;
     // loop {}
-    // let _rocket = rocket_main(dht).launch().await.unwrap();
+    let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
 fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
