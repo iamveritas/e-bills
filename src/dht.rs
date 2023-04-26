@@ -75,7 +75,7 @@ pub mod network {
     use futures::channel::mpsc::Receiver;
     use futures::io::Lines;
     use futures::stream::Fuse;
-    use libp2p::{development_transport, gossipsub};
+    use libp2p::{development_transport, gossipsub, tokio_development_transport};
     use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
     use libp2p::gossipsub::HandlerError;
     use libp2p::kad::{
@@ -118,7 +118,7 @@ pub mod network {
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let transport = development_transport(local_key.clone()).await?;
+        let transport = tokio_development_transport(local_key.clone())?;
 
         let mut swarm = {
             let store = MemoryStore::new(local_peer_id);
@@ -168,10 +168,8 @@ pub mod network {
                     .add_address(&node.parse()?, address.parse()?);
             }
 
-            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build()
         };
-
-        let mut swarm = swarm.build();
 
         swarm
             .behaviour_mut()
