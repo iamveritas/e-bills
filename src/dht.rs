@@ -73,9 +73,16 @@ pub mod network {
     use async_trait::async_trait;
     use futures::channel::{mpsc, oneshot};
     use futures::channel::mpsc::Receiver;
+    use futures::future::Either;
     use futures::io::Lines;
     use futures::stream::Fuse;
-    use libp2p::{development_transport, gossipsub, tokio_development_transport};
+    use libp2p::{
+        development_transport, dns, gossipsub, noise, quic, tcp, tokio_development_transport,
+        Transport, websocket, yamux,
+    };
+    use libp2p::core::muxing::StreamMuxerBox;
+    use libp2p::core::transport::OrTransport;
+    use libp2p::core::upgrade;
     use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
     use libp2p::gossipsub::HandlerError;
     use libp2p::kad::{
@@ -118,7 +125,24 @@ pub mod network {
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let transport = tokio_development_transport(local_key.clone())?;
+        let tcp_transport = tcp::async_io::Transport::new(tcp::Config::default().nodelay(true))
+            .upgrade(upgrade::Version::V1Lazy)
+            .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
+            .multiplex(yamux::YamuxConfig::default())
+            .timeout(std::time::Duration::from_secs(20))
+            .boxed();
+        let quic_transport = quic::tokio::Transport::new(quic::Config::new(&local_key));
+        let web_transport = websocket::WsConfig::new(
+            dns::DnsConfig::system(tcp::tokio::Transport::new(tcp::Config::default()))
+                .await
+                .unwrap(),
+        );
+        let transport = OrTransport::new(quic_transport, tcp_transport)
+            .map(|either_output, _| match either_output {
+                Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+                Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            })
+            .boxed();
 
         let mut swarm = {
             let store = MemoryStore::new(local_peer_id);
