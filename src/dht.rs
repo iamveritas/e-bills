@@ -83,7 +83,7 @@ pub mod network {
     use libp2p::core::muxing::StreamMuxerBox;
     use libp2p::core::transport::OrTransport;
     use libp2p::core::upgrade;
-    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, write_length_prefixed};
+    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, Version, write_length_prefixed};
     use libp2p::gossipsub::HandlerError;
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
@@ -125,7 +125,7 @@ pub mod network {
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let tcp_transport = tcp::async_io::Transport::new(tcp::Config::default().nodelay(true))
+        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
             .upgrade(upgrade::Version::V1Lazy)
             .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
             .multiplex(yamux::YamuxConfig::default())
@@ -137,11 +137,17 @@ pub mod network {
                 .await
                 .unwrap(),
         );
-        let transport = OrTransport::new(quic_transport, tcp_transport)
-            .map(|either_output, _| match either_output {
-                Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-                Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-            })
+        // let transport = OrTransport::new(quic_transport, tcp_transport)
+        //     .map(|either_output, _| match either_output {
+        //         Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+        //         Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+        //     })
+        //     .boxed();
+
+        let transport = tcp::tokio::Transport::default()
+            .upgrade(Version::V1Lazy)
+            .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
+            .multiplex(yamux::YamuxConfig::default())
             .boxed();
 
         let mut swarm = {
