@@ -89,13 +89,13 @@ pub mod network {
             block_on(DnsConfig::system(tcp::tokio::Transport::new(
                 tcp::Config::default().port_reuse(true),
             )))
-                .unwrap(),
+            .unwrap(),
         )
-            .upgrade(Version::V1Lazy)
-            .authenticate(noise::Config::new(&local_public_key).unwrap())
-            .multiplex(yamux::Config::default())
-            .timeout(std::time::Duration::from_secs(20))
-            .boxed();
+        .upgrade(Version::V1Lazy)
+        .authenticate(noise::Config::new(&local_public_key).unwrap())
+        .multiplex(yamux::Config::default())
+        .timeout(std::time::Duration::from_secs(20))
+        .boxed();
 
         let behaviour = MyBehaviour::new(local_peer_id.clone(), local_public_key.clone(), client);
 
@@ -152,15 +152,15 @@ pub mod network {
                     SwarmEvent::Dialing { .. } => {}
                     SwarmEvent::ConnectionEstablished { .. } => {}
                     SwarmEvent::Behaviour(ComposedEvent::Identify(identify::Event::Sent {
-                                                                      ..
-                                                                  })) => {
+                        ..
+                    })) => {
                         println!("Told relay its public address.");
                         told_relay_observed_addr = true;
                     }
                     SwarmEvent::Behaviour(ComposedEvent::Identify(identify::Event::Received {
-                                                                      info: identify::Info { observed_addr, .. },
-                                                                      ..
-                                                                  })) => {
+                        info: identify::Info { observed_addr, .. },
+                        ..
+                    })) => {
                         println!("Relay told us our public address: {:?}", observed_addr);
                         learned_observed_addr = true;
                     }
@@ -824,8 +824,8 @@ pub mod network {
                     }
 
                     QueryResult::GetProviders(Ok(
-                                                  GetProvidersOk::FinishedWithNoAdditionalRecord { .. },
-                                              )) => {}
+                        GetProvidersOk::FinishedWithNoAdditionalRecord { .. },
+                    )) => {}
 
                     QueryResult::GetProviders(Err(err)) => {}
 
@@ -842,10 +842,10 @@ pub mod network {
 
                 //--------------REQUEST RESPONSE EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          request_response::Event::OutboundFailure {
-                                              request_id, error, ..
-                                          },
-                                      )) => {
+                    request_response::Event::OutboundFailure {
+                        request_id, error, ..
+                    },
+                )) => {
                     let _ = self
                         .pending_request_file
                         .remove(&request_id)
@@ -854,8 +854,8 @@ pub mod network {
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          request_response::Event::Message { message, .. },
-                                      )) => match message {
+                    request_response::Event::Message { message, .. },
+                )) => match message {
                     request_response::Message::Request {
                         request, channel, ..
                     } => {
@@ -883,8 +883,8 @@ pub mod network {
                 },
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          request_response::Event::ResponseSent { .. },
-                                      )) => {
+                    request_response::Event::ResponseSent { .. },
+                )) => {
                     println!("{event:?}")
                 }
 
@@ -900,8 +900,8 @@ pub mod network {
 
                 //--------------RELAY EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::Relay(
-                                          relay::client::Event::ReservationReqAccepted { .. },
-                                      )) => {
+                    relay::client::Event::ReservationReqAccepted { .. },
+                )) => {
                     println!("{event:?}");
                     println!("Relay accepted our reservation request.");
                 }
@@ -912,12 +912,12 @@ pub mod network {
 
                 //--------------GOSSIPSUB EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::Gossipsub(
-                                          libp2p::gossipsub::Event::Message {
-                                              propagation_source: peer_id,
-                                              message_id: id,
-                                              message,
-                                          },
-                                      )) => {
+                    libp2p::gossipsub::Event::Message {
+                        propagation_source: peer_id,
+                        message_id: id,
+                        message,
+                    },
+                )) => {
                     let bill_name = message.topic.clone().into_string();
                     println!(
                         "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {bill_name}",
@@ -1104,43 +1104,43 @@ pub mod network {
                         .send_response(channel, FileResponse(file))
                         .expect("Connection to peer to be still open.");
                 } // Command::Dial { relay_address } => {
-                //     self.swarm.dial(relay_address.clone()).unwrap();
-                //     block_on(async {
-                //         let mut learned_observed_addr = false;
-                //         let mut told_relay_observed_addr = false;
-                //
-                //         loop {
-                //             match self.swarm.next().await.unwrap() {
-                //                 SwarmEvent::NewListenAddr { .. } => {}
-                //                 SwarmEvent::Dialing { .. } => {}
-                //                 SwarmEvent::ConnectionEstablished { .. } => {}
-                //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
-                //                     identify::Event::Sent { .. },
-                //                 )) => {
-                //                     println!("Told relay its public address.");
-                //                     told_relay_observed_addr = true;
-                //                 }
-                //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
-                //                     identify::Event::Received {
-                //                         info: identify::Info { observed_addr, .. },
-                //                         ..
-                //                     },
-                //                 )) => {
-                //                     println!(
-                //                         "Relay told us our public address: {:?}",
-                //                         observed_addr
-                //                     );
-                //                     learned_observed_addr = true;
-                //                 }
-                //                 event => panic!("{event:?}"),
-                //             }
-                //
-                //             if learned_observed_addr && told_relay_observed_addr {
-                //                 break;
-                //             }
-                //         }
-                //     });
-                // }
+                  //     self.swarm.dial(relay_address.clone()).unwrap();
+                  //     block_on(async {
+                  //         let mut learned_observed_addr = false;
+                  //         let mut told_relay_observed_addr = false;
+                  //
+                  //         loop {
+                  //             match self.swarm.next().await.unwrap() {
+                  //                 SwarmEvent::NewListenAddr { .. } => {}
+                  //                 SwarmEvent::Dialing { .. } => {}
+                  //                 SwarmEvent::ConnectionEstablished { .. } => {}
+                  //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
+                  //                     identify::Event::Sent { .. },
+                  //                 )) => {
+                  //                     println!("Told relay its public address.");
+                  //                     told_relay_observed_addr = true;
+                  //                 }
+                  //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
+                  //                     identify::Event::Received {
+                  //                         info: identify::Info { observed_addr, .. },
+                  //                         ..
+                  //                     },
+                  //                 )) => {
+                  //                     println!(
+                  //                         "Relay told us our public address: {:?}",
+                  //                         observed_addr
+                  //                     );
+                  //                     learned_observed_addr = true;
+                  //                 }
+                  //                 event => panic!("{event:?}"),
+                  //             }
+                  //
+                  //             if learned_observed_addr && told_relay_observed_addr {
+                  //                 break;
+                  //             }
+                  //         }
+                  //     });
+                  // }
             }
         }
     }
@@ -1337,8 +1337,8 @@ pub mod network {
             _: &FileExchangeProtocol,
             io: &mut T,
         ) -> tokio::io::Result<Self::Request>
-            where
-                T: AsyncRead + Unpin + Send,
+        where
+            T: AsyncRead + Unpin + Send,
         {
             let vec = read_length_prefixed(io, 1_000_000).await?; // TODO: update transfer maximum.
 
@@ -1354,8 +1354,8 @@ pub mod network {
             _: &FileExchangeProtocol,
             io: &mut T,
         ) -> tokio::io::Result<Self::Response>
-            where
-                T: AsyncRead + Unpin + Send,
+        where
+            T: AsyncRead + Unpin + Send,
         {
             let vec = read_length_prefixed(io, 500_000_000).await?; // TODO: update transfer maximum.
 
@@ -1372,8 +1372,8 @@ pub mod network {
             io: &mut T,
             FileRequest(data): FileRequest,
         ) -> tokio::io::Result<()>
-            where
-                T: AsyncWrite + Unpin + Send,
+        where
+            T: AsyncWrite + Unpin + Send,
         {
             write_length_prefixed(io, data).await?;
             io.close().await?;
@@ -1387,8 +1387,8 @@ pub mod network {
             io: &mut T,
             FileResponse(data): FileResponse,
         ) -> tokio::io::Result<()>
-            where
-                T: AsyncWrite + Unpin + Send,
+        where
+            T: AsyncWrite + Unpin + Send,
         {
             write_length_prefixed(io, data).await?;
             io.close().await?;
