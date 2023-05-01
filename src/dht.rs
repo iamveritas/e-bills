@@ -1,12 +1,10 @@
 use std::error::Error;
-use std::path::PathBuf;
 
-use clap::Parser;
 use futures::prelude::*;
-use libp2p::core::{Multiaddr, PeerId};
+use libp2p::core::Multiaddr;
+use libp2p::multihash::Multihash;
 use serde_derive::{Deserialize, Serialize};
-use tokio::{io, spawn};
-use tokio::io::AsyncBufReadExt;
+use tokio::spawn;
 
 use crate::dht::network::Client;
 
@@ -15,21 +13,13 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
         .await
         .expect("Can not to create network module in dht.");
 
-    //Need for testing from console.
-    // let stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    //TODO: Fix. Need for testing from console.
+    //
+    // let stdin: futures_util::stream::stream::fuse::Fuse<Lines<BufReader<Stdin>>> = BufReader::new(stdin()).lines().fuse();
 
     spawn(network_event_loop.run());
 
     let network_client_to_return = network_client.clone();
-
-    network_client
-        .start_listening(
-            "/ip4/0.0.0.0/tcp/1908"
-                .parse()
-                .expect("Can not start listening."),
-        )
-        .await
-        .expect("Listening not to fail.");
 
     spawn(network_client.run(
         // stdin,
@@ -39,52 +29,23 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
     Ok(network_client_to_return)
 }
 
-//Need for testing from console.
-#[derive(Parser, Debug)]
-#[clap(name = "Bitcredit first version dht")]
-struct Opt {
-    #[clap(long)]
-    peer: Option<Multiaddr>,
-
-    #[clap(subcommand)]
-    argument: CliArgument,
-}
-
-//Need for testing from console.
-#[derive(Debug, Parser)]
-enum CliArgument {
-    Provide {
-        #[clap(long)]
-        path: PathBuf,
-        #[clap(long)]
-        name: String,
-    },
-    Get {
-        #[clap(long)]
-        name: String,
-    },
-}
-
 pub mod network {
     use std::{fs, iter, path};
-    use std::collections::{hash_map, HashMap, HashSet};
+    use std::collections::{HashMap, HashSet};
+    use std::net::Ipv4Addr;
     use std::path::Path;
 
     use async_trait::async_trait;
     use futures::channel::{mpsc, oneshot};
     use futures::channel::mpsc::Receiver;
-    use futures::future::Either;
-    use futures::io::Lines;
-    use futures::stream::Fuse;
-    use libp2p::{
-        development_transport, dns, gossipsub, noise, quic, tcp, tokio_development_transport,
-        Transport, websocket, yamux,
-    };
-    use libp2p::core::muxing::StreamMuxerBox;
+    use futures::executor::block_on;
+    use libp2p::{dcutr, gossipsub, identify, kad, noise, PeerId, relay, tcp, Transport, yamux};
     use libp2p::core::transport::OrTransport;
-    use libp2p::core::upgrade;
-    use libp2p::core::upgrade::{ProtocolName, read_length_prefixed, Version, write_length_prefixed};
-    use libp2p::gossipsub::HandlerError;
+    use libp2p::core::upgrade::{
+        ProtocolName, read_length_prefixed, Version, write_length_prefixed,
+    };
+    use libp2p::dns::DnsConfig;
+    use libp2p::identity::Keypair;
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
@@ -92,15 +53,10 @@ pub mod network {
     use libp2p::kad::record::{Key, Record};
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
-    use libp2p::request_response::{
-        self, ProtocolSupport, RequestId, RequestResponseEvent, RequestResponseMessage,
-        ResponseChannel,
-    };
+    use libp2p::request_response::{self, ProtocolSupport, RequestId, ResponseChannel};
     use libp2p::swarm::{
-        ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
+        ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent,
     };
-    use libp2p::swarm::dummy::Behaviour;
-    use tokio::io::{BufReader, Stdin};
 
     use crate::{
         generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
@@ -108,7 +64,8 @@ pub mod network {
     use crate::blockchain::{Block, Chain};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
-        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
+        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH, RELAY_BOOTSTRAP_NODE_ONE_IP,
+        RELAY_BOOTSTRAP_NODE_ONE_PEER_ID, RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
     };
 
     use super::*;
@@ -120,102 +77,118 @@ pub mod network {
             generate_dht_logic();
         }
 
-        let local_key = read_ed25519_keypair_from_file();
+        let local_public_key = read_ed25519_keypair_from_file();
         let local_peer_id = read_peer_id_from_file();
 
         println!("Local peer id: {local_peer_id:?}");
 
-        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
-            .upgrade(upgrade::Version::V1Lazy)
-            .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
-            .multiplex(yamux::YamuxConfig::default())
+        let (relay_transport, client) = relay::client::new(local_peer_id.clone());
+
+        let transport = OrTransport::new(
+            relay_transport,
+            block_on(DnsConfig::system(tcp::tokio::Transport::new(
+                tcp::Config::default().port_reuse(true),
+            )))
+                .unwrap(),
+        )
+            .upgrade(Version::V1Lazy)
+            .authenticate(noise::Config::new(&local_public_key).unwrap())
+            .multiplex(yamux::Config::default())
             .timeout(std::time::Duration::from_secs(20))
             .boxed();
-        let quic_transport = quic::tokio::Transport::new(quic::Config::new(&local_key));
-        let web_transport = websocket::WsConfig::new(
-            dns::DnsConfig::system(tcp::tokio::Transport::new(tcp::Config::default()))
-                .await
-                .unwrap(),
-        );
-        // let transport = OrTransport::new(quic_transport, tcp_transport)
-        //     .map(|either_output, _| match either_output {
-        //         Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-        //         Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-        //     })
-        //     .boxed();
 
-        let transport = tcp::tokio::Transport::default()
-            .upgrade(Version::V1Lazy)
-            .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
-            .multiplex(yamux::YamuxConfig::default())
-            .boxed();
+        let behaviour = MyBehaviour::new(local_peer_id.clone(), local_public_key.clone(), client);
 
-        let mut swarm = {
-            let store = MemoryStore::new(local_peer_id);
-            let kademlia = Kademlia::new(local_peer_id, store);
-
-            let cfg_identify = libp2p::identify::Config::new(
-                "Protocol identify version 1".to_string(),
-                local_key.clone().public(),
-            );
-            let identify = libp2p::identify::Behaviour::new(cfg_identify);
-
-            let request_response = libp2p::request_response::Behaviour::new(
-                FileExchangeCodec(),
-                iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
-                Default::default(),
-            );
-
-            //Create topics logic-------------------
-
-            // Set a custom gossipsub configuration
-            let gossipsub_config = libp2p::gossipsub::Config::default();
-
-            let message_authenticity = gossipsub::MessageAuthenticity::Signed(local_key.clone());
-
-            // build a gossipsub network behaviour
-            let mut gossipsub =
-                libp2p::gossipsub::Behaviour::new(message_authenticity, gossipsub_config)
-                    .expect("Correct configuration");
-            //--------------------------------------
-
-            let mut behaviour = MyBehaviour {
-                request_response,
-                kademlia,
-                identify,
-                gossipsub,
-            };
-            let boot_nodes_string = std::fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)
-                .expect("Can't read bootstrap nodes file.");
-            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string)
-                .expect("Can't parse bootstrap nodes file.");
-            for index in 0..boot_nodes.nodes.len() {
-                let node = boot_nodes.nodes[index].node.clone();
-                let address = boot_nodes.nodes[index].address.clone();
-
-                behaviour
-                    .kademlia
-                    .add_address(&node.parse()?, address.parse()?);
-            }
-
-            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build()
-        };
+        let mut swarm =
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id.clone()).build();
 
         swarm
-            .behaviour_mut()
-            .kademlia
-            .bootstrap()
-            .expect("Can't bootstrap.");
+            .listen_on(
+                Multiaddr::empty()
+                    .with("0.0.0.0".parse::<Ipv4Addr>().unwrap().into())
+                    .with(Protocol::Tcp(TCP_PORT_TO_LISTEN)),
+            )
+            .unwrap();
+
+        // Wait to listen on all interfaces.
+        block_on(async {
+            let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
+            loop {
+                futures::select! {
+                    event = swarm.next() => {
+                        match event.unwrap() {
+                            SwarmEvent::NewListenAddr { address, .. } => {
+                                println!("Listening on {:?}", address);
+                            }
+                            event => panic!("{event:?}"),
+                        }
+                    }
+                    _ = delay => {
+                        // Likely listening on all interfaces now, thus continuing by breaking the loop.
+                        break;
+                    }
+                }
+            }
+        });
+
+        let relay_peer_id: PeerId = RELAY_BOOTSTRAP_NODE_ONE_PEER_ID
+            .to_string()
+            .parse()
+            .expect("Can not to parse relay peer id.");
+        let relay_address = Multiaddr::empty()
+            .with(Protocol::Ip4(RELAY_BOOTSTRAP_NODE_ONE_IP))
+            .with(Protocol::Tcp(RELAY_BOOTSTRAP_NODE_ONE_TCP))
+            .with(Protocol::P2p(Multihash::from(relay_peer_id)));
+        println!("Relay address: {:?}", relay_address);
+
+        swarm.dial(relay_address.clone()).unwrap();
+        block_on(async {
+            let mut learned_observed_addr = false;
+            let mut told_relay_observed_addr = false;
+
+            loop {
+                match swarm.next().await.unwrap() {
+                    SwarmEvent::NewListenAddr { .. } => {}
+                    SwarmEvent::Dialing { .. } => {}
+                    SwarmEvent::ConnectionEstablished { .. } => {}
+                    SwarmEvent::Behaviour(ComposedEvent::Identify(identify::Event::Sent {
+                                                                      ..
+                                                                  })) => {
+                        println!("Told relay its public address.");
+                        told_relay_observed_addr = true;
+                    }
+                    SwarmEvent::Behaviour(ComposedEvent::Identify(identify::Event::Received {
+                                                                      info: identify::Info { observed_addr, .. },
+                                                                      ..
+                                                                  })) => {
+                        println!("Relay told us our public address: {:?}", observed_addr);
+                        learned_observed_addr = true;
+                    }
+                    event => panic!("{event:?}"),
+                }
+
+                if learned_observed_addr && told_relay_observed_addr {
+                    break;
+                }
+            }
+        });
+
+        swarm.behaviour_mut().bootstrap_kademlia();
+
+        swarm
+            .listen_on(relay_address.with(Protocol::P2pCircuit))
+            .unwrap();
 
         let (command_sender, command_receiver) = mpsc::channel(0);
         let (event_sender, event_receiver) = mpsc::channel(0);
+        let event_loop = EventLoop::new(swarm, command_receiver, event_sender);
 
         Ok((
             Client {
                 sender: command_sender,
             },
             event_receiver,
-            EventLoop::new(swarm, command_receiver, event_sender),
+            event_loop,
         ))
     }
 
@@ -236,21 +209,30 @@ pub mod network {
     }
 
     impl Client {
-        pub async fn start_listening(
-            &mut self,
-            addr: Multiaddr,
-        ) -> Result<(), Box<dyn Error + Send>> {
-            let (sender, receiver) = oneshot::channel();
-            self.sender
-                .send(Command::StartListening { addr, sender })
-                .await
-                .expect("Command receiver not to be dropped.");
-            receiver.await.expect("Sender not to be dropped.")
-        }
+        // pub async fn start_listening(&mut self) {
+        //     self.sender
+        //         .send(Command::StartListening {})
+        //         .await
+        //         .expect("Command receiver not to be dropped.");
+        // }
+
+        // pub async fn start_listening_on_relay(&mut self, relay_address: Multiaddr) {
+        //     self.sender
+        //         .send(Command::StartListeningRelay { relay_address })
+        //         .await
+        //         .expect("Command receiver not to be dropped.");
+        // }
+
+        // pub async fn dial(&mut self, relay_address: Multiaddr) {
+        //     self.sender
+        //         .send(Command::Dial { relay_address })
+        //         .await
+        //         .expect("Command receiver not to be dropped.");
+        // }
 
         pub async fn run(
             mut self,
-            // mut stdin: Fuse<Lines<BufReader<Stdin>>>,
+            // mut stdin: Fuse<async_std::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>>,
             mut network_events: Receiver<Event>,
         ) {
             loop {
@@ -294,6 +276,7 @@ pub mod network {
         }
 
         //TODO: change
+        //
         // pub async fn upgrade_table_for_other_node(&mut self, node_id: String, bill: String) {
         //     let node_request = BILLS_PREFIX.to_string() + &node_id;
         //     let list_bills_for_node = self.get_record(node_request.clone()).await;
@@ -687,45 +670,55 @@ pub mod network {
             &mut self,
             event: SwarmEvent<
                 ComposedEvent,
+                //TODO change this (now it is bad)
                 rocket::Either<
                     rocket::Either<
-                        rocket::Either<ConnectionHandlerUpgrErr<std::io::Error>, std::io::Error>,
-                        std::io::Error,
+                        rocket::Either<
+                            rocket::Either<
+                                rocket::Either<
+                                    ConnectionHandlerUpgrErr<std::io::Error>,
+                                    std::io::Error,
+                                >,
+                                std::io::Error,
+                            >,
+                            void::Void,
+                        >,
+                        rocket::Either<
+                            ConnectionHandlerUpgrErr<
+                                rocket::Either<
+                                    libp2p::relay::inbound::stop::FatalUpgradeError,
+                                    libp2p::relay::outbound::hop::FatalUpgradeError,
+                                >,
+                            >,
+                            void::Void,
+                        >,
                     >,
-                    HandlerError,
+                    rocket::Either<
+                        ConnectionHandlerUpgrErr<
+                            rocket::Either<
+                                libp2p::dcutr::inbound::UpgradeError,
+                                libp2p::dcutr::outbound::UpgradeError,
+                            >,
+                        >,
+                        rocket::Either<ConnectionHandlerUpgrErr<std::io::Error>, void::Void>,
+                    >,
                 >,
             >,
         ) {
             match event {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    let local_peer_id = *self.swarm.local_peer_id();
-                    println!(
-                        "Local node is listening on {:?}",
-                        address.with(Protocol::P2p(local_peer_id.into()))
-                    );
-                }
-
+                //--------------KADEMLIA EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::Kademlia(
                     KademliaEvent::OutboundQueryProgressed { result, id, .. },
                 )) => match result {
-                    QueryResult::StartProviding(Ok(libp2p::kad::AddProviderOk { key })) => {
+                    QueryResult::StartProviding(Ok(kad::AddProviderOk { key })) => {
                         let sender: oneshot::Sender<()> = self
                             .pending_start_providing
                             .remove(&id)
                             .expect("Completed query to be previously pending.");
                         let _ = sender.send(());
-                        // println!(
-                        //     "Successfully put provider record {:?}",
-                        //     std::str::from_utf8(key.as_ref()).unwrap()
-                        // );
                     }
 
-                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                        // println!(
-                        //     "Successfully put record {:?}",
-                        //     std::str::from_utf8(key.as_ref()).unwrap()
-                        // );
-                    }
+                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {}
 
                     QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
                         record,
@@ -806,10 +799,7 @@ pub mod network {
                         // println!("QuorumFailed.");
                     }
 
-                    QueryResult::StartProviding(Err(err)) => {
-                        //TODO: do some logic.
-                        // eprintln!("Failed to put provider record: {err:?}");
-                    }
+                    QueryResult::StartProviding(Err(err)) => {}
 
                     QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders {
                         providers,
@@ -834,29 +824,25 @@ pub mod network {
                     }
 
                     QueryResult::GetProviders(Ok(
-                        GetProvidersOk::FinishedWithNoAdditionalRecord { .. },
-                    )) => {
-                        //TODO: do some logic.
-                    }
+                                                  GetProvidersOk::FinishedWithNoAdditionalRecord { .. },
+                                              )) => {}
 
-                    QueryResult::GetProviders(Err(err)) => {
-                        //TODO: do some logic.
-                        // eprintln!("Failed to get providers: {err:?}");
-                    }
+                    QueryResult::GetProviders(Err(err)) => {}
 
                     _ => {}
                 },
 
-                SwarmEvent::Behaviour(ComposedEvent::Kademlia(KademliaEvent::RoutingUpdated {
-                    peer,
-                    ..
-                })) => {
-                    //TODO: do some logic. Dont push always.
-                    self.swarm.behaviour_mut().identify.push(iter::once(peer));
-                }
+                // SwarmEvent::Behaviour(ComposedEvent::Kademlia(KademliaEvent::RoutingUpdated {
+                //     peer,
+                //     ..
+                // })) => {
+                //     //TODO: do some logic. Dont push always.
+                //     self.swarm.behaviour_mut().identify.push(iter::once(peer));
+                // }
 
+                //--------------REQUEST RESPONSE EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          libp2p::request_response::Event::OutboundFailure {
+                                          request_response::Event::OutboundFailure {
                                               request_id, error, ..
                                           },
                                       )) => {
@@ -868,9 +854,9 @@ pub mod network {
                 }
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          libp2p::request_response::Event::Message { message, .. },
+                                          request_response::Event::Message { message, .. },
                                       )) => match message {
-                    libp2p::request_response::Message::Request {
+                    request_response::Message::Request {
                         request, channel, ..
                     } => {
                         self.event_sender
@@ -882,7 +868,7 @@ pub mod network {
                             .expect("Event receiver not to be dropped.");
                     }
 
-                    libp2p::request_response::Message::Response {
+                    request_response::Message::Response {
                         request_id,
                         response,
                     } => {
@@ -897,24 +883,34 @@ pub mod network {
                 },
 
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
-                                          libp2p::request_response::Event::ResponseSent { .. },
+                                          request_response::Event::ResponseSent { .. },
                                       )) => {
-                    //TODO: do some logic.
-                    // println!("{event:?}")
+                    println!("{event:?}")
                 }
 
-                SwarmEvent::Behaviour(ComposedEvent::Identify(
-                    libp2p::identify::Event::Received { peer_id, .. },
-                )) => {
-                    // println!("New node identify.");
-                    for address in self.swarm.behaviour_mut().addresses_of_peer(&peer_id) {
-                        self.swarm
-                            .behaviour_mut()
-                            .kademlia
-                            .add_address(&peer_id, address);
-                    }
+                //--------------IDENTIFY EVENTS--------------
+                SwarmEvent::Behaviour(ComposedEvent::Identify(event)) => {
+                    println!("{:?}", event)
                 }
 
+                //--------------DCUTR EVENTS--------------
+                SwarmEvent::Behaviour(ComposedEvent::Dcutr(event)) => {
+                    println!("{:?}", event)
+                }
+
+                //--------------RELAY EVENTS--------------
+                SwarmEvent::Behaviour(ComposedEvent::Relay(
+                                          relay::client::Event::ReservationReqAccepted { .. },
+                                      )) => {
+                    println!("{event:?}");
+                    println!("Relay accepted our reservation request.");
+                }
+
+                SwarmEvent::Behaviour(ComposedEvent::Relay(event)) => {
+                    println!("{:?}", event)
+                }
+
+                //--------------GOSSIPSUB EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::Gossipsub(
                                           libp2p::gossipsub::Event::Message {
                                               propagation_source: peer_id,
@@ -937,8 +933,17 @@ pub mod network {
                     }
                 }
 
+                //--------------OTHERS BEHAVIOURS EVENTS--------------
+                SwarmEvent::Behaviour(event) => {
+                    println!("{event:?}")
+                }
+
+                //--------------COMMON EVENTS--------------
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    println!("Listening on {:?}", address);
+                }
+
                 SwarmEvent::IncomingConnection { .. } => {
-                    //TODO: do some logic.
                     println!("{event:?}")
                 }
 
@@ -953,11 +958,11 @@ pub mod network {
                 }
 
                 SwarmEvent::ConnectionClosed { .. } => {
-                    //TODO: do some logic.;
                     println!("{event:?}")
                 }
 
                 SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                    println!("Outgoing connection error to {:?}: {:?}", peer_id, error);
                     if let Some(peer_id) = peer_id {
                         if let Some(sender) = self.pending_dial.remove(&peer_id) {
                             let _ = sender.send(Err(Box::new(error)));
@@ -966,12 +971,6 @@ pub mod network {
                 }
 
                 SwarmEvent::IncomingConnectionError { .. } => {
-                    //TODO: do some logic.
-                    println!("{event:?}")
-                }
-
-                SwarmEvent::Behaviour(event) => {
-                    println!("New event");
                     println!("{event:?}")
                 }
 
@@ -981,13 +980,43 @@ pub mod network {
 
         async fn handle_command(&mut self, command: Command) {
             match command {
-                Command::StartListening { addr, sender } => {
-                    let _ = match self.swarm.listen_on(addr) {
-                        Ok(_) => sender.send(Ok(())),
-                        Err(e) => sender.send(Err(Box::new(e))),
-                    };
-                }
+                // Command::StartListening {} => {
+                //     self.swarm
+                //         .listen_on(
+                //             Multiaddr::empty()
+                //                 .with("0.0.0.0".parse::<Ipv4Addr>().unwrap().into())
+                //                 .with(Protocol::Tcp(0)),
+                //         )
+                //         .unwrap();
+                //
+                //     // Wait to listen on all interfaces.
+                //     block_on(async {
+                //         let mut delay =
+                //             futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
+                //         loop {
+                //             futures::select! {
+                //                 event =  self.swarm.next() => {
+                //                     match event.unwrap() {
+                //                         SwarmEvent::NewListenAddr { address, .. } => {
+                //                             println!("Listening on {:?}", address);
+                //                         }
+                //                         event => panic!("{event:?}"),
+                //                     }
+                //                 }
+                //                 _ = delay => {
+                //                     // Likely listening on all interfaces now, thus continuing by breaking the loop.
+                //                     break;
+                //                 }
+                //             }
+                //         }
+                //     });
+                // }
 
+                // Command::StartListeningRelay { relay_address } => {
+                //     self.swarm
+                //         .listen_on(relay_address.with(Protocol::P2pCircuit))
+                //         .expect("Can not listen on relay address.");
+                // }
                 Command::StartProviding { file_name, sender } => {
                     println!("Start providing {file_name:?}");
                     let query_id = self
@@ -1074,84 +1103,166 @@ pub mod network {
                         .request_response
                         .send_response(channel, FileResponse(file))
                         .expect("Connection to peer to be still open.");
-                }
-
-                Command::Dial {
-                    peer_id,
-                    peer_addr,
-                    sender,
-                } => {
-                    if let hash_map::Entry::Vacant(e) = self.pending_dial.entry(peer_id) {
-                        self.swarm
-                            .behaviour_mut()
-                            .kademlia
-                            .add_address(&peer_id, peer_addr.clone());
-                        match self
-                            .swarm
-                            .dial(peer_addr.with(Protocol::P2p(peer_id.into())))
-                        {
-                            Ok(()) => {
-                                e.insert(sender);
-                            }
-                            Err(e) => {
-                                let _ = sender.send(Err(Box::new(e)));
-                            }
-                        }
-                    } else {
-                        //TODO: Already dialing peer?
-                    }
-                }
+                } // Command::Dial { relay_address } => {
+                //     self.swarm.dial(relay_address.clone()).unwrap();
+                //     block_on(async {
+                //         let mut learned_observed_addr = false;
+                //         let mut told_relay_observed_addr = false;
+                //
+                //         loop {
+                //             match self.swarm.next().await.unwrap() {
+                //                 SwarmEvent::NewListenAddr { .. } => {}
+                //                 SwarmEvent::Dialing { .. } => {}
+                //                 SwarmEvent::ConnectionEstablished { .. } => {}
+                //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
+                //                     identify::Event::Sent { .. },
+                //                 )) => {
+                //                     println!("Told relay its public address.");
+                //                     told_relay_observed_addr = true;
+                //                 }
+                //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
+                //                     identify::Event::Received {
+                //                         info: identify::Info { observed_addr, .. },
+                //                         ..
+                //                     },
+                //                 )) => {
+                //                     println!(
+                //                         "Relay told us our public address: {:?}",
+                //                         observed_addr
+                //                     );
+                //                     learned_observed_addr = true;
+                //                 }
+                //                 event => panic!("{event:?}"),
+                //             }
+                //
+                //             if learned_observed_addr && told_relay_observed_addr {
+                //                 break;
+                //             }
+                //         }
+                //     });
+                // }
             }
         }
     }
 
     #[derive(NetworkBehaviour)]
-    #[behaviour(out_event = "ComposedEvent")]
+    #[behaviour(out_event = "ComposedEvent", event_process = false)]
     struct MyBehaviour {
-        request_response: libp2p::request_response::Behaviour<FileExchangeCodec>,
-        kademlia: Kademlia<MemoryStore>,
-        identify: libp2p::identify::Behaviour,
-        gossipsub: libp2p::gossipsub::Behaviour,
+        request_response: request_response::Behaviour<FileExchangeCodec>,
+        kademlia: kad::Kademlia<MemoryStore>,
+        identify: identify::Behaviour,
+        gossipsub: gossipsub::Behaviour,
+        relay_client: relay::client::Behaviour,
+        dcutr: dcutr::Behaviour,
+    }
+
+    impl MyBehaviour {
+        fn new(
+            local_peer_id: PeerId,
+            local_public_key: Keypair,
+            client: relay::client::Behaviour,
+        ) -> Self {
+            Self {
+                request_response: {
+                    libp2p::request_response::Behaviour::new(
+                        FileExchangeCodec(),
+                        iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
+                        Default::default(),
+                    )
+                },
+                kademlia: {
+                    let store = MemoryStore::new(local_peer_id);
+                    Kademlia::new(local_peer_id, store)
+                },
+                identify: {
+                    let cfg_identify = identify::Config::new(
+                        "/identify/0.1.0".to_string(),
+                        local_public_key.public(),
+                    );
+                    identify::Behaviour::new(cfg_identify)
+                },
+                gossipsub: {
+                    let gossipsub_config = libp2p::gossipsub::Config::default();
+                    let message_authenticity =
+                        gossipsub::MessageAuthenticity::Signed(local_public_key.clone());
+                    gossipsub::Behaviour::new(message_authenticity, gossipsub_config)
+                        .expect("Correct configuration")
+                },
+                relay_client: { client },
+                dcutr: { dcutr::Behaviour::new(local_peer_id) },
+            }
+        }
+
+        fn bootstrap_kademlia(&mut self) {
+            let boot_nodes_string = fs::read_to_string(BOOTSTRAP_NODES_FILE_PATH)
+                .expect("Can't read bootstrap nodes file.");
+            let mut boot_nodes = serde_json::from_str::<NodesJson>(&boot_nodes_string)
+                .expect("Can't parse bootstrap nodes file.");
+            for index in 0..boot_nodes.nodes.len() {
+                let node = boot_nodes.nodes[index].node.clone();
+                let address = boot_nodes.nodes[index].address.clone();
+                self.kademlia.add_address(
+                    &node.parse().expect("Can't parse bootstrap node id"),
+                    address.parse().expect("Can't parse bootstrap node address"),
+                );
+            }
+            self.kademlia.bootstrap().expect("Cant bootstrap");
+        }
     }
 
     #[derive(Debug)]
+    #[allow(clippy::large_enum_variant)]
     enum ComposedEvent {
-        RequestResponse(libp2p::request_response::Event<FileRequest, FileResponse>),
-        Kademlia(KademliaEvent),
-        Identify(libp2p::identify::Event),
-        Gossipsub(libp2p::gossipsub::Event),
+        RequestResponse(request_response::Event<FileRequest, FileResponse>),
+        Kademlia(kad::KademliaEvent),
+        Identify(identify::Event),
+        Gossipsub(gossipsub::Event),
+        Relay(relay::client::Event),
+        Dcutr(dcutr::Event),
     }
 
-    impl From<libp2p::request_response::Event<FileRequest, FileResponse>> for ComposedEvent {
-        fn from(event: libp2p::request_response::Event<FileRequest, FileResponse>) -> Self {
+    impl From<request_response::Event<FileRequest, FileResponse>> for ComposedEvent {
+        fn from(event: request_response::Event<FileRequest, FileResponse>) -> Self {
             ComposedEvent::RequestResponse(event)
         }
     }
 
-    impl From<KademliaEvent> for ComposedEvent {
-        fn from(event: KademliaEvent) -> Self {
+    impl From<kad::KademliaEvent> for ComposedEvent {
+        fn from(event: kad::KademliaEvent) -> Self {
             ComposedEvent::Kademlia(event)
         }
     }
 
-    impl From<libp2p::identify::Event> for ComposedEvent {
-        fn from(event: libp2p::identify::Event) -> Self {
+    impl From<identify::Event> for ComposedEvent {
+        fn from(event: identify::Event) -> Self {
             ComposedEvent::Identify(event)
         }
     }
 
-    impl From<libp2p::gossipsub::Event> for ComposedEvent {
-        fn from(event: libp2p::gossipsub::Event) -> Self {
+    impl From<gossipsub::Event> for ComposedEvent {
+        fn from(event: gossipsub::Event) -> Self {
             ComposedEvent::Gossipsub(event)
+        }
+    }
+
+    impl From<relay::client::Event> for ComposedEvent {
+        fn from(event: relay::client::Event) -> Self {
+            ComposedEvent::Relay(event)
+        }
+    }
+
+    impl From<dcutr::Event> for ComposedEvent {
+        fn from(event: dcutr::Event) -> Self {
+            ComposedEvent::Dcutr(event)
         }
     }
 
     #[derive(Debug)]
     enum Command {
-        StartListening {
-            addr: Multiaddr,
-            sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
-        },
+        // StartListening {},
+        // StartListeningRelay {
+        //     relay_address: Multiaddr,
+        // },
         StartProviding {
             file_name: String,
             sender: oneshot::Sender<()>,
@@ -1184,11 +1295,9 @@ pub mod network {
         SubscribeToTopic {
             topic: String,
         },
-        Dial {
-            peer_id: PeerId,
-            peer_addr: Multiaddr,
-            sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
-        },
+        // Dial {
+        //     relay_address: Multiaddr,
+        // },
     }
 
     #[derive(Debug)]
@@ -1213,12 +1322,12 @@ pub mod network {
 
     impl ProtocolName for FileExchangeProtocol {
         fn protocol_name(&self) -> &[u8] {
-            "/file-exchange/1".as_bytes()
+            "/file-exchange/0.1.0".as_bytes()
         }
     }
 
     #[async_trait]
-    impl libp2p::request_response::Codec for FileExchangeCodec {
+    impl request_response::Codec for FileExchangeCodec {
         type Protocol = FileExchangeProtocol;
         type Request = FileRequest;
         type Response = FileResponse;
@@ -1227,14 +1336,14 @@ pub mod network {
             &mut self,
             _: &FileExchangeProtocol,
             io: &mut T,
-        ) -> io::Result<Self::Request>
+        ) -> tokio::io::Result<Self::Request>
             where
-            T: AsyncRead + Unpin + Send,
+                T: AsyncRead + Unpin + Send,
         {
             let vec = read_length_prefixed(io, 1_000_000).await?; // TODO: update transfer maximum.
 
             if vec.is_empty() {
-                return Err(io::ErrorKind::UnexpectedEof.into());
+                return Err(tokio::io::ErrorKind::UnexpectedEof.into());
             }
 
             Ok(FileRequest(String::from_utf8(vec).unwrap()))
@@ -1244,14 +1353,14 @@ pub mod network {
             &mut self,
             _: &FileExchangeProtocol,
             io: &mut T,
-        ) -> io::Result<Self::Response>
-        where
-            T: AsyncRead + Unpin + Send,
+        ) -> tokio::io::Result<Self::Response>
+            where
+                T: AsyncRead + Unpin + Send,
         {
             let vec = read_length_prefixed(io, 500_000_000).await?; // TODO: update transfer maximum.
 
             if vec.is_empty() {
-                return Err(io::ErrorKind::UnexpectedEof.into());
+                return Err(tokio::io::ErrorKind::UnexpectedEof.into());
             }
 
             Ok(FileResponse(vec))
@@ -1262,9 +1371,9 @@ pub mod network {
             _: &FileExchangeProtocol,
             io: &mut T,
             FileRequest(data): FileRequest,
-        ) -> io::Result<()>
-        where
-            T: AsyncWrite + Unpin + Send,
+        ) -> tokio::io::Result<()>
+            where
+                T: AsyncWrite + Unpin + Send,
         {
             write_length_prefixed(io, data).await?;
             io.close().await?;
@@ -1277,9 +1386,9 @@ pub mod network {
             _: &FileExchangeProtocol,
             io: &mut T,
             FileResponse(data): FileResponse,
-        ) -> io::Result<()>
-        where
-            T: AsyncWrite + Unpin + Send,
+        ) -> tokio::io::Result<()>
+            where
+                T: AsyncWrite + Unpin + Send,
         {
             write_length_prefixed(io, data).await?;
             io.close().await?;

@@ -42,6 +42,8 @@ mod zip;
 async fn main() {
     env::set_var("RUST_BACKTRACE", "full");
 
+    env_logger::init();
+
     init_folders();
 
     let mut dht = dht::dht_main().await.expect("DHT failed to start");

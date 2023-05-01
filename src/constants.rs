@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 pub const IDENTITY_FOLDER_PATH: &str = "identity";
 pub const BILLS_FOLDER_PATH: &str = "bills";
 pub const CONTACT_MAP_FOLDER_PATH: &str = "contacts";
@@ -14,3 +16,9 @@ pub const BTC: &str = "BTC";
 pub const BILLS_PREFIX: &str = "BILLS";
 pub const BILL_VALIDITY_PERIOD: u64 = 90;
 pub const COMPOUNDING_INTEREST_RATE_ZERO: u64 = 0;
+pub const TCP_PORT_TO_LISTEN: u16 = 1908;
+//NODE ONE /ip4/45.147.248.87/tcp/1908/p2p/12D3KooWFvRxAazxdKVB7SsTtcLTnvmF8brtW2kQRhceohtgcJv2
+pub const RELAY_BOOTSTRAP_NODE_ONE_IP: Ipv4Addr = Ipv4Addr::new(45, 147, 248, 87);
+pub const RELAY_BOOTSTRAP_NODE_ONE_TCP: u16 = 1908;
+pub const RELAY_BOOTSTRAP_NODE_ONE_PEER_ID: &str =
+    "12D3KooWFvRxAazxdKVB7SsTtcLTnvmF8brtW2kQRhceohtgcJv2";
