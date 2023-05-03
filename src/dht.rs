@@ -743,8 +743,6 @@ pub mod network {
                         let _ = sender.send(());
                     }
 
-                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {}
-
                     QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(PeerRecord {
                         record,
                         ..
@@ -824,8 +822,6 @@ pub mod network {
                         // println!("QuorumFailed.");
                     }
 
-                    QueryResult::StartProviding(Err(err)) => {}
-
                     QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders {
                         providers,
                         ..
@@ -847,12 +843,6 @@ pub mod network {
                                 .finish();
                         }
                     }
-
-                    QueryResult::GetProviders(Ok(
-                        GetProvidersOk::FinishedWithNoAdditionalRecord { .. },
-                    )) => {}
-
-                    QueryResult::GetProviders(Err(err)) => {}
 
                     _ => {}
                 },
@@ -1123,9 +1113,21 @@ pub mod network {
                     sender,
                 } => {
                     println!("Request file {file_name:?}");
-                    let request_id = self
-                        .swarm
-                        .behaviour_mut()
+
+                    let relay_peer_id: PeerId = RELAY_BOOTSTRAP_NODE_ONE_PEER_ID
+                        .to_string()
+                        .parse()
+                        .expect("Can not to parse relay peer id.");
+                    let relay_address = Multiaddr::empty()
+                        .with(Protocol::Ip4(RELAY_BOOTSTRAP_NODE_ONE_IP))
+                        .with(Protocol::Tcp(RELAY_BOOTSTRAP_NODE_ONE_TCP))
+                        .with(Protocol::P2p(Multihash::from(relay_peer_id)))
+                        .with(Protocol::P2pCircuit)
+                        .with(Protocol::P2p(Multihash::from(peer.clone())));
+
+                    let swarm = self.swarm.behaviour_mut();
+                    swarm.request_response.add_address(&peer, relay_address);
+                    let request_id = swarm
                         .request_response
                         .send_request(&peer, FileRequest(file_name));
                     self.pending_request_file.insert(request_id, sender);
