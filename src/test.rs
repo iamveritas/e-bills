@@ -1,35 +1,35 @@
 #[cfg(test)]
 mod test {
-    use std::{fs, mem};
     use std::io::{BufReader, Cursor, Read};
     use std::path::{Path, PathBuf};
     use std::time::Duration;
+    use std::{fs, mem};
 
     use borsh::{BorshDeserialize, BorshSerialize};
-    use libp2p::{identity, PeerId};
     use libp2p::identity::Keypair;
-    use libp2p::kad::{Kademlia, KademliaConfig};
     use libp2p::kad::store::MemoryStore;
-    use openssl::{aes, rsa, sha};
+    use libp2p::kad::{Kademlia, KademliaConfig};
+    use libp2p::{identity, PeerId};
     use openssl::hash::MessageDigest;
     use openssl::pkey::{PKey, Private, Public};
     use openssl::rsa::{Padding, Rsa};
     use openssl::sha::sha256;
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::Cipher;
+    use openssl::{aes, rsa, sha};
 
-    use crate::{
-        bill_from_byte_array, bill_to_byte_array, BitcreditBill,
-        byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes,
-        encrypt_bytes, generation_rsa_key, Identity, issue_new_bill,
-        pem_private_key_from_rsa, pem_public_key_from_rsa, private_key_from_pem_u8,
-        public_key_from_pem_u8, read_bill_from_file, read_identity_from_file, structure_as_u8_slice,
-    };
-    use crate::blockchain::{Block, Chain, is_block_valid, signature};
+    use crate::blockchain::{is_block_valid, signature, Block, Chain};
     use crate::constants::BILLS_FOLDER_PATH;
     use crate::numbers_to_words::encode;
+    use crate::{
+        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
+        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
+        generation_rsa_key, issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
+        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file,
+        read_identity_from_file, structure_as_u8_slice, BitcreditBill, Identity,
+    };
 
-//TODO: Change. Because we create new bill every time we run tests
+    //TODO: Change. Because we create new bill every time we run tests
 
     // #[test]
     // fn blockchain() {

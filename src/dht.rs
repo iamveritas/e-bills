@@ -30,42 +30,43 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 }
 
 pub mod network {
-    use std::{fs, iter, path};
     use std::collections::{HashMap, HashSet};
     use std::net::Ipv4Addr;
     use std::path::Path;
+    use std::{fs, iter, path};
 
     use async_trait::async_trait;
-    use futures::channel::{mpsc, oneshot};
     use futures::channel::mpsc::Receiver;
+    use futures::channel::{mpsc, oneshot};
     use futures::executor::block_on;
-    use libp2p::{dcutr, gossipsub, identify, kad, noise, PeerId, relay, tcp, Transport, yamux};
     use libp2p::core::transport::OrTransport;
     use libp2p::core::upgrade::{
-        ProtocolName, read_length_prefixed, Version, write_length_prefixed,
+        read_length_prefixed, write_length_prefixed, ProtocolName, Version,
     };
     use libp2p::dns::DnsConfig;
+    use libp2p::gossipsub::TopicHash;
     use libp2p::identity::Keypair;
+    use libp2p::kad::record::store::MemoryStore;
+    use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
         GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
         PutRecordOk, QueryId, QueryResult, Quorum,
     };
-    use libp2p::kad::record::{Key, Record};
-    use libp2p::kad::record::store::MemoryStore;
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{self, ProtocolSupport, RequestId, ResponseChannel};
     use libp2p::swarm::{
         ConnectionHandlerUpgrErr, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent,
     };
+    use libp2p::{dcutr, gossipsub, identify, kad, noise, relay, tcp, yamux, PeerId, Transport};
 
-    use crate::{
-        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
-    };
     use crate::blockchain::{Block, Chain};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH, RELAY_BOOTSTRAP_NODE_ONE_IP,
         RELAY_BOOTSTRAP_NODE_ONE_PEER_ID, RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
+    };
+    use crate::{
+        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
     };
 
     use super::*;
@@ -79,7 +80,6 @@ pub mod network {
 
         let local_public_key = read_ed25519_keypair_from_file();
         let local_peer_id = read_peer_id_from_file();
-
         println!("Local peer id: {local_peer_id:?}");
 
         let (relay_transport, client) = relay::client::new(local_peer_id.clone());
@@ -176,8 +176,54 @@ pub mod network {
         swarm.behaviour_mut().bootstrap_kademlia();
 
         swarm
-            .listen_on(relay_address.with(Protocol::P2pCircuit))
+            .listen_on(relay_address.clone().with(Protocol::P2pCircuit))
             .unwrap();
+
+        block_on(async {
+            loop {
+                match swarm.next().await.unwrap() {
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        println!("Listening on {:?}", address);
+                        break;
+                    }
+                    SwarmEvent::Behaviour(ComposedEvent::Relay(
+                        relay::client::Event::ReservationReqAccepted { .. },
+                    )) => {
+                        println!("Relay accepted our reservation request.");
+                    }
+                    SwarmEvent::Behaviour(ComposedEvent::Relay(event)) => {
+                        println!("{:?}", event)
+                    }
+                    SwarmEvent::Behaviour(ComposedEvent::Dcutr(event)) => {
+                        println!("{:?}", event)
+                    }
+                    SwarmEvent::Behaviour(ComposedEvent::Identify(event)) => {
+                        println!("{:?}", event)
+                    }
+                    SwarmEvent::ConnectionEstablished {
+                        peer_id, endpoint, ..
+                    } => {
+                        println!("Established connection to {:?} via {:?}", peer_id, endpoint);
+                    }
+                    SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+                        println!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        // let remote_peer_id: PeerId = "12D3KooWQ8vrERR8bnPByEjjtqV6hTWehaf8TmK7qR1cUsyrPpfZ"
+        //     .to_string()
+        //     .parse()
+        //     .expect("Can not to parse relay peer id.");
+        // swarm
+        //     .dial(
+        //         relay_address
+        //             .with(Protocol::P2pCircuit)
+        //             .with(Protocol::P2p(Multihash::from(remote_peer_id))),
+        //     )
+        //     .unwrap();
 
         let (command_sender, command_receiver) = mpsc::channel(0);
         let (event_sender, event_receiver) = mpsc::channel(0);
@@ -209,27 +255,6 @@ pub mod network {
     }
 
     impl Client {
-        // pub async fn start_listening(&mut self) {
-        //     self.sender
-        //         .send(Command::StartListening {})
-        //         .await
-        //         .expect("Command receiver not to be dropped.");
-        // }
-
-        // pub async fn start_listening_on_relay(&mut self, relay_address: Multiaddr) {
-        //     self.sender
-        //         .send(Command::StartListeningRelay { relay_address })
-        //         .await
-        //         .expect("Command receiver not to be dropped.");
-        // }
-
-        // pub async fn dial(&mut self, relay_address: Multiaddr) {
-        //     self.sender
-        //         .send(Command::Dial { relay_address })
-        //         .await
-        //         .expect("Command receiver not to be dropped.");
-        // }
-
         pub async fn run(
             mut self,
             // mut stdin: Fuse<async_std::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>>,
@@ -1049,11 +1074,21 @@ pub mod network {
 
                 Command::SendMessage { msg, topic } => {
                     println!("Send message to topic {topic:?}");
-                    self.swarm
-                        .behaviour_mut()
+                    let swarm = self.swarm.behaviour_mut();
+                    let number_participants_on_topic = swarm
                         .gossipsub
-                        .publish(gossipsub::IdentTopic::new(topic), msg)
-                        .expect("TODO: panic message");
+                        .mesh_peers(&TopicHash::from_raw(topic.clone()))
+                        .size_hint()
+                        .0;
+                    if number_participants_on_topic.ne(&0) {
+                        println!("Topic not empty");
+                        swarm
+                            .gossipsub
+                            .publish(gossipsub::IdentTopic::new(topic), msg)
+                            .expect("TODO: panic message");
+                    } else {
+                        println!("Topic empty");
+                    }
                 }
 
                 Command::SubscribeToTopic { topic } => {
@@ -1103,44 +1138,7 @@ pub mod network {
                         .request_response
                         .send_response(channel, FileResponse(file))
                         .expect("Connection to peer to be still open.");
-                } // Command::Dial { relay_address } => {
-                  //     self.swarm.dial(relay_address.clone()).unwrap();
-                  //     block_on(async {
-                  //         let mut learned_observed_addr = false;
-                  //         let mut told_relay_observed_addr = false;
-                  //
-                  //         loop {
-                  //             match self.swarm.next().await.unwrap() {
-                  //                 SwarmEvent::NewListenAddr { .. } => {}
-                  //                 SwarmEvent::Dialing { .. } => {}
-                  //                 SwarmEvent::ConnectionEstablished { .. } => {}
-                  //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
-                  //                     identify::Event::Sent { .. },
-                  //                 )) => {
-                  //                     println!("Told relay its public address.");
-                  //                     told_relay_observed_addr = true;
-                  //                 }
-                  //                 SwarmEvent::Behaviour(ComposedEvent::Identify(
-                  //                     identify::Event::Received {
-                  //                         info: identify::Info { observed_addr, .. },
-                  //                         ..
-                  //                     },
-                  //                 )) => {
-                  //                     println!(
-                  //                         "Relay told us our public address: {:?}",
-                  //                         observed_addr
-                  //                     );
-                  //                     learned_observed_addr = true;
-                  //                 }
-                  //                 event => panic!("{event:?}"),
-                  //             }
-                  //
-                  //             if learned_observed_addr && told_relay_observed_addr {
-                  //                 break;
-                  //             }
-                  //         }
-                  //     });
-                  // }
+                }
             }
         }
     }
