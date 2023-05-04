@@ -15,16 +15,18 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 
     //TODO: Fix. Need for testing from console.
     //
-    // let stdin: futures_util::stream::stream::fuse::Fuse<Lines<BufReader<Stdin>>> = BufReader::new(stdin()).lines().fuse();
+    //Fuse<async_std::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>>,
+
+    //Need for testing from console.
+    let stdin = async_std::io::BufReader::new(async_std::io::stdin())
+        .lines()
+        .fuse();
 
     spawn(network_event_loop.run());
 
     let network_client_to_return = network_client.clone();
 
-    spawn(network_client.run(
-        // stdin,
-        network_events,
-    ));
+    spawn(network_client.run(stdin, network_events));
 
     Ok(network_client_to_return)
 }
@@ -49,8 +51,8 @@ pub mod network {
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::kad::record::{Key, Record};
     use libp2p::kad::{
-        GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord,
-        PutRecordOk, QueryId, QueryResult, Quorum,
+        GetProvidersOk, GetRecordError, GetRecordOk, Kademlia, KademliaEvent, PeerRecord, QueryId,
+        QueryResult, Quorum,
     };
     use libp2p::multiaddr::Protocol;
     use libp2p::request_response::{self, ProtocolSupport, RequestId, ResponseChannel};
@@ -213,18 +215,6 @@ pub mod network {
             }
         });
 
-        // let remote_peer_id: PeerId = "12D3KooWQ8vrERR8bnPByEjjtqV6hTWehaf8TmK7qR1cUsyrPpfZ"
-        //     .to_string()
-        //     .parse()
-        //     .expect("Can not to parse relay peer id.");
-        // swarm
-        //     .dial(
-        //         relay_address
-        //             .with(Protocol::P2pCircuit)
-        //             .with(Protocol::P2p(Multihash::from(remote_peer_id))),
-        //     )
-        //     .unwrap();
-
         let (command_sender, command_receiver) = mpsc::channel(0);
         let (event_sender, event_receiver) = mpsc::channel(0);
         let event_loop = EventLoop::new(swarm, command_receiver, event_sender);
@@ -257,12 +247,14 @@ pub mod network {
     impl Client {
         pub async fn run(
             mut self,
-            // mut stdin: Fuse<async_std::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>>,
+            mut stdin: futures::stream::Fuse<
+                futures::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>,
+            >,
             mut network_events: Receiver<Event>,
         ) {
             loop {
                 futures::select! {
-                    // line = stdin.select_next_some() => self.handle_input_line(line.expect("Stdin not to close.")).await,
+                    line = stdin.select_next_some() => self.handle_input_line(line.expect("Stdin not to close.")).await,
                     event = network_events.next() => self.handle_event(event.expect("Swarm stream to be infinite.")).await,
                 }
             }
@@ -787,7 +779,6 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        // println!("NotFound.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::Timeout { key })) => {
@@ -803,7 +794,6 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        // println!("Timeout.");
                     }
 
                     QueryResult::GetRecord(Err(GetRecordError::QuorumFailed { key, .. })) => {
@@ -819,7 +809,6 @@ pub mod network {
                             .remove(&id)
                             .expect("Request to still be pending.")
                             .send(record);
-                        // println!("QuorumFailed.");
                     }
 
                     QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders {
@@ -846,14 +835,6 @@ pub mod network {
 
                     _ => {}
                 },
-
-                // SwarmEvent::Behaviour(ComposedEvent::Kademlia(KademliaEvent::RoutingUpdated {
-                //     peer,
-                //     ..
-                // })) => {
-                //     //TODO: do some logic. Dont push always.
-                //     self.swarm.behaviour_mut().identify.push(iter::once(peer));
-                // }
 
                 //--------------REQUEST RESPONSE EVENTS--------------
                 SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
@@ -935,8 +916,7 @@ pub mod network {
                 )) => {
                     let bill_name = message.topic.clone().into_string();
                     println!(
-                        "Got message: '{}' with id: {id} from peer: {peer_id} in topic: {bill_name}",
-                        String::from_utf8_lossy(&message.data),
+                        "Got message with id: {id} from peer: {peer_id} in topic: {bill_name}",
                     );
 
                     let block: Block =
@@ -995,43 +975,6 @@ pub mod network {
 
         async fn handle_command(&mut self, command: Command) {
             match command {
-                // Command::StartListening {} => {
-                //     self.swarm
-                //         .listen_on(
-                //             Multiaddr::empty()
-                //                 .with("0.0.0.0".parse::<Ipv4Addr>().unwrap().into())
-                //                 .with(Protocol::Tcp(0)),
-                //         )
-                //         .unwrap();
-                //
-                //     // Wait to listen on all interfaces.
-                //     block_on(async {
-                //         let mut delay =
-                //             futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
-                //         loop {
-                //             futures::select! {
-                //                 event =  self.swarm.next() => {
-                //                     match event.unwrap() {
-                //                         SwarmEvent::NewListenAddr { address, .. } => {
-                //                             println!("Listening on {:?}", address);
-                //                         }
-                //                         event => panic!("{event:?}"),
-                //                     }
-                //                 }
-                //                 _ = delay => {
-                //                     // Likely listening on all interfaces now, thus continuing by breaking the loop.
-                //                     break;
-                //                 }
-                //             }
-                //         }
-                //     });
-                // }
-
-                // Command::StartListeningRelay { relay_address } => {
-                //     self.swarm
-                //         .listen_on(relay_address.with(Protocol::P2pCircuit))
-                //         .expect("Can not listen on relay address.");
-                // }
                 Command::StartProviding { file_name, sender } => {
                     println!("Start providing {file_name:?}");
                     let query_id = self
@@ -1164,7 +1107,7 @@ pub mod network {
         ) -> Self {
             Self {
                 request_response: {
-                    libp2p::request_response::Behaviour::new(
+                    request_response::Behaviour::new(
                         FileExchangeCodec(),
                         iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
                         Default::default(),
@@ -1259,10 +1202,6 @@ pub mod network {
 
     #[derive(Debug)]
     enum Command {
-        // StartListening {},
-        // StartListeningRelay {
-        //     relay_address: Multiaddr,
-        // },
         StartProviding {
             file_name: String,
             sender: oneshot::Sender<()>,
@@ -1295,9 +1234,6 @@ pub mod network {
         SubscribeToTopic {
             topic: String,
         },
-        // Dial {
-        //     relay_address: Multiaddr,
-        // },
     }
 
     #[derive(Debug)]
