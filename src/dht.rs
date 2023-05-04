@@ -996,13 +996,18 @@ pub mod network {
                         publisher: None,
                         expires: None,
                     };
+
+                    let relay_peer_id: PeerId = RELAY_BOOTSTRAP_NODE_ONE_PEER_ID
+                        .to_string()
+                        .parse()
+                        .expect("Can not to parse relay peer id.");
+
                     let _query_id = self
                         .swarm
                         .behaviour_mut()
                         .kademlia
                         //TODO: what quorum use?
-                        .put_record(record, Quorum::All)
-                        .expect("Can not provide.");
+                        .put_record_to(record, iter::once(relay_peer_id), Quorum::All);
                 }
 
                 Command::SendMessage { msg, topic } => {
