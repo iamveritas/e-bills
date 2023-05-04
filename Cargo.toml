@@ -10,7 +10,7 @@ borsh = "0.10.2"
 env_logger = "0.10.0"
 chrono = "0.4.23"
 async-trait = "0.1.64"
-libp2p = { version = "0.51.3", features = ["tcp", "dns", "async-std", "noise", "mplex", "yamux", "websocket", "tokio", "macros", "kad", "request-response", "identify", "gossipsub", "quic", "relay", "dcutr"] }
+libp2p = { version = "0.51.3", features = ["tcp", "dns", "async-std", "noise", "yamux", "tokio", "macros", "kad", "request-response", "identify", "gossipsub", "relay", "dcutr"] }
 tokio = { version = "1.26.0", features = ["full"] }
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
 rocket_dyn_templates = { version = "0.1.0-rc.2", features = ["handlebars"] }

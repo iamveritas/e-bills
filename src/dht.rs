@@ -13,10 +13,6 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
         .await
         .expect("Can not to create network module in dht.");
 
-    //TODO: Fix. Need for testing from console.
-    //
-    //Fuse<async_std::io::Lines<async_std::io::BufReader<async_std::io::Stdin>>>,
-
     //Need for testing from console.
     let stdin = async_std::io::BufReader::new(async_std::io::stdin())
         .lines()
@@ -46,7 +42,6 @@ pub mod network {
         read_length_prefixed, write_length_prefixed, ProtocolName, Version,
     };
     use libp2p::dns::DnsConfig;
-    use libp2p::gossipsub::TopicHash;
     use libp2p::identity::Keypair;
     use libp2p::kad::record::store::MemoryStore;
     use libp2p::kad::record::{Key, Record};
@@ -122,6 +117,8 @@ pub mod network {
                             SwarmEvent::NewListenAddr { address, .. } => {
                                 println!("Listening on {:?}", address);
                             }
+                            SwarmEvent::Behaviour { .. } => {
+                            }
                             event => panic!("{event:?}"),
                         }
                     }
@@ -166,6 +163,7 @@ pub mod network {
                         println!("Relay told us our public address: {:?}", observed_addr);
                         learned_observed_addr = true;
                     }
+                    SwarmEvent::Behaviour { .. } => {}
                     event => panic!("{event:?}"),
                 }
 
@@ -209,6 +207,9 @@ pub mod network {
                     }
                     SwarmEvent::OutgoingConnectionError { peer_id, error } => {
                         println!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+                    }
+                    SwarmEvent::Behaviour(event) => {
+                        println!("{event:?}")
                     }
                     _ => {}
                 }
@@ -1025,20 +1026,11 @@ pub mod network {
                 Command::SendMessage { msg, topic } => {
                     println!("Send message to topic {topic:?}");
                     let swarm = self.swarm.behaviour_mut();
-                    let number_participants_on_topic = swarm
+                    //TODO: check if topic not empty.
+                    swarm
                         .gossipsub
-                        .mesh_peers(&TopicHash::from_raw(topic.clone()))
-                        .size_hint()
-                        .0;
-                    if number_participants_on_topic.ne(&0) {
-                        println!("Topic not empty");
-                        swarm
-                            .gossipsub
-                            .publish(gossipsub::IdentTopic::new(topic), msg)
-                            .expect("TODO: panic message");
-                    } else {
-                        println!("Topic empty");
-                    }
+                        .publish(gossipsub::IdentTopic::new(topic), msg)
+                        .expect("TODO: panic message");
                 }
 
                 Command::SubscribeToTopic { topic } => {
