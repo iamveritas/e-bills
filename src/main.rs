@@ -34,7 +34,6 @@ mod dht;
 mod numbers_to_words;
 mod test;
 mod web;
-mod zip;
 
 // MAIN
 // #[rocket::main]
@@ -52,6 +51,7 @@ async fn main() {
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
     dht.subscribe_to_all_bills_topics().await;
+    dht.start_provide().await;
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 

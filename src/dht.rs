@@ -373,6 +373,18 @@ pub mod network {
             }
         }
 
+        pub async fn start_provide(&mut self) {
+            for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
+                let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+                bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                    .expect("File name error")
+                    .to_str()
+                    .expect("File name error")
+                    .to_string();
+                self.put(&bill_name).await;
+            }
+        }
+
         pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: &String) {
             let node_request = BILLS_PREFIX.to_string() + node_id;
             let mut record_for_saving_in_dht = "".to_string();
