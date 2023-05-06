@@ -938,7 +938,7 @@ pub mod network {
                         );
 
                         let block: Block =
-                            serde_json::from_slice(&event.message.data).expect("Block are not valid.");
+                            serde_json::from_slice(&event.message).expect("Block are not valid.");
                         let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
                         chain.try_add_block(block);
                         if chain.is_chain_valid() {
