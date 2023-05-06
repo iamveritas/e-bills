@@ -1,21 +1,21 @@
 use std::path::Path;
 
 use chrono::{Days, Utc};
-use rocket::{Request, State};
 use rocket::form::Form;
+use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::{
-    accept_bill, AcceptOrDeclineBitcreditBillForm, add_in_contacts_map, BitcreditBill, BitcreditBillForm,
-    blockchain, create_whole_identity, decline_bill, endorse_bill_and_return_new_holder_id,
-    EndorseBitcreditBillForm, get_bills, get_contact_from_map, get_whole_identity,
-    Identity, IdentityForm, IdentityWithAll, issue_new_bill,
-    NewContactForm, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    request_acceptance, RequestToAcceptBitcreditBillForm,
-};
 use crate::blockchain::{Chain, OperationCode};
-use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH};
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
+use crate::{
+    accept_bill, add_in_contacts_map, blockchain, create_whole_identity, decline_bill,
+    endorse_bill_and_return_new_holder_id, get_bills, get_contact_from_map, get_whole_identity,
+    issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
+    read_peer_id_from_file, request_acceptance, AcceptOrDeclineBitcreditBillForm, BitcreditBill,
+    BitcreditBillForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll,
+    NewContactForm, RequestToAcceptBitcreditBillForm,
+};
 
 use self::handlebars::{Handlebars, JsonRender};
 

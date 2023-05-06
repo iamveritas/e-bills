@@ -7,11 +7,11 @@ use openssl::sha::Sha256;
 use openssl::sign::{Signer, Verifier};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    bill_from_byte_array, bill_to_byte_array, BitcreditBill, private_key_from_pem_u8,
-    public_key_from_pem_u8,
-};
 use crate::constants::BILLS_FOLDER_PATH;
+use crate::{
+    bill_from_byte_array, bill_to_byte_array, private_key_from_pem_u8, public_key_from_pem_u8,
+    BitcreditBill,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Chain {
