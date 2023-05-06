@@ -211,8 +211,7 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         let my_peer_id = read_peer_id_from_file();
         nodes.push(my_peer_id.to_string());
 
-        let drawee_peer_id = get_contact_from_map(&bill.drawee_name);
-        nodes.push(drawee_peer_id);
+        nodes.push(bill.drawee_name.clone());
 
         for node in nodes {
             if !node.is_empty() {
