@@ -129,10 +129,12 @@ pub async fn get_bill(id: String) -> Template {
     } else {
         let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
+        let peer_id = read_peer_id_from_file().to_string();
 
         Template::render(
             "hbs/home",
             context! {
+                peer_id: Some(peer_id),
                 identity: Some(identity.identity),
                 bills: bills,
             },

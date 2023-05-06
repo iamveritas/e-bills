@@ -52,7 +52,7 @@
         </form>
     {{/if}}
 {{/if}}
-{{#if (eq identity.name bill.drawee_name)}}
+{{#if (eq peer_id bill.drawee_name)}}
     {{#if (eq operation_code codes.[3])}}
         <form class="content" action="http://localhost:8000/bill/accept" method="post">
             <label for="bill_name">Bill name:</label><br>
