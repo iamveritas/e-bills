@@ -522,6 +522,12 @@ pub fn issue_new_bill(
 
         let amount_letters: String = encode(&amount_numbers);
 
+        let mut drawee_peer_id = get_contact_from_map(&drawee_name);
+
+        if drawee_peer_id.is_empty() {
+            drawee_peer_id = drawee_name.clone();
+        }
+
         let utc = Utc::now();
         let timestamp_at_drawing = utc.timestamp();
         let date_of_issue = utc.naive_local().date().to_string();
@@ -549,8 +555,8 @@ pub fn issue_new_bill(
             public_key_pem,
             private_key_pem,
             language,
-            drawee_name,
-            drawer_name: drawer.name.clone(),
+            drawee_name: drawee_peer_id,
+            drawer_name: node_id.to_string(),
             holder_name: node_id.to_string(),
         };
 
@@ -635,16 +641,16 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
                     blockchain_from_file.write_chain_to_file(&bill.name);
                     return new_holder_node_id.to_string().clone();
                 } else {
-                    return "".to_string();
+                    return String::new();
                 }
             } else {
-                return "".to_string();
+                return String::new();
             }
         } else {
-            return "".to_string();
+            return String::new();
         }
     } else {
-        return "".to_string();
+        return String::new();
     }
 }
 
@@ -665,7 +671,7 @@ pub fn request_acceptance(bill_name: &String) -> bool {
             let new_block = Block::new(
                 last_block.id + 1,
                 last_block.hash.clone(),
-                "".to_string(),
+                String::new(),
                 bill_name.clone(),
                 identity.public_key_pem.clone(),
                 OperationCode::RequestToAccept,
@@ -702,7 +708,7 @@ pub fn accept_bill(bill_name: &String) -> bool {
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            "".to_string(),
+            String::new(),
             bill_name.clone(),
             identity.public_key_pem.clone(),
             OperationCode::Accept,

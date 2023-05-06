@@ -396,13 +396,22 @@ pub mod network {
                 record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
-                record_for_saving_in_dht = record_for_saving_in_dht.to_string() + "," + bill_name;
+                if !record_for_saving_in_dht.contains(bill_name) {
+                    record_for_saving_in_dht =
+                        record_for_saving_in_dht.to_string() + "," + bill_name;
+                }
             } else {
                 record_for_saving_in_dht = bill_name.clone();
             }
 
-            self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
-                .await;
+            if !std::str::from_utf8(&value)
+                .expect("Cant get value.")
+                .to_string()
+                .eq(&record_for_saving_in_dht)
+            {
+                self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
+                    .await;
+            }
         }
 
         pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: String) {
