@@ -1,4 +1,4 @@
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::prelude::*;
 use log::{info, warn};
 use openssl::hash::MessageDigest;
@@ -55,12 +55,14 @@ impl Chain {
         true
     }
 
-    pub fn try_add_block(&mut self, block: Block) {
+    pub fn try_add_block(&mut self, block: Block) -> bool {
         let latest_block = self.blocks.last().expect("there is at least one block");
         if is_block_valid(&block, latest_block) {
             self.blocks.push(block);
+            return true;
         } else {
             error!("could not add block - invalid");
+            return false;
         }
     }
 
@@ -182,7 +184,6 @@ impl Chain {
 pub enum OperationCode {
     Issue,
     Accept,
-    Decline,
     Endorse,
     RequestToAccept,
 }
@@ -192,7 +193,6 @@ impl OperationCode {
         vec![
             OperationCode::Issue,
             OperationCode::Accept,
-            OperationCode::Decline,
             OperationCode::Endorse,
             OperationCode::RequestToAccept,
         ]
@@ -202,7 +202,6 @@ impl OperationCode {
         match self {
             OperationCode::Issue => "Issue".to_string(),
             OperationCode::Accept => "Accept".to_string(),
-            OperationCode::Decline => "Decline".to_string(),
             OperationCode::Endorse => "Endorse".to_string(),
             OperationCode::RequestToAccept => "RequestToAccept".to_string(),
         }
@@ -240,7 +239,6 @@ impl Block {
             &previous_hash,
             &data,
             &timestamp,
-            // &node_id,
             &public_key,
             &operation_code,
         );
@@ -253,7 +251,6 @@ impl Block {
             timestamp: now.timestamp(),
             previous_hash,
             signature,
-            // node_id,
             data,
             public_key,
             operation_code,
@@ -273,6 +270,35 @@ impl Block {
         let signature_bytes = hex::decode(&self.signature).unwrap();
         verifier.verify(signature_bytes.as_slice()).unwrap()
     }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
+pub struct GossipsubEvent {
+    pub id: GossipsubEventId,
+    pub message: Vec<u8>,
+}
+
+impl GossipsubEvent {
+    pub fn new(id: GossipsubEventId, message: Vec<u8>) -> Self {
+        Self { id, message }
+    }
+
+    pub fn to_byte_array(&self) -> Vec<u8> {
+        let bytes = self.try_to_vec().expect("Failed to serialize event");
+        bytes
+    }
+
+    pub fn from_byte_array(bytes: &Vec<u8>) -> Self {
+        let event = Self::try_from_slice(bytes).expect("Failed to deserialize event");
+        event
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
+pub enum GossipsubEventId {
+    Block,
+    Chain,
+    CommandGetChain,
 }
 
 fn mine_block(

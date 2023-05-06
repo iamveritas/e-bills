@@ -56,14 +56,15 @@ pub mod network {
     };
     use libp2p::{dcutr, gossipsub, identify, kad, noise, relay, tcp, yamux, PeerId, Transport};
 
-    use crate::blockchain::{Block, Chain};
+    use crate::blockchain::{Block, Chain, GossipsubEvent, GossipsubEventId};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH, RELAY_BOOTSTRAP_NODE_ONE_IP,
         RELAY_BOOTSTRAP_NODE_ONE_PEER_ID, RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
     };
     use crate::{
-        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        blockchain, generate_dht_logic, get_bills, read_ed25519_keypair_from_file,
+        read_peer_id_from_file,
     };
 
     use super::*;
@@ -927,20 +928,28 @@ pub mod network {
                         message,
                     },
                 )) => {
-                    let bill_name = message.topic.clone().into_string();
-                    println!(
-                        "Got message with id: {id} from peer: {peer_id} in topic: {bill_name}",
-                    );
+                    let event = GossipsubEvent::from_byte_array(&message.data);
 
-                    let block: Block =
-                        serde_json::from_slice(&message.data).expect("Block are not valid.");
-                    let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
-                    chain.try_add_block(block);
-                    if chain.is_chain_valid() {
-                        chain.write_chain_to_file(&bill_name);
+                    //1. BLOCK
+                    if event.id.eq(&GossipsubEventId::Block) {
+                        let bill_name = message.topic.clone().into_string();
+                        println!(
+                            "Got message with id: {id} from peer: {peer_id} in topic: {bill_name}",
+                        );
+
+                        let block: Block =
+                            serde_json::from_slice(&message.data).expect("Block are not valid.");
+                        let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
+                        chain.try_add_block(block);
+                        if chain.is_chain_valid() {
+                            chain.write_chain_to_file(&bill_name);
+                        }
                     }
-                }
 
+                    //2. CHAIN
+
+                    //3. COMMAND GET CHAIN
+                }
                 //--------------OTHERS BEHAVIOURS EVENTS--------------
                 SwarmEvent::Behaviour(event) => {
                     println!("{event:?}")
