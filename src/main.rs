@@ -52,6 +52,7 @@ async fn main() {
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
     dht.subscribe_to_all_bills_topics().await;
     dht.start_provide().await;
+    dht.receive_updates_for_all_bills_topics().await;
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 

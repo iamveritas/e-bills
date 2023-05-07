@@ -178,6 +178,37 @@ impl Chain {
 
         bill
     }
+
+    fn get_block_by_id(&self, id: u64) -> Block {
+        let mut block = self.get_first_block().clone();
+        for b in &self.blocks {
+            if b.id == id {
+                block = b.clone();
+            }
+        }
+        block
+    }
+
+    pub fn compare_chain(&mut self, other_chain: Chain, bill_name: &String) {
+        let local_chain_last_id = self.get_latest_block().id.clone();
+        let other_chain_last_id = other_chain.get_latest_block().id.clone();
+        if local_chain_last_id.eq(&other_chain_last_id) {
+            return;
+        } else if local_chain_last_id > other_chain_last_id {
+            return;
+        } else {
+            let difference_in_id = other_chain_last_id - local_chain_last_id;
+            for block_id in 1..difference_in_id + 1 {
+                let block = other_chain.get_block_by_id(local_chain_last_id.clone() + block_id);
+                let try_add_block = self.try_add_block(block);
+                if try_add_block && self.is_chain_valid() {
+                    self.write_chain_to_file(&bill_name);
+                } else {
+                    return;
+                }
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromFormField)]
