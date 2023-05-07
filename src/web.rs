@@ -10,11 +10,11 @@ use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PA
 use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, blockchain, create_whole_identity,
-    endorse_bill_and_return_new_holder_id, get_bills, get_contact_from_map, get_whole_identity,
-    issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file, request_acceptance, AcceptBitcreditBillForm, BitcreditBill,
-    BitcreditBillForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll,
-    NewContactForm, RequestToAcceptBitcreditBillForm,
+    endorse_bill_and_return_new_holder_id, get_bills, get_whole_identity, issue_new_bill,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    request_acceptance, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
+    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
+    RequestToAcceptBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};

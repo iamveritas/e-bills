@@ -63,8 +63,7 @@ pub mod network {
         RELAY_BOOTSTRAP_NODE_ONE_PEER_ID, RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
     };
     use crate::{
-        blockchain, generate_dht_logic, get_bills, read_ed25519_keypair_from_file,
-        read_peer_id_from_file,
+        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
     };
 
     use super::*;
