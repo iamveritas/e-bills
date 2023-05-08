@@ -662,8 +662,15 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
 
-    //TODO check if bill is not already accepted
-    if my_peer_id.eq(&bill.holder_name) {
+    let exist_code_with_accept =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
+    let exist_code_with_request_to_accept =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
+
+    if !exist_code_with_accept
+        && !exist_code_with_request_to_accept
+        && my_peer_id.eq(&bill.holder_name)
+    {
         if last_block.operation_code.eq(&OperationCode::Endorse)
             || last_block.operation_code.eq(&OperationCode::Issue)
         {
@@ -700,9 +707,16 @@ pub fn accept_bill(bill_name: &String) -> bool {
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
 
-    if last_block
-        .operation_code
-        .eq(&OperationCode::RequestToAccept)
+    let exist_code_with_accept =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
+    let exist_code_with_request_to_accept =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
+
+    if !exist_code_with_accept
+        && !exist_code_with_request_to_accept
+        && last_block
+            .operation_code
+            .eq(&OperationCode::RequestToAccept)
     {
         let identity = read_identity_from_file();
 
