@@ -5,16 +5,16 @@ use rocket::form::Form;
 use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::blockchain::{Chain, OperationCode};
+use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId, OperationCode};
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
 use crate::dht::network::Client;
 use crate::{
-    accept_bill, add_in_contacts_map, blockchain, create_whole_identity, decline_bill,
-    endorse_bill_and_return_new_holder_id, get_bills, get_contact_from_map, get_whole_identity,
-    issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file, request_acceptance, AcceptOrDeclineBitcreditBillForm, BitcreditBill,
-    BitcreditBillForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll,
-    NewContactForm, RequestToAcceptBitcreditBillForm,
+    accept_bill, add_in_contacts_map, blockchain, create_whole_identity,
+    endorse_bill_and_return_new_holder_id, get_bills, get_whole_identity, issue_new_bill,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    request_acceptance, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
+    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
+    RequestToAcceptBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -129,10 +129,12 @@ pub async fn get_bill(id: String) -> Template {
     } else {
         let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
+        let peer_id = read_peer_id_from_file().to_string();
 
         Template::render(
             "hbs/home",
             context! {
+                peer_id: Some(peer_id),
                 identity: Some(identity.identity),
                 bills: bills,
             },
@@ -211,8 +213,7 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         let my_peer_id = read_peer_id_from_file();
         nodes.push(my_peer_id.to_string());
 
-        let drawee_peer_id = get_contact_from_map(&bill.drawee_name);
-        nodes.push(drawee_peer_id);
+        nodes.push(bill.drawee_name.clone());
 
         for node in nodes {
             if !node.is_empty() {
@@ -257,11 +258,12 @@ pub async fn endorse_bill(
             let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
             let block = chain.get_latest_block();
 
+            let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+            let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+            let message = event.to_byte_array();
+
             client
-                .add_message_to_topic(
-                    serde_json::to_vec(block).expect("Error serializing block"),
-                    endorse_bill_form.bill_name.clone(),
-                )
+                .add_message_to_topic(message, endorse_bill_form.bill_name.clone())
                 .await;
 
             client
@@ -298,11 +300,12 @@ pub async fn request_to_accept_bill(
             let chain: Chain = Chain::read_chain_from_file(&request_to_accept_bill_form.bill_name);
             let block = chain.get_latest_block();
 
+            let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+            let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+            let message = event.to_byte_array();
+
             client
-                .add_message_to_topic(
-                    serde_json::to_vec(block).expect("Error serializing block"),
-                    request_to_accept_bill_form.bill_name.clone(),
-                )
+                .add_message_to_topic(message, request_to_accept_bill_form.bill_name.clone())
                 .await;
         }
 
@@ -319,10 +322,10 @@ pub async fn request_to_accept_bill(
     }
 }
 
-#[post("/accept_or_decline", data = "<accept_or_decline_bill_form>")]
-pub async fn accept_or_decline_bill(
+#[post("/accept", data = "<accept_bill_form>")]
+pub async fn accept_bill_form(
     state: &State<Client>,
-    accept_or_decline_bill_form: Form<AcceptOrDeclineBitcreditBillForm>,
+    accept_bill_form: Form<AcceptBitcreditBillForm>,
 ) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
@@ -331,27 +334,23 @@ pub async fn accept_or_decline_bill(
 
         let mut correct = false;
 
-        if accept_or_decline_bill_form
+        if accept_bill_form
             .operation_code
             .eq(&OperationCode::Accept.get_string_from_operation_code())
         {
-            correct = accept_bill(&accept_or_decline_bill_form.bill_name);
-        } else if accept_or_decline_bill_form
-            .operation_code
-            .eq(&OperationCode::Decline.get_string_from_operation_code())
-        {
-            correct = decline_bill(&accept_or_decline_bill_form.bill_name);
+            correct = accept_bill(&accept_bill_form.bill_name);
         }
 
         if correct {
-            let chain: Chain = Chain::read_chain_from_file(&accept_or_decline_bill_form.bill_name);
+            let chain: Chain = Chain::read_chain_from_file(&accept_bill_form.bill_name);
             let block = chain.get_latest_block();
 
+            let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+            let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+            let message = event.to_byte_array();
+
             client
-                .add_message_to_topic(
-                    serde_json::to_vec(block).expect("Error serializing block"),
-                    accept_or_decline_bill_form.bill_name.clone(),
-                )
+                .add_message_to_topic(message, accept_bill_form.bill_name.clone())
                 .await;
         }
 

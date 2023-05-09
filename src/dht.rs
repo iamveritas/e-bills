@@ -56,7 +56,7 @@ pub mod network {
     };
     use libp2p::{dcutr, gossipsub, identify, kad, noise, relay, tcp, yamux, PeerId, Transport};
 
-    use crate::blockchain::{Block, Chain};
+    use crate::blockchain::{Block, Chain, GossipsubEvent, GossipsubEventId};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH, RELAY_BOOTSTRAP_NODE_ONE_IP,
@@ -395,13 +395,22 @@ pub mod network {
                 record_for_saving_in_dht = std::str::from_utf8(&value)
                     .expect("Cant get value.")
                     .to_string();
-                record_for_saving_in_dht = record_for_saving_in_dht.to_string() + "," + bill_name;
+                if !record_for_saving_in_dht.contains(bill_name) {
+                    record_for_saving_in_dht =
+                        record_for_saving_in_dht.to_string() + "," + bill_name;
+                }
             } else {
                 record_for_saving_in_dht = bill_name.clone();
             }
 
-            self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
-                .await;
+            if !std::str::from_utf8(&value)
+                .expect("Cant get value.")
+                .to_string()
+                .eq(&record_for_saving_in_dht)
+            {
+                self.put_record(node_request.clone(), record_for_saving_in_dht.to_string())
+                    .await;
+            }
         }
 
         pub async fn add_message_to_topic(&mut self, msg: Vec<u8>, topic: String) {
@@ -440,6 +449,17 @@ pub mod network {
 
             for bill in bills {
                 self.subscribe_to_topic(bill.name).await;
+            }
+        }
+
+        pub async fn receive_updates_for_all_bills_topics(&mut self) {
+            let bills = get_bills();
+
+            for bill in bills {
+                let event = GossipsubEvent::new(GossipsubEventId::CommandGetChain, vec![0; 24]);
+                let message = event.to_byte_array();
+
+                self.add_message_to_topic(message, bill.name).await;
             }
         }
 
@@ -931,16 +951,38 @@ pub mod network {
                     println!(
                         "Got message with id: {id} from peer: {peer_id} in topic: {bill_name}",
                     );
+                    let event = GossipsubEvent::from_byte_array(&message.data);
 
-                    let block: Block =
-                        serde_json::from_slice(&message.data).expect("Block are not valid.");
-                    let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
-                    chain.try_add_block(block);
-                    if chain.is_chain_valid() {
-                        chain.write_chain_to_file(&bill_name);
+                    if event.id.eq(&GossipsubEventId::Block) {
+                        let block: Block =
+                            serde_json::from_slice(&event.message).expect("Block are not valid.");
+                        let mut chain: Chain = Chain::read_chain_from_file(&bill_name);
+                        chain.try_add_block(block);
+                        if chain.is_chain_valid() {
+                            chain.write_chain_to_file(&bill_name);
+                        }
+                    } else if event.id.eq(&GossipsubEventId::Chain) {
+                        let receive_chain: Chain =
+                            serde_json::from_slice(&event.message).expect("Chain are not valid.");
+                        let mut local_chain = Chain::read_chain_from_file(&bill_name);
+                        local_chain.compare_chain(receive_chain, &bill_name);
+                    } else if event.id.eq(&GossipsubEventId::CommandGetChain) {
+                        let chain = Chain::read_chain_from_file(&bill_name);
+                        let chain_bytes =
+                            serde_json::to_vec(&chain).expect("Can not serialize chain.");
+                        let event = GossipsubEvent::new(GossipsubEventId::Chain, chain_bytes);
+                        let message = event.to_byte_array();
+                        self.swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(gossipsub::IdentTopic::new(bill_name.clone()), message)
+                            .expect("Can not publish message.");
+                    } else {
+                        println!(
+                            "Unknown event id: {id} from peer: {peer_id} in topic: {bill_name}"
+                        );
                     }
                 }
-
                 //--------------OTHERS BEHAVIOURS EVENTS--------------
                 SwarmEvent::Behaviour(event) => {
                     println!("{event:?}")
@@ -1030,7 +1072,7 @@ pub mod network {
                     swarm
                         .gossipsub
                         .publish(gossipsub::IdentTopic::new(topic), msg)
-                        .expect("TODO: panic message");
+                        .expect("Can not publish message.");
                 }
 
                 Command::SubscribeToTopic { topic } => {
