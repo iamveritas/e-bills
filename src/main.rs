@@ -27,13 +27,13 @@ use crate::constants::{
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, TEMPLATES_FOLDER_PATH,
 };
 use crate::numbers_to_words::encode;
-use crate::payments::generate_address_to_pay;
+// use crate::payments::generate_address_to_pay;
 
 mod blockchain;
 mod constants;
 mod dht;
 mod numbers_to_words;
-mod payments;
+// mod payments;
 mod test;
 mod web;
 
@@ -85,7 +85,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::search_bill,
                 web::request_to_accept_bill,
                 web::accept_bill_form,
-                web::request_to_pay_bill,
+                // web::request_to_pay_bill,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -658,54 +658,54 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
     }
 }
 
-pub fn request_pay(bill_name: &String) -> bool {
-    let my_peer_id = read_peer_id_from_file().to_string();
-    let bill = read_bill_from_file(bill_name);
-
-    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
-    let last_block = blockchain_from_file.get_latest_block();
-
-    let exist_code_with_accept =
-        blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
-    let exist_code_with_request_to_accept =
-        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
-    let exist_code_with_request_to_pay =
-        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToPay);
-
-    if exist_code_with_accept
-        && exist_code_with_request_to_accept
-        && !exist_code_with_request_to_pay
-        && my_peer_id.eq(&bill.holder_name)
-    {
-        let identity = read_identity_from_file();
-
-        let payable_info = generate_address_to_pay();
-
-        if payable_info.2.is_spend_standard() {
-            let new_block = Block::new(
-                last_block.id + 1,
-                last_block.hash.clone(),
-                payable_info.2.to_string(),
-                bill_name.clone(),
-                identity.public_key_pem.clone(),
-                OperationCode::Accept,
-                identity.private_key_pem.clone(),
-            );
-
-            let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
-            if try_add_block && blockchain_from_file.is_chain_valid() {
-                blockchain_from_file.write_chain_to_file(&bill.name);
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
+// pub fn request_pay(bill_name: &String) -> bool {
+//     let my_peer_id = read_peer_id_from_file().to_string();
+//     let bill = read_bill_from_file(bill_name);
+//
+//     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+//     let last_block = blockchain_from_file.get_latest_block();
+//
+//     let exist_code_with_accept =
+//         blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
+//     let exist_code_with_request_to_accept =
+//         blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
+//     let exist_code_with_request_to_pay =
+//         blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToPay);
+//
+//     if exist_code_with_accept
+//         && exist_code_with_request_to_accept
+//         && !exist_code_with_request_to_pay
+//         && my_peer_id.eq(&bill.holder_name)
+//     {
+//         let identity = read_identity_from_file();
+//
+//         let payable_info = generate_address_to_pay();
+//
+//         if payable_info.2.is_spend_standard() {
+//             let new_block = Block::new(
+//                 last_block.id + 1,
+//                 last_block.hash.clone(),
+//                 payable_info.2.to_string(),
+//                 bill_name.clone(),
+//                 identity.public_key_pem.clone(),
+//                 OperationCode::Accept,
+//                 identity.private_key_pem.clone(),
+//             );
+//
+//             let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+//             if try_add_block && blockchain_from_file.is_chain_valid() {
+//                 blockchain_from_file.write_chain_to_file(&bill.name);
+//                 return true;
+//             } else {
+//                 return false;
+//             }
+//         } else {
+//             return false;
+//         }
+//     } else {
+//         return false;
+//     }
+// }
 
 pub fn request_acceptance(bill_name: &String) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
@@ -830,11 +830,11 @@ pub struct RequestToAcceptBitcreditBillForm {
     pub bill_name: String,
 }
 
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct RequestToPayBitcreditBillForm {
-    pub bill_name: String,
-}
+// #[derive(FromForm, Debug, Serialize, Deserialize)]
+// #[serde(crate = "rocket::serde")]
+// pub struct RequestToPayBitcreditBillForm {
+//     pub bill_name: String,
+// }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
