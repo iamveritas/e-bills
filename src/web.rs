@@ -128,7 +128,10 @@ pub async fn get_bill(id: String) -> Template {
         if ask_to_pay {
             let drawee = bill.drawee_name.clone();
 
-            if drawee.eq(&identity.peer_id.to_string()) {
+            let drawer = identity.peer_id.to_string().clone();
+            let drawer_from_bill = bill.drawer_name.clone();
+
+            if drawee.eq(&identity.peer_id.to_string()) || drawer.eq(&drawer_from_bill) {
                 let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
 
                 let holder_public_key = chain
