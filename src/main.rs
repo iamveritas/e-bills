@@ -33,7 +33,6 @@ mod blockchain;
 mod constants;
 mod dht;
 mod numbers_to_words;
-mod payments;
 mod test;
 mod web;
 
@@ -86,6 +85,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::request_to_accept_bill,
                 web::accept_bill_form,
                 web::request_to_pay_bill,
+                web::pay_bill,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -687,18 +687,14 @@ pub fn request_pay(bill_name: &String) -> bool {
 
     let exist_code_with_accept =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
-    let exist_code_with_request_to_accept =
-        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
     let exist_code_with_request_to_pay =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToPay);
 
-    if exist_code_with_accept
-        && exist_code_with_request_to_accept
-        && !exist_code_with_request_to_pay
-        && my_peer_id.eq(&bill.holder_name)
+    if exist_code_with_accept && !exist_code_with_request_to_pay && my_peer_id.eq(&bill.holder_name)
     {
         if last_block.operation_code.eq(&OperationCode::Endorse)
             || last_block.operation_code.eq(&OperationCode::Issue)
+            || last_block.operation_code.eq(&OperationCode::Accept)
         {
             let identity = read_identity_from_file();
             let bitcoin_public_key = identity.bitcoin_public_key.clone();
@@ -774,6 +770,45 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     }
 }
 
+pub fn pay_bitcredit_bill(bill_name: &String) -> bool {
+    let mut bill = read_bill_from_file(bill_name);
+
+    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    let last_block = blockchain_from_file.get_latest_block();
+
+    let exist_code_with_request_to_pay =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToPay);
+    let exist_code_with_pay =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Pay);
+
+    if !exist_code_with_pay && exist_code_with_request_to_pay {
+        let identity = read_identity_from_file();
+
+        let my_node_id = read_peer_id_from_file().to_string();
+        bill.holder_name = my_node_id.clone();
+
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            hex::encode(my_node_id.clone().as_bytes()),
+            bill_name.clone(),
+            identity.public_key_pem.clone(),
+            OperationCode::Pay,
+            identity.private_key_pem.clone(),
+        );
+
+        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+        if try_add_block && blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
 pub fn accept_bill(bill_name: &String) -> bool {
     let bill = read_bill_from_file(bill_name);
 
@@ -812,7 +847,7 @@ pub fn accept_bill(bill_name: &String) -> bool {
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
     let chain = Chain::read_chain_from_file(bill_name);
-    let bill = chain.get_last_version_bill_with_operation_code(OperationCode::Endorse);
+    let bill = chain.get_last_version_bill();
     bill
 }
 
@@ -852,6 +887,12 @@ pub struct RequestToAcceptBitcreditBillForm {
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct RequestToPayBitcreditBillForm {
+    pub bill_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct PayBitcreditBillForm {
     pub bill_name: String,
 }
 

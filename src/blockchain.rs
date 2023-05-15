@@ -7,6 +7,7 @@ use openssl::sha::Sha256;
 use openssl::sign::{Signer, Verifier};
 use serde::{Deserialize, Serialize};
 
+use crate::blockchain::OperationCode::{Endorse, Pay};
 use crate::constants::BILLS_FOLDER_PATH;
 use crate::{
     bill_from_byte_array, bill_to_byte_array, private_key_from_pem_u8, public_key_from_pem_u8,
@@ -97,49 +98,6 @@ impl Chain {
         exist_block_with_operation_code
     }
 
-    pub fn get_last_version_bill_with_operation_code(
-        &self,
-        operation_code: OperationCode,
-    ) -> BitcreditBill {
-        let first_block_data = &self.get_first_block().data;
-        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
-        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
-
-        let mut holder_bill_last_version: String = bill_first_version.holder_name.clone();
-
-        if self.blocks.len() > 1 && self.exist_block_with_operation_code(operation_code.clone()) {
-            let last_version_block =
-                self.get_last_version_block_with_operation_code(operation_code);
-            let last_version_block_data = &last_version_block.data;
-            let holder_bill_last_version_u8 = hex::decode(last_version_block_data).unwrap();
-            holder_bill_last_version = String::from_utf8(holder_bill_last_version_u8).unwrap();
-        }
-
-        let bill = BitcreditBill {
-            name: bill_first_version.name,
-            to_payee: bill_first_version.to_payee,
-            bill_jurisdiction: bill_first_version.bill_jurisdiction,
-            timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
-            drawee_name: bill_first_version.drawee_name,
-            drawer_name: bill_first_version.drawer_name,
-            holder_name: holder_bill_last_version.clone(),
-            place_of_drawing: bill_first_version.place_of_drawing,
-            currency_code: bill_first_version.currency_code,
-            amount_numbers: bill_first_version.amount_numbers,
-            amounts_letters: bill_first_version.amounts_letters,
-            maturity_date: bill_first_version.maturity_date,
-            date_of_issue: bill_first_version.date_of_issue,
-            compounding_interest_rate: bill_first_version.compounding_interest_rate,
-            type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
-            place_of_payment: bill_first_version.place_of_payment,
-            public_key: bill_first_version.public_key,
-            private_key: bill_first_version.private_key,
-            language: bill_first_version.language,
-        };
-
-        bill
-    }
-
     pub fn get_last_version_bill(&self) -> BitcreditBill {
         let first_block_data = &self.get_first_block().data;
         let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
@@ -147,11 +105,16 @@ impl Chain {
 
         let mut holder_bill_last_version: String = bill_first_version.holder_name.clone();
 
-        if self.blocks.len() > 1 {
-            let last_block_data = &self.get_latest_block().data;
-            let holder_bill_last_version_in_bytes = hex::decode(last_block_data).unwrap();
-            holder_bill_last_version =
-                String::from_utf8(holder_bill_last_version_in_bytes).unwrap();
+        if self.blocks.len() > 1 && self.exist_block_with_operation_code(Pay.clone()) {
+            let last_version_block = self.get_last_version_block_with_operation_code(Pay);
+            let last_version_block_data = &last_version_block.data;
+            let holder_bill_last_version_u8 = hex::decode(last_version_block_data).unwrap();
+            holder_bill_last_version = String::from_utf8(holder_bill_last_version_u8).unwrap();
+        } else if self.blocks.len() > 1 && self.exist_block_with_operation_code(Endorse.clone()) {
+            let last_version_block = self.get_last_version_block_with_operation_code(Endorse);
+            let last_version_block_data = &last_version_block.data;
+            let holder_bill_last_version_u8 = hex::decode(last_version_block_data).unwrap();
+            holder_bill_last_version = String::from_utf8(holder_bill_last_version_u8).unwrap();
         }
 
         let bill = BitcreditBill {
@@ -218,6 +181,7 @@ pub enum OperationCode {
     Endorse,
     RequestToAccept,
     RequestToPay,
+    Pay,
 }
 
 impl OperationCode {
@@ -228,6 +192,7 @@ impl OperationCode {
             OperationCode::Endorse,
             OperationCode::RequestToAccept,
             OperationCode::RequestToPay,
+            OperationCode::Pay,
         ]
     }
 
@@ -238,6 +203,7 @@ impl OperationCode {
             OperationCode::Endorse => "Endorse".to_string(),
             OperationCode::RequestToAccept => "RequestToAccept".to_string(),
             OperationCode::RequestToPay => "RequestToPay".to_string(),
+            OperationCode::Pay => "Pay".to_string(),
         }
     }
 }

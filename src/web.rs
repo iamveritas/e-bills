@@ -1,4 +1,6 @@
+use bitcoin::secp256k1::Scalar;
 use std::path::Path;
+use std::str::FromStr;
 
 use chrono::{Days, Utc};
 use rocket::form::Form;
@@ -6,15 +8,16 @@ use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH};
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, blockchain, create_whole_identity,
     endorse_bill_and_return_new_holder_id, get_bills, get_whole_identity, issue_new_bill,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
-    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityWithAll, NewContactForm,
-    RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    pay_bitcredit_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
+    read_peer_id_from_file, request_acceptance, request_pay, AcceptBitcreditBillForm,
+    BitcreditBill, BitcreditBillForm, EndorseBitcreditBillForm, Identity, IdentityForm,
+    IdentityWithAll, NewContactForm, PayBitcreditBillForm, RequestToAcceptBitcreditBillForm,
+    RequestToPayBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -117,6 +120,53 @@ pub async fn get_bill(id: String) -> Template {
         let identity: IdentityWithAll = get_whole_identity();
 
         let confirmed = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+        let ask_to_pay =
+            chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
+        let payed = chain.exist_block_with_operation_code(blockchain::OperationCode::Pay);
+        let mut address_to_pay = String::new();
+        let mut pr_key_bill = String::new();
+        if ask_to_pay {
+            let drawee = bill.drawee_name.clone();
+
+            if drawee.eq(&identity.peer_id.to_string()) {
+                let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
+
+                let holder_public_key = chain
+                    .get_last_version_block_with_operation_code(
+                        blockchain::OperationCode::RequestToPay,
+                    )
+                    .data
+                    .clone();
+                let public_key_bill_holder =
+                    bitcoin::PublicKey::from_str(&holder_public_key).unwrap();
+
+                let public_key_bill = public_key_bill
+                    .inner
+                    .combine(&public_key_bill_holder.inner)
+                    .unwrap();
+                let pub_key_bill = bitcoin::PublicKey::new(public_key_bill);
+                address_to_pay = bitcoin::Address::p2pkh(&pub_key_bill, USEDNET).to_string();
+            }
+        }
+        if payed {
+            let holder_public_key = chain
+                .get_last_version_block_with_operation_code(blockchain::OperationCode::RequestToPay)
+                .public_key
+                .clone();
+
+            if holder_public_key.eq(&identity.identity.public_key_pem) {
+                let private_key_bill = bitcoin::PrivateKey::from_str(&bill.private_key).unwrap();
+
+                let private_key_bill_holder =
+                    bitcoin::PrivateKey::from_str(&identity.identity.bitcoin_private_key).unwrap();
+
+                let priv_key_bill = private_key_bill
+                    .inner
+                    .add_tweak(&Scalar::from(private_key_bill_holder.inner.clone()))
+                    .unwrap();
+                pr_key_bill = bitcoin::PrivateKey::new(priv_key_bill, USEDNET).to_string();
+            }
+        }
 
         Template::render(
             "hbs/bill",
@@ -127,6 +177,10 @@ pub async fn get_bill(id: String) -> Template {
                 bill: Some(bill),
                 identity: Some(identity.identity),
                 confirmed: confirmed,
+                ask_to_pay: ask_to_pay,
+                payed: payed,
+                address_to_pay: address_to_pay,
+                pr_key_bill: pr_key_bill,
             },
         )
     } else {
@@ -309,6 +363,44 @@ pub async fn request_to_pay_bill(
 
             client
                 .add_message_to_topic(message, request_to_pay_bill_form.bill_name.clone())
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity: Identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[post("/pay", data = "<pay_bill_form>")]
+pub async fn pay_bill(
+    state: &State<Client>,
+    pay_bill_form: Form<PayBitcreditBillForm>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let mut client = state.inner().clone();
+
+        let correct = pay_bitcredit_bill(&pay_bill_form.bill_name);
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&pay_bill_form.bill_name);
+            let block = chain.get_latest_block();
+
+            let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+            let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+            let message = event.to_byte_array();
+
+            client
+                .add_message_to_topic(message, pay_bill_form.bill_name.clone())
                 .await;
         }
 
