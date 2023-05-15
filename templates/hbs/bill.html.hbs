@@ -24,9 +24,9 @@
     <h3>Jurisdiction: {{bill.bill_jurisdiction}}</h3>
     <h3>Language: {{bill.language}}</h3>
     <h3>Operation code: {{operation_code}}</h3>
-<!--    {{#unless (eq address "")}}-->
-<!--        <h3>Address to pay: {{address}}</h3>-->
-<!--    {{/unless }}-->
+    <h3>Bill public key: {{bill.public_key}}</h3>
+    <h3>Bill private key: {{bill.private_key}}</h3>
+
 </div>
 
 {{#if (eq peer_id bill.holder_name)}}
@@ -51,13 +51,13 @@
             <input type="submit" id="button_submit" value="Request to accept">
         </form>
     {{/if}}
-<!--    {{#if (eq operation_code codes.[4])}}-->
-<!--        <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">-->
-<!--            <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"-->
-<!--                   placeholder="Bill name" readonly><br>-->
-<!--            <input type="submit" id="button_submit" value="Request to pay">-->
-<!--        </form>-->
-<!--    {{/if}}-->
+    {{#if confirmed}}
+        <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+            <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                   placeholder="Bill name" readonly><br>
+            <input type="submit" id="button_submit" value="Request to pay">
+        </form>
+    {{/if}}
 {{/if}}
 {{#if (eq peer_id bill.drawee_name)}}
     {{#if (eq operation_code codes.[3])}}

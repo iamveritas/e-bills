@@ -1,5 +1,8 @@
 #[cfg(test)]
 mod test {
+    use bitcoin::key::XOnlyPublicKey;
+    use bitcoin::secp256k1::Scalar;
+    use std::collections::BTreeMap;
     use std::io::{BufReader, Cursor, Read};
     use std::path::{Path, PathBuf};
     use std::time::Duration;
@@ -132,6 +135,64 @@ mod test {
     //     // Verify
     //     assert!(verifier.verify(signature.as_slice()).unwrap());
     // }
+
+    #[test]
+    fn test_bitcoin() {
+        let s1 = bitcoin::secp256k1::Secp256k1::new();
+        let private_key1 = bitcoin::PrivateKey::new(
+            s1.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng())
+                .0,
+            bitcoin::Network::Testnet,
+        );
+        let public_key1 = private_key1.public_key(&s1);
+        let address1 = bitcoin::Address::p2pkh(&public_key1, bitcoin::Network::Testnet);
+
+        let s2 = bitcoin::secp256k1::Secp256k1::new();
+        let private_key2 = bitcoin::PrivateKey::new(
+            s2.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng())
+                .0,
+            bitcoin::Network::Testnet,
+        );
+        let public_key2 = private_key1.public_key(&s2);
+        let address2 = bitcoin::Address::p2pkh(&public_key2, bitcoin::Network::Testnet);
+
+        let private_key3 = private_key1
+            .inner
+            .add_tweak(&Scalar::from(private_key2.inner.clone()))
+            .unwrap();
+        let pr_key3 = bitcoin::PrivateKey::new(private_key3, bitcoin::Network::Testnet);
+        let public_key3 = public_key1.inner.combine(&public_key2.inner).unwrap();
+        let pub_key3 = bitcoin::PublicKey::new(public_key3);
+        let address3 = bitcoin::Address::p2pkh(&pub_key3, bitcoin::Network::Testnet);
+
+        println!("private key: {}", pr_key3);
+        println!("public key: {}", pub_key3);
+        println!("address: {}", address3);
+        println!("{}", address3.is_spend_standard());
+
+        assert_eq!(private_key1.to_string(), "private key".to_string());
+        assert_eq!(public_key1.to_string(), "public key".to_string());
+        assert_eq!(address1.to_string(), "address".to_string());
+    }
+
+    #[test]
+    fn test_schnorr() {
+        let secp1 = bitcoin::secp256k1::Secp256k1::new();
+        let key_pair1 =
+            bitcoin::secp256k1::KeyPair::new(&secp1, &mut bitcoin::secp256k1::rand::thread_rng());
+        let xonly1 = bitcoin::secp256k1::XOnlyPublicKey::from_keypair(&key_pair1);
+
+        let secp2 = bitcoin::secp256k1::Secp256k1::new();
+        let key_pair2 =
+            bitcoin::secp256k1::KeyPair::new(&secp2, &mut bitcoin::secp256k1::rand::thread_rng());
+        let xonly2 = bitcoin::secp256k1::XOnlyPublicKey::from_keypair(&key_pair2);
+
+        let msg = bitcoin::secp256k1::Message::from_slice(&[0xab; 32]).unwrap();
+        let a = secp1.sign_schnorr(&msg, &key_pair1);
+        let b = secp2
+            .verify_schnorr(&a, &msg, &xonly1.0)
+            .expect("verify failed");
+    }
 
     #[test]
     fn structure_to_bytes() {

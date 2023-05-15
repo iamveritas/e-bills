@@ -1,3 +1,4 @@
+use bitcoin::Network;
 use std::net::Ipv4Addr;
 
 pub const IDENTITY_FOLDER_PATH: &str = "identity";
@@ -14,6 +15,9 @@ pub const CONTACT_MAP_FILE_PATH: &str = "contacts/contacts";
 pub const BOOTSTRAP_NODES_FILE_PATH: &str = "bootstrap/bootstrap_nodes.json";
 pub const BTC: &str = "BTC";
 pub const BILLS_PREFIX: &str = "BILLS";
+pub const TESTNET: Network = Network::Testnet;
+pub const MAINNET: Network = Network::Bitcoin;
+pub const USEDNET: Network = TESTNET;
 pub const BILL_VALIDITY_PERIOD: u64 = 90;
 pub const COMPOUNDING_INTEREST_RATE_ZERO: u64 = 0;
 pub const TCP_PORT_TO_LISTEN: u16 = 1908;

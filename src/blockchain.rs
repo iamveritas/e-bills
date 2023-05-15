@@ -132,8 +132,8 @@ impl Chain {
             compounding_interest_rate: bill_first_version.compounding_interest_rate,
             type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
             place_of_payment: bill_first_version.place_of_payment,
-            public_key_pem: bill_first_version.public_key_pem,
-            private_key_pem: bill_first_version.private_key_pem,
+            public_key: bill_first_version.public_key,
+            private_key: bill_first_version.private_key,
             language: bill_first_version.language,
         };
 
@@ -171,8 +171,8 @@ impl Chain {
             compounding_interest_rate: bill_first_version.compounding_interest_rate,
             type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
             place_of_payment: bill_first_version.place_of_payment,
-            public_key_pem: bill_first_version.public_key_pem,
-            private_key_pem: bill_first_version.private_key_pem,
+            public_key: bill_first_version.public_key,
+            private_key: bill_first_version.private_key,
             language: bill_first_version.language,
         };
 
@@ -217,6 +217,7 @@ pub enum OperationCode {
     Accept,
     Endorse,
     RequestToAccept,
+    RequestToPay,
 }
 
 impl OperationCode {
@@ -226,6 +227,7 @@ impl OperationCode {
             OperationCode::Accept,
             OperationCode::Endorse,
             OperationCode::RequestToAccept,
+            OperationCode::RequestToPay,
         ]
     }
 
@@ -235,6 +237,7 @@ impl OperationCode {
             OperationCode::Accept => "Accept".to_string(),
             OperationCode::Endorse => "Endorse".to_string(),
             OperationCode::RequestToAccept => "RequestToAccept".to_string(),
+            OperationCode::RequestToPay => "RequestToPay".to_string(),
         }
     }
 }
