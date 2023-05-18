@@ -54,12 +54,14 @@ pub async fn get_identity() -> Template {
     } else {
         let identity: IdentityWithAll = get_whole_identity();
         let peer_id = identity.peer_id.to_string();
+        let usednet = USEDNET.to_string();
 
         Template::render(
             "hbs/identity",
             context! {
                 peer_id: peer_id,
                 identity: Some(identity.identity),
+                usednet: usednet,
             },
         )
     }
@@ -127,6 +129,7 @@ pub async fn get_bill(id: String) -> Template {
         let mut address_to_pay = String::new();
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
+        let usednet = USEDNET.to_string();
 
         address_to_pay = get_address_to_pay(bill.clone());
         payed = check_if_paid(address_to_pay.clone(), amount).await;
@@ -152,6 +155,7 @@ pub async fn get_bill(id: String) -> Template {
                 payed: payed,
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,
+                usednet: usednet,
             },
         )
     } else {
