@@ -119,7 +119,7 @@ pub async fn get_bill(id: String) -> Template {
         let last_block = chain.get_latest_block().clone();
         let operation_code = last_block.operation_code;
         let identity: IdentityWithAll = get_whole_identity();
-        let confirmed = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+        let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
         let holder = bill.holder.clone();
         let local_peer_id = identity.peer_id.to_string().clone();
         let drawer_from_bill = bill.drawer.clone();
@@ -151,7 +151,7 @@ pub async fn get_bill(id: String) -> Template {
                 peer_id: local_peer_id,
                 bill: Some(bill),
                 identity: Some(identity.identity),
-                confirmed: confirmed,
+                accepted: accepted,
                 payed: payed,
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,
