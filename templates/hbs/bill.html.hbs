@@ -13,10 +13,16 @@
     </div>
     <h3>Drawer name: {{bill.drawer.name}}</h3>
     <h3>Drawer peer id: {{bill.drawer.peer_id}}</h3>
-    <h3>Bitcoin public key: {{bill.drawer.bitcoin_public_key}}</h3>
+    <h3>Drawer bitcoin public key: {{bill.drawer.bitcoin_public_key}}</h3>
     <h3>Drawer postal address: {{bill.drawer.postal_address}}</h3>
-    <h3>Drawee: {{bill.drawee.name}}</h3>
-    <h3>Holder: {{bill.holder.name}}</h3>
+    <h3>Drawee name: {{bill.drawee.name}}</h3>
+    <h3>Drawee peer id: {{bill.drawee.peer_id}}</h3>
+    <h3>Drawee bitcoin public key: {{bill.drawee.bitcoin_public_key}}</h3>
+    <h3>Drawee postal address: {{bill.drawee.postal_address}}</h3>
+    <h3>Holder name: {{bill.holder.name}}</h3>
+    <h3>Holder peer id: {{bill.holder.peer_id}}</h3>
+    <h3>Holder bitcoin public key: {{bill.holder.bitcoin_public_key}}</h3>
+    <h3>Holder postal address: {{bill.holder.postal_address}}</h3>
     <h3>Amount numbers: {{bill.amount_numbers}}</h3>
     <h3>Amounts letters: {{bill.amounts_letters}}</h3>
     <h3>Currency code: {{bill.currency_code}}</h3>
@@ -38,7 +44,8 @@
     <h3>Payed: {{payed}}</h3>
 </div>
 
-    {{#if (eq peer_id bill.holder.peer_id)}}
+{{#if (eq peer_id bill.holder.peer_id)}}
+    {{#unless payed}}
         <form class="content" action="http://localhost:8000/bill/endorse" method="post">
             <label for="new_holder">New holder name:</label><br>
             <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
@@ -46,39 +53,40 @@
                    placeholder="Bill name" readonly><br>
             <input type="submit" id="button_submit" value="Endorse">
         </form>
-        {{#if (eq operation_code codes.[2])}}
-            <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
-                <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
-                       placeholder="Bill name" readonly><br>
-                <input type="submit" id="button_submit" value="Request to accept">
-            </form>
-        {{/if}}
-        {{#if (eq operation_code codes.[0])}}
-            <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
-                <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
-                       placeholder="Bill name" readonly><br>
-                <input type="submit" id="button_submit" value="Request to accept">
-            </form>
-        {{/if}}
-<!--        {{#if confirmed}}-->
-<!--            <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">-->
-<!--                <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"-->
-<!--                       placeholder="Bill name" readonly><br>-->
-<!--                <input type="submit" id="button_submit" value="Request to pay">-->
-<!--            </form>-->
-<!--        {{/if}}-->
+    {{/unless}}
+    {{#if (eq operation_code codes.[2])}}
+        <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+            <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                   placeholder="Bill name" readonly><br>
+            <input type="submit" id="button_submit" value="Request to accept">
+        </form>
     {{/if}}
-    {{#if (eq peer_id bill.drawee.peer_id)}}
-        {{#if (eq operation_code codes.[3])}}
-            <form class="content" action="http://localhost:8000/bill/accept" method="post">
-                <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
-                       placeholder="Bill name" readonly><br>
-                <input hidden type="text" required="required" id="operation_code" name="operation_code" value="Accept"
-                       placeholder="Operation Code" readonly><br>
-                <input type="submit" id="button_submit" value="Accept">
-            </form>
-        {{/if}}
+    {{#if (eq operation_code codes.[0])}}
+        <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+            <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                   placeholder="Bill name" readonly><br>
+            <input type="submit" id="button_submit" value="Request to accept">
+        </form>
     {{/if}}
+            <!--        {{#if confirmed}}-->
+    <!--            <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">-->
+    <!--                <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"-->
+    <!--                       placeholder="Bill name" readonly><br>-->
+    <!--                <input type="submit" id="button_submit" value="Request to pay">-->
+    <!--            </form>-->
+            <!--        {{/if}}-->
+{{/if}}
+{{#if (eq peer_id bill.drawee.peer_id)}}
+    {{#if (eq operation_code codes.[3])}}
+        <form class="content" action="http://localhost:8000/bill/accept" method="post">
+            <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                   placeholder="Bill name" readonly><br>
+            <input hidden type="text" required="required" id="operation_code" name="operation_code" value="Accept"
+                   placeholder="Operation Code" readonly><br>
+            <input type="submit" id="button_submit" value="Accept">
+        </form>
+    {{/if}}
+{{/if}}
 </body>
 <footer>
     {{> hbs/footer}}

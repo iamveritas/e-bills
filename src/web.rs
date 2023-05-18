@@ -112,7 +112,7 @@ pub async fn get_bill(id: String) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         Template::render("hbs/create_identity", context! {})
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
-        let bill: BitcreditBill = read_bill_from_file(&id);
+        let mut bill: BitcreditBill = read_bill_from_file(&id);
         let chain = Chain::read_chain_from_file(&bill.name);
         let last_block = chain.get_latest_block().clone();
         let operation_code = last_block.operation_code;
@@ -128,14 +128,16 @@ pub async fn get_bill(id: String) -> Template {
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
 
-        // if holder.peer_id.eq(&local_peer_id) || drawer_from_bill.peer_id.eq(&local_peer_id) {
         address_to_pay = get_address_to_pay(bill.clone());
         payed = check_if_paid(address_to_pay.clone(), amount).await;
-        // }
         if holder_public_key.eq(&identity.identity.bitcoin_public_key)
             && !holder.peer_id.eq(&drawee_from_bill.peer_id)
         {
             pr_key_bill = get_holder_private_key(identity.identity.clone(), bill.clone());
+        }
+
+        if payed {
+            bill.holder = bill.drawee.clone();
         }
 
         Template::render(
