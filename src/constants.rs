@@ -14,11 +14,14 @@ pub const IDENTITY_ED_25529_KEYS_FILE_PATH: &str = "identity/ed25519_keys";
 pub const CONTACT_MAP_FILE_PATH: &str = "contacts/contacts";
 pub const BOOTSTRAP_NODES_FILE_PATH: &str = "bootstrap/bootstrap_nodes.json";
 pub const BTC: &str = "BTC";
+pub const mBTC: &str = "mBTC";
 pub const BILLS_PREFIX: &str = "BILLS";
 pub const TESTNET: Network = Network::Testnet;
 pub const MAINNET: Network = Network::Bitcoin;
 pub const USEDNET: Network = TESTNET;
 pub const BILL_VALIDITY_PERIOD: u64 = 90;
+pub const NUMBER_SATOSHI_IN_BTC: u64 = 100000000;
+pub const NUMBER_SATOSHI_IN_mBTC: u64 = 100000;
 pub const COMPOUNDING_INTEREST_RATE_ZERO: u64 = 0;
 pub const TCP_PORT_TO_LISTEN: u16 = 1908;
 //NODE ONE /ip4/45.147.248.87/tcp/1908/p2p/12D3KooWFvRxAazxdKVB7SsTtcLTnvmF8brtW2kQRhceohtgcJv2

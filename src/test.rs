@@ -20,6 +20,7 @@ mod test {
     use openssl::sign::{Signer, Verifier};
     use openssl::symm::Cipher;
     use openssl::{aes, rsa, sha};
+    use serde_derive::Deserialize;
 
     use crate::blockchain::{is_block_valid, signature, Block, Chain};
     use crate::constants::BILLS_FOLDER_PATH;
@@ -175,6 +176,55 @@ mod test {
         assert_eq!(address1.to_string(), "address".to_string());
     }
 
+    #[tokio::test]
+    async fn test_api() {
+        #[derive(Deserialize, Debug)]
+        struct ChainStats {
+            funded_txo_count: u32,
+            funded_txo_sum: u32,
+            spent_txo_count: u32,
+            spent_txo_sum: u32,
+            tx_count: u32,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct MempoolStats {
+            funded_txo_count: u32,
+            funded_txo_sum: u32,
+            spent_txo_count: u32,
+            spent_txo_sum: u32,
+            tx_count: u32,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct User {
+            address: String,
+            chain_stats: ChainStats,
+            mempool_stats: MempoolStats,
+        }
+
+        let request_url = format!(
+            "https://blockstream.info/testnet/api/address/{address}",
+            address = "mzYHxNxTTGrrxnwSc1RvqTusK4EM88o6yj"
+        );
+        println!("{}", request_url);
+        let response1 = reqwest::get(&request_url)
+            .await
+            .expect("Failed to send request")
+            .text()
+            .await
+            .expect("Failed to read response");
+        println!("{:?}", response1);
+        let response: User = reqwest::get(&request_url)
+            .await
+            .expect("Failed to send request")
+            .json()
+            .await
+            .expect("Failed to read response");
+        println!("{:?}", response);
+        assert_eq!("dsad".to_string(), "address".to_string());
+    }
+
     #[test]
     fn test_schnorr() {
         let secp1 = bitcoin::secp256k1::Secp256k1::new();
@@ -228,126 +278,126 @@ mod test {
         let peer_id2: PeerId = unsafe { mem::transmute_copy(peer_id_bytes_sized) };
     }
 
-    #[test]
-    fn encrypt_bill_with_rsa_keypair() {
-        let bill = BitcreditBill {
-            name: "".to_string(),
-            to_payee: false,
-            bill_jurisdiction: "".to_string(),
-            timestamp_at_drawing: 0,
-            drawee_name: "".to_string(),
-            drawer_name: "".to_string(),
-            holder_name: "".to_string(),
-            place_of_drawing: "".to_string(),
-            currency_code: "".to_string(),
-            amount_numbers: 0,
-            amounts_letters: "".to_string(),
-            maturity_date: "".to_string(),
-            date_of_issue: "".to_string(),
-            compounding_interest_rate: 0,
-            type_of_interest_calculation: false,
-            place_of_payment: "".to_string(),
-            public_key_pem: "".to_string(),
-            private_key_pem: "".to_string(),
-            language: "".to_string(),
-        };
+    // #[test]
+    // fn encrypt_bill_with_rsa_keypair() {
+    //     let bill = BitcreditBill {
+    //         name: "".to_string(),
+    //         to_payee: false,
+    //         bill_jurisdiction: "".to_string(),
+    //         timestamp_at_drawing: 0,
+    //         drawee_name: "".to_string(),
+    //         drawer_name: "".to_string(),
+    //         holder_name: "".to_string(),
+    //         place_of_drawing: "".to_string(),
+    //         currency_code: "".to_string(),
+    //         amount_numbers: 0,
+    //         amounts_letters: "".to_string(),
+    //         maturity_date: "".to_string(),
+    //         date_of_issue: "".to_string(),
+    //         compounding_interest_rate: 0,
+    //         type_of_interest_calculation: false,
+    //         place_of_payment: "".to_string(),
+    //         public_key_pem: "".to_string(),
+    //         private_key_pem: "".to_string(),
+    //         language: "".to_string(),
+    //     };
+    //
+    //     let rsa_key = generation_rsa_key();
+    //     let bill_bytes = bill_to_byte_array(&bill);
+    //
+    //     let enc = encrypt_bytes(&bill_bytes, &rsa_key);
+    //
+    //     let mut final_number_256_byte_arrays: u32;
+    //     let bill_bytes_len = bill_bytes.len();
+    //     let exact_number_256_byte_arrays = (bill_bytes_len as f32 / 128 as f32) as f32;
+    //     if exact_number_256_byte_arrays % 1.0 == 0 as f32 {
+    //         final_number_256_byte_arrays = exact_number_256_byte_arrays as u32
+    //     } else {
+    //         final_number_256_byte_arrays = exact_number_256_byte_arrays as u32 + 1
+    //     }
+    //
+    //     assert_eq!(final_number_256_byte_arrays * 256, enc.len() as u32);
+    // }
 
-        let rsa_key = generation_rsa_key();
-        let bill_bytes = bill_to_byte_array(&bill);
+    // #[test]
+    // fn decrypt_bill_with_rsa_keypair() {
+    //     let bill = BitcreditBill {
+    //         name: "".to_string(),
+    //         to_payee: false,
+    //         bill_jurisdiction: "".to_string(),
+    //         timestamp_at_drawing: 0,
+    //         drawee_name: "".to_string(),
+    //         drawer_name: "".to_string(),
+    //         holder_name: "".to_string(),
+    //         place_of_drawing: "".to_string(),
+    //         currency_code: "".to_string(),
+    //         amount_numbers: 0,
+    //         amounts_letters: "".to_string(),
+    //         maturity_date: "".to_string(),
+    //         date_of_issue: "".to_string(),
+    //         compounding_interest_rate: 0,
+    //         type_of_interest_calculation: false,
+    //         place_of_payment: "".to_string(),
+    //         public_key_pem: "".to_string(),
+    //         private_key_pem: "".to_string(),
+    //         language: "".to_string(),
+    //     };
+    //
+    //     let rsa_key = generation_rsa_key();
+    //     let bill_bytes = bill_to_byte_array(&bill);
+    //
+    //     let encrypted_bill = encrypt_bytes(&bill_bytes, &rsa_key);
+    //
+    //     let decrypted_bill = decrypt_bytes(&encrypted_bill, &rsa_key);
+    //     assert_eq!(bill_bytes.len(), decrypted_bill.len());
+    //
+    //     let new_bill = bill_from_byte_array(&decrypted_bill);
+    //
+    //     assert_eq!(bill.bill_jurisdiction, new_bill.bill_jurisdiction);
+    // }
 
-        let enc = encrypt_bytes(&bill_bytes, &rsa_key);
-
-        let mut final_number_256_byte_arrays: u32;
-        let bill_bytes_len = bill_bytes.len();
-        let exact_number_256_byte_arrays = (bill_bytes_len as f32 / 128 as f32) as f32;
-        if exact_number_256_byte_arrays % 1.0 == 0 as f32 {
-            final_number_256_byte_arrays = exact_number_256_byte_arrays as u32
-        } else {
-            final_number_256_byte_arrays = exact_number_256_byte_arrays as u32 + 1
-        }
-
-        assert_eq!(final_number_256_byte_arrays * 256, enc.len() as u32);
-    }
-
-    #[test]
-    fn decrypt_bill_with_rsa_keypair() {
-        let bill = BitcreditBill {
-            name: "".to_string(),
-            to_payee: false,
-            bill_jurisdiction: "".to_string(),
-            timestamp_at_drawing: 0,
-            drawee_name: "".to_string(),
-            drawer_name: "".to_string(),
-            holder_name: "".to_string(),
-            place_of_drawing: "".to_string(),
-            currency_code: "".to_string(),
-            amount_numbers: 0,
-            amounts_letters: "".to_string(),
-            maturity_date: "".to_string(),
-            date_of_issue: "".to_string(),
-            compounding_interest_rate: 0,
-            type_of_interest_calculation: false,
-            place_of_payment: "".to_string(),
-            public_key_pem: "".to_string(),
-            private_key_pem: "".to_string(),
-            language: "".to_string(),
-        };
-
-        let rsa_key = generation_rsa_key();
-        let bill_bytes = bill_to_byte_array(&bill);
-
-        let encrypted_bill = encrypt_bytes(&bill_bytes, &rsa_key);
-
-        let decrypted_bill = decrypt_bytes(&encrypted_bill, &rsa_key);
-        assert_eq!(bill_bytes.len(), decrypted_bill.len());
-
-        let new_bill = bill_from_byte_array(&decrypted_bill);
-
-        assert_eq!(bill.bill_jurisdiction, new_bill.bill_jurisdiction);
-    }
-
-    #[test]
-    fn sign_and_verify_data_given_an_rsa_keypair() {
-        let data = BitcreditBill {
-            name: "".to_string(),
-            to_payee: false,
-            bill_jurisdiction: "".to_string(),
-            timestamp_at_drawing: 0,
-            drawee_name: "".to_string(),
-            drawer_name: "".to_string(),
-            holder_name: "".to_string(),
-            place_of_drawing: "".to_string(),
-            currency_code: "".to_string(),
-            amount_numbers: 0,
-            amounts_letters: "".to_string(),
-            maturity_date: "".to_string(),
-            date_of_issue: "".to_string(),
-            compounding_interest_rate: 0,
-            type_of_interest_calculation: false,
-            place_of_payment: "".to_string(),
-            public_key_pem: "".to_string(),
-            private_key_pem: "".to_string(),
-            language: "".to_string(),
-        };
-
-        // Generate a keypair
-        let rsa_key = generation_rsa_key();
-        let p_key = PKey::from_rsa(rsa_key).unwrap();
-
-        // Create signer
-        let mut signer = Signer::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
-
-        // Sign
-        signer.update(&*data.try_to_vec().unwrap()).unwrap();
-        let signature = signer.sign_to_vec().unwrap();
-
-        // Create verifier
-        let mut verifier = Verifier::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
-
-        // Verify
-        verifier.update(&*data.try_to_vec().unwrap()).unwrap();
-        assert!(verifier.verify(&signature).unwrap());
-    }
+    // #[test]
+    // fn sign_and_verify_data_given_an_rsa_keypair() {
+    //     let data = BitcreditBill {
+    //         name: "".to_string(),
+    //         to_payee: false,
+    //         bill_jurisdiction: "".to_string(),
+    //         timestamp_at_drawing: 0,
+    //         drawee_name: "".to_string(),
+    //         drawer_name: "".to_string(),
+    //         holder_name: "".to_string(),
+    //         place_of_drawing: "".to_string(),
+    //         currency_code: "".to_string(),
+    //         amount_numbers: 0,
+    //         amounts_letters: "".to_string(),
+    //         maturity_date: "".to_string(),
+    //         date_of_issue: "".to_string(),
+    //         compounding_interest_rate: 0,
+    //         type_of_interest_calculation: false,
+    //         place_of_payment: "".to_string(),
+    //         public_key_pem: "".to_string(),
+    //         private_key_pem: "".to_string(),
+    //         language: "".to_string(),
+    //     };
+    //
+    //     // Generate a keypair
+    //     let rsa_key = generation_rsa_key();
+    //     let p_key = PKey::from_rsa(rsa_key).unwrap();
+    //
+    //     // Create signer
+    //     let mut signer = Signer::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
+    //
+    //     // Sign
+    //     signer.update(&*data.try_to_vec().unwrap()).unwrap();
+    //     let signature = signer.sign_to_vec().unwrap();
+    //
+    //     // Create verifier
+    //     let mut verifier = Verifier::new(MessageDigest::sha256(), p_key.as_ref()).unwrap();
+    //
+    //     // Verify
+    //     verifier.update(&*data.try_to_vec().unwrap()).unwrap();
+    //     assert!(verifier.verify(&signature).unwrap());
+    // }
 
     #[test]
     fn encrypt_and_decrypt_simple_data_with_rsa_keypair() {

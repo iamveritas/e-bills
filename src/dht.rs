@@ -59,11 +59,13 @@ pub mod network {
     use crate::blockchain::{Block, Chain, GossipsubEvent, GossipsubEventId};
     use crate::constants::{
         BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
-        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH, RELAY_BOOTSTRAP_NODE_ONE_IP,
-        RELAY_BOOTSTRAP_NODE_ONE_PEER_ID, RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
+        IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
+        RELAY_BOOTSTRAP_NODE_ONE_IP, RELAY_BOOTSTRAP_NODE_ONE_PEER_ID,
+        RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
     };
     use crate::{
-        generate_dht_logic, get_bills, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        generate_dht_logic, get_bills, get_whole_identity, read_ed25519_keypair_from_file,
+        read_peer_id_from_file, IdentityPublicData, IdentityWithAll,
     };
 
     use super::*;
@@ -384,6 +386,44 @@ pub mod network {
                     .to_string();
                 self.put(&bill_name).await;
             }
+        }
+
+        pub async fn put_identity_public_data_in_dht(&mut self) {
+            if Path::new(IDENTITY_FILE_PATH).exists() {
+                let identity: IdentityWithAll = get_whole_identity();
+                let identity_data = IdentityPublicData::new(
+                    identity.identity.clone(),
+                    identity.peer_id.to_string().clone(),
+                );
+
+                let key = "INFO".to_string() + &identity_data.peer_id;
+                let current_info = self.get_record(key.clone()).await.value;
+                let mut current_info_string = String::new();
+                if !current_info.is_empty() {
+                    current_info_string = std::str::from_utf8(&current_info)
+                        .expect("Cant get value.")
+                        .to_string();
+                }
+                let value = serde_json::to_string(&identity_data).unwrap();
+                if !current_info_string.eq(&value) {
+                    self.put_record(key, value).await;
+                }
+            }
+        }
+
+        pub async fn get_identity_public_data_from_dht(
+            &mut self,
+            peer_id: String,
+        ) -> IdentityPublicData {
+            let key = "INFO".to_string() + &peer_id;
+            let current_info = self.get_record(key.clone()).await.value;
+            let current_info_string = std::str::from_utf8(&current_info)
+                .expect("Cant get value.")
+                .to_string();
+            let identity_public_data: IdentityPublicData =
+                serde_json::from_str(&current_info_string).unwrap();
+
+            identity_public_data
         }
 
         pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: &String) {
@@ -1012,12 +1052,12 @@ pub mod network {
                 }
 
                 SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                    println!("Outgoing connection error to {:?}: {:?}", peer_id, error);
-                    if let Some(peer_id) = peer_id {
-                        if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                            let _ = sender.send(Err(Box::new(error)));
-                        }
-                    }
+                    // println!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+                    // if let Some(peer_id) = peer_id {
+                    //     if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                    //         let _ = sender.send(Err(Box::new(error)));
+                    //     }
+                    // }
                 }
 
                 SwarmEvent::IncomingConnectionError { .. } => {
