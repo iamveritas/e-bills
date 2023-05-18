@@ -11,7 +11,10 @@
     <div class="headline">
         <h1>Information about your bill {{bill.name}}</h1>
     </div>
-    <h3>Drawer: {{bill.drawer.name}}</h3>
+    <h3>Drawer name: {{bill.drawer.name}}</h3>
+    <h3>Drawer peer id: {{bill.drawer.peer_id}}</h3>
+    <h3>Bitcoin public key: {{bill.drawer.bitcoin_public_key}}</h3>
+    <h3>Drawer postal address: {{bill.drawer.postal_address}}</h3>
     <h3>Drawee: {{bill.drawee.name}}</h3>
     <h3>Holder: {{bill.holder.name}}</h3>
     <h3>Amount numbers: {{bill.amount_numbers}}</h3>
@@ -35,8 +38,7 @@
     <h3>Payed: {{payed}}</h3>
 </div>
 
-{{#unless payed}}
-    {{#if (eq peer_id bill.holder_name)}}
+    {{#if (eq peer_id bill.holder.peer_id)}}
         <form class="content" action="http://localhost:8000/bill/endorse" method="post">
             <label for="new_holder">New holder name:</label><br>
             <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
@@ -66,7 +68,7 @@
 <!--            </form>-->
 <!--        {{/if}}-->
     {{/if}}
-    {{#if (eq peer_id bill.drawee_name)}}
+    {{#if (eq peer_id bill.drawee.peer_id)}}
         {{#if (eq operation_code codes.[3])}}
             <form class="content" action="http://localhost:8000/bill/accept" method="post">
                 <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
@@ -77,7 +79,6 @@
             </form>
         {{/if}}
     {{/if}}
-{{/unless}}
 </body>
 <footer>
     {{> hbs/footer}}
