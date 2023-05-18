@@ -9,8 +9,7 @@ use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
 use crate::constants::{
-    NUMBER_SATOSHI_IN_mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH,
-    NUMBER_SATOSHI_IN_BTC, USEDNET,
+    NUMBER_SATOSHI_IN_mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET,
 };
 use crate::dht::network::Client;
 use crate::{

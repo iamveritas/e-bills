@@ -11,7 +11,7 @@ use crate::blockchain::OperationCode::Endorse;
 use crate::constants::BILLS_FOLDER_PATH;
 use crate::{
     bill_from_byte_array, bill_to_byte_array, private_key_from_pem_u8, public_key_from_pem_u8,
-    BitcreditBill, IdentityPublicData,
+    BitcreditBill,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
