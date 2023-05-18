@@ -35,7 +35,7 @@
 </div>
 
 {{#if (eq peer_id bill.holder_name)}}
-    {{#unless ask_to_pay}}
+    {{#unless asked_to_pay}}
         <form class="content" action="http://localhost:8000/bill/endorse" method="post">
             <label for="new_holder">New holder name:</label><br>
             <input type="text" required="required" id="new_holder" name="new_holder" placeholder="New holder name"><br>
@@ -45,7 +45,7 @@
         </form>
     {{/unless}}
     {{#if (eq operation_code codes.[2])}}
-        {{#unless ask_to_pay}}
+        {{#unless asked_to_pay}}
             <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
                 <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
                        placeholder="Bill name" readonly><br>
@@ -54,7 +54,7 @@
         {{/unless}}
     {{/if}}
     {{#if (eq operation_code codes.[0])}}
-        {{#unless ask_to_pay}}
+        {{#unless asked_to_pay}}
             <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
                 <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
                        placeholder="Bill name" readonly><br>
@@ -63,7 +63,7 @@
         {{/unless}}
     {{/if}}
     {{#if confirmed}}
-        {{#unless ask_to_pay}}
+        {{#unless asked_to_pay}}
             <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
                 <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
                        placeholder="Bill name" readonly><br>
@@ -82,7 +82,7 @@
             <input type="submit" id="button_submit" value="Accept">
         </form>
     {{/if}}
-    {{#if ask_to_pay}}
+    {{#if asked_to_pay}}
         {{#unless payed}}
             <form class="content" action="http://localhost:8000/bill/pay" method="post">
                 <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"

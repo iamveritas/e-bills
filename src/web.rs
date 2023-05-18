@@ -108,40 +108,36 @@ pub async fn get_bill(id: String) -> Template {
         Template::render("hbs/create_identity", context! {})
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
         let bill: BitcreditBill = read_bill_from_file(&id);
-
         let peer_id = read_peer_id_from_file();
         let str_peer_id = peer_id.to_string();
-
         let chain = Chain::read_chain_from_file(&bill.name);
-
         let last_block = chain.get_latest_block().clone();
         let operation_code = last_block.operation_code;
-
         let identity: IdentityWithAll = get_whole_identity();
 
         let confirmed = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
-        let ask_to_pay =
+        let asked_to_pay =
             chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
         let payed = chain.exist_block_with_operation_code(blockchain::OperationCode::Pay);
+
         let mut address_to_pay = String::new();
         let mut pr_key_bill = String::new();
-        if ask_to_pay {
-            let drawee = bill.drawee_name.clone();
-
+        if asked_to_pay {
+            let holder = bill.holder_name.clone();
             let drawer = identity.peer_id.to_string().clone();
             let drawer_from_bill = bill.drawer_name.clone();
 
-            if drawee.eq(&identity.peer_id.to_string()) || drawer.eq(&drawer_from_bill) {
+            if holder.eq(&identity.peer_id.to_string()) || drawer.eq(&drawer_from_bill) {
                 let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
 
-                let holder_public_key = chain
+                let public_key_holder = chain
                     .get_last_version_block_with_operation_code(
                         blockchain::OperationCode::RequestToPay,
                     )
                     .data
                     .clone();
                 let public_key_bill_holder =
-                    bitcoin::PublicKey::from_str(&holder_public_key).unwrap();
+                    bitcoin::PublicKey::from_str(&public_key_holder).unwrap();
 
                 let public_key_bill = public_key_bill
                     .inner
@@ -163,11 +159,11 @@ pub async fn get_bill(id: String) -> Template {
                 let private_key_bill_holder =
                     bitcoin::PrivateKey::from_str(&identity.identity.bitcoin_private_key).unwrap();
 
-                let priv_key_bill = private_key_bill
+                let privat_key_bill = private_key_bill
                     .inner
                     .add_tweak(&Scalar::from(private_key_bill_holder.inner.clone()))
                     .unwrap();
-                pr_key_bill = bitcoin::PrivateKey::new(priv_key_bill, USEDNET).to_string();
+                pr_key_bill = bitcoin::PrivateKey::new(privat_key_bill, USEDNET).to_string();
             }
         }
 
@@ -180,7 +176,7 @@ pub async fn get_bill(id: String) -> Template {
                 bill: Some(bill),
                 identity: Some(identity.identity),
                 confirmed: confirmed,
-                ask_to_pay: ask_to_pay,
+                asked_to_pay: asked_to_pay,
                 payed: payed,
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,

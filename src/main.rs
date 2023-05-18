@@ -36,6 +36,7 @@ mod numbers_to_words;
 mod test;
 mod web;
 
+
 // MAIN
 // #[rocket::main]
 #[tokio::main]
@@ -633,6 +634,9 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
 
+    let asked_to_pay =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToPay);
+
     if my_peer_id.eq(&bill.holder_name) {
         if last_block.operation_code.eq(&OperationCode::Endorse)
             || last_block.operation_code.eq(&OperationCode::Issue)
@@ -640,6 +644,7 @@ pub fn endorse_bill_and_return_new_holder_id(bill_name: &String, new_holder: Str
             || last_block
                 .operation_code
                 .eq(&OperationCode::RequestToAccept)
+            || !asked_to_pay
         {
             let mut new_holder_node_id = "";
             if contacts_map.contains_key(&new_holder) {
@@ -692,30 +697,23 @@ pub fn request_pay(bill_name: &String) -> bool {
 
     if exist_code_with_accept && !exist_code_with_request_to_pay && my_peer_id.eq(&bill.holder_name)
     {
-        if last_block.operation_code.eq(&OperationCode::Endorse)
-            || last_block.operation_code.eq(&OperationCode::Issue)
-            || last_block.operation_code.eq(&OperationCode::Accept)
-        {
-            let identity = read_identity_from_file();
-            let bitcoin_public_key = identity.bitcoin_public_key.clone();
+        let identity = read_identity_from_file();
+        let bitcoin_public_key = identity.bitcoin_public_key.clone();
 
-            let new_block = Block::new(
-                last_block.id + 1,
-                last_block.hash.clone(),
-                bitcoin_public_key,
-                bill_name.clone(),
-                identity.public_key_pem.clone(),
-                OperationCode::RequestToPay,
-                identity.private_key_pem.clone(),
-            );
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            bitcoin_public_key,
+            bill_name.clone(),
+            identity.public_key_pem.clone(),
+            OperationCode::RequestToPay,
+            identity.private_key_pem.clone(),
+        );
 
-            let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
-            if try_add_block && blockchain_from_file.is_chain_valid() {
-                blockchain_from_file.write_chain_to_file(&bill.name);
-                return true;
-            } else {
-                return false;
-            }
+        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+        if try_add_block && blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+            return true;
         } else {
             return false;
         }
@@ -731,37 +729,26 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
 
-    let exist_code_with_accept =
-        blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
     let exist_code_with_request_to_accept =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::RequestToAccept);
 
-    if !exist_code_with_accept
-        && !exist_code_with_request_to_accept
-        && my_peer_id.eq(&bill.holder_name)
-    {
-        if last_block.operation_code.eq(&OperationCode::Endorse)
-            || last_block.operation_code.eq(&OperationCode::Issue)
-        {
-            let identity = read_identity_from_file();
+    if !exist_code_with_request_to_accept && my_peer_id.eq(&bill.holder_name) {
+        let identity = read_identity_from_file();
 
-            let new_block = Block::new(
-                last_block.id + 1,
-                last_block.hash.clone(),
-                String::new(),
-                bill_name.clone(),
-                identity.public_key_pem.clone(),
-                OperationCode::RequestToAccept,
-                identity.private_key_pem.clone(),
-            );
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            String::new(),
+            bill_name.clone(),
+            identity.public_key_pem.clone(),
+            OperationCode::RequestToAccept,
+            identity.private_key_pem.clone(),
+        );
 
-            let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
-            if try_add_block && blockchain_from_file.is_chain_valid() {
-                blockchain_from_file.write_chain_to_file(&bill.name);
-                return true;
-            } else {
-                return false;
-            }
+        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+        if try_add_block && blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+            return true;
         } else {
             return false;
         }
