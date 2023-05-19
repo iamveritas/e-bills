@@ -209,8 +209,8 @@ impl Chain {
                     let endorser_bill: IdentityPublicData =
                         serde_json::from_slice(&endorser_bill_u8).unwrap();
                     line = format!(
-                        "Bill endorsed to {} at {} in {}",
-                        endorser_bill.name, time_of_endorse, endorser_bill.postal_address
+                        "Bill endorsed to {} at {}",
+                        endorser_bill.name, time_of_endorse
                     );
                 }
                 OperationCode::RequestToAccept => {
