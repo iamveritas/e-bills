@@ -353,7 +353,7 @@ pub mod network {
                     self.put_record(node_request.clone(), new_record).await;
                 }
             } else {
-                let mut new_record: String = "".to_string();
+                let mut new_record = String::new();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
                     let mut bill_name = file.unwrap().file_name().into_string().unwrap();
                     bill_name = path::Path::file_stem(path::Path::new(&bill_name))
@@ -428,7 +428,7 @@ pub mod network {
 
         pub async fn add_bill_to_dht_for_node(&mut self, bill_name: &String, node_id: &String) {
             let node_request = BILLS_PREFIX.to_string() + node_id;
-            let mut record_for_saving_in_dht = "".to_string();
+            let mut record_for_saving_in_dht = String::new();
             let list_bills_for_node = self.get_record(node_request.clone()).await;
             let value = list_bills_for_node.value;
             if !value.is_empty() {
