@@ -108,6 +108,37 @@ pub async fn bills_list() -> Template {
     }
 }
 
+#[get("/history/<id>")]
+pub async fn get_bill_history(id: String) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
+        let mut bill: BitcreditBill = read_bill_from_file(&id);
+        let chain = Chain::read_chain_from_file(&bill.name);
+        let history = chain.get_bill_history();
+        Template::render(
+            "hbs/bill_history",
+            context! {
+                bill: Some(bill),
+                history: history,
+            },
+        )
+    } else {
+        let bills = get_bills();
+        let identity: IdentityWithAll = get_whole_identity();
+        let peer_id = read_peer_id_from_file().to_string();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                peer_id: Some(peer_id),
+                identity: Some(identity.identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
 #[get("/<id>")]
 pub async fn get_bill(id: String) -> Template {
     if !Path::new(IDENTITY_FILE_PATH).exists() {

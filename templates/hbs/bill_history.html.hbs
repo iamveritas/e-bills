@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Bill History</title>
+</head>
+<header>
+    {{> hbs/nav}}
+</header>
+<body>
+<div class="content">
+    <div class="headline">
+        <h1>History of your bill {{bill.name}}</h1>
+    </div>
+    <ul>
+        {{#each history}}
+            <li>{{this}}</li>
+        {{/each}}
+    </ul>
+</div>
+</body>
+<footer>
+    {{> hbs/footer}}
+</footer>
+</html>

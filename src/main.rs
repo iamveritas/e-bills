@@ -87,6 +87,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::request_to_accept_bill,
                 web::accept_bill_form,
                 web::request_to_pay_bill,
+                web::get_bill_history,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -647,18 +648,22 @@ pub fn request_pay(bill_name: &String) -> bool {
     let last_block = blockchain_from_file.get_latest_block();
 
     if my_peer_id.eq(&bill.holder.peer_id) {
-        let identity = read_identity_from_file();
+        let identity = get_whole_identity();
 
-        let data = "Request to pay".to_string();
+        let my_identity_public =
+            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+
+        let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
+        let data = "Requested to pay by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
             data,
             bill_name.clone(),
-            identity.public_key_pem.clone(),
+            identity.identity.public_key_pem.clone(),
             OperationCode::RequestToPay,
-            identity.private_key_pem.clone(),
+            identity.identity.private_key_pem.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -681,18 +686,23 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     let last_block = blockchain_from_file.get_latest_block();
 
     if my_peer_id.eq(&bill.holder.peer_id) {
-        let identity = read_identity_from_file();
+        let identity = get_whole_identity();
 
-        let data = "Request to accept".to_string();
+        let my_identity_public =
+            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+
+        let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
+        let data =
+            "Requested to accept by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
             data,
             bill_name.clone(),
-            identity.public_key_pem.clone(),
+            identity.identity.public_key_pem.clone(),
             OperationCode::RequestToAccept,
-            identity.private_key_pem.clone(),
+            identity.identity.private_key_pem.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -715,18 +725,22 @@ pub fn accept_bill(bill_name: &String) -> bool {
     let last_block = blockchain_from_file.get_latest_block();
 
     if bill.drawee.peer_id.eq(&my_peer_id) {
-        let identity = read_identity_from_file();
+        let identity = get_whole_identity();
 
-        let data = "Accepted".to_string();
+        let my_identity_public =
+            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+
+        let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
+        let data = "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
             data,
             bill_name.clone(),
-            identity.public_key_pem.clone(),
+            identity.identity.public_key_pem.clone(),
             OperationCode::Accept,
-            identity.private_key_pem.clone(),
+            identity.identity.private_key_pem.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());

@@ -43,6 +43,7 @@
         <h3>Private key to receive money: {{pr_key_bill}}</h3>
     {{/unless}}
     <h3>Payed: {{payed}}</h3>
+    <h3><a href="http://localhost:8000/bill/history/{{bill.name}}">History</a></h3>
 </div>
 
 {{#if (eq peer_id bill.holder.peer_id)}}
