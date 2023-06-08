@@ -12,7 +12,7 @@
         <h1>History of your bill {{bill.name}}</h1>
     </div>
     <ul>
-        {{#each history}}Щ
+        {{#each history}}
             <li><a href="http://localhost:8000/bill/{{this.bill_name}}/block/{{this.id}}">{{this.text}}</a></li>
         {{/each}}
         <br>
