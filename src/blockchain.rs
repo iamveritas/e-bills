@@ -103,19 +103,32 @@ impl Chain {
         let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
         let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
 
-        let mut holder_bill = bill_first_version.holder.clone();
+        let mut last_endorsee = IdentityPublicData {
+            peer_id: "".to_string(),
+            name: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            email: "".to_string(),
+        };
 
         if self.blocks.len() > 1 && self.exist_block_with_operation_code(Endorse.clone()) {
             let last_version_block = self.get_last_version_block_with_operation_code(Endorse);
             let last_version_block_data = last_version_block.data.clone();
-            let part_with_identity = last_version_block_data
+            let mut part_with_endorsee = last_version_block_data
                 .split("Endorsed to ")
                 .collect::<Vec<&str>>()
                 .get(1)
                 .unwrap()
                 .to_string();
-            let holder_bill_last_version_u8 = hex::decode(part_with_identity).unwrap();
-            holder_bill = serde_json::from_slice(&holder_bill_last_version_u8).unwrap();
+
+            part_with_endorsee = part_with_endorsee
+                .split(" endorsed by ")
+                .collect::<Vec<&str>>()
+                .get(0)
+                .unwrap()
+                .to_string();
+            let endorsee = hex::decode(part_with_endorsee).unwrap();
+            last_endorsee = serde_json::from_slice(&endorsee).unwrap();
         }
 
         let bill = BitcreditBill {
@@ -125,7 +138,8 @@ impl Chain {
             timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
             drawee: bill_first_version.drawee,
             drawer: bill_first_version.drawer,
-            holder: holder_bill.clone(),
+            payee: bill_first_version.payee,
+            endorsee: last_endorsee.clone(),
             place_of_drawing: bill_first_version.place_of_drawing,
             currency_code: bill_first_version.currency_code,
             amount_numbers: bill_first_version.amount_numbers,
@@ -150,7 +164,7 @@ impl Chain {
         bill_first_version
     }
 
-    fn get_block_by_id(&self, id: u64) -> Block {
+    pub fn get_block_by_id(&self, id: u64) -> Block {
         let mut block = self.get_first_block().clone();
         for b in &self.blocks {
             if b.id == id {
@@ -181,8 +195,8 @@ impl Chain {
         }
     }
 
-    pub fn get_bill_history(&self) -> Vec<String> {
-        let mut history: Vec<String> = Vec::new();
+    pub fn get_bill_history(&self) -> Vec<BlockForHistory> {
+        let mut history: Vec<BlockForHistory> = Vec::new();
 
         for block in &self.blocks {
             let mut line = String::new();
@@ -198,19 +212,42 @@ impl Chain {
                 OperationCode::Endorse => {
                     let block = self.get_block_by_id(block.id.clone());
                     let time_of_endorse = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    let part_with_identity = block
+                    let mut part_with_endorsee = block
                         .data
                         .split("Endorsed to ")
                         .collect::<Vec<&str>>()
                         .get(1)
                         .unwrap()
                         .to_string();
-                    let endorser_bill_u8 = hex::decode(part_with_identity).unwrap();
+
+                    let part_with_endorsed_by = part_with_endorsee
+                        .clone()
+                        .split(" endorsed by ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+
+                    part_with_endorsee = part_with_endorsee
+                        .split(" endorsed by ")
+                        .collect::<Vec<&str>>()
+                        .get(0)
+                        .unwrap()
+                        .to_string();
+
+                    let endorsee_bill_u8 = hex::decode(part_with_endorsee).unwrap();
+                    let endorsee_bill: IdentityPublicData =
+                        serde_json::from_slice(&endorsee_bill_u8).unwrap();
+
+                    let endorser_bill_u8 = hex::decode(part_with_endorsed_by).unwrap();
                     let endorser_bill: IdentityPublicData =
                         serde_json::from_slice(&endorser_bill_u8).unwrap();
                     line = format!(
-                        "Bill endorsed to {} at {}",
-                        endorser_bill.name, time_of_endorse
+                        "Bill endorsed to {} at {} by {} in {}",
+                        endorsee_bill.name,
+                        time_of_endorse,
+                        endorser_bill.name,
+                        endorser_bill.postal_address
                     );
                 }
                 OperationCode::RequestToAccept => {
@@ -274,7 +311,11 @@ impl Chain {
                     );
                 }
             }
-            history.push(line);
+            history.push(BlockForHistory {
+                id: block.id.clone(),
+                text: line,
+                bill_name: block.bill_name.clone(),
+            });
         }
         history
     }
@@ -402,6 +443,13 @@ pub enum GossipsubEventId {
     Block,
     Chain,
     CommandGetChain,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
+pub struct BlockForHistory {
+    id: u64,
+    text: String,
+    bill_name: String,
 }
 
 fn mine_block(

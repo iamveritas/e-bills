@@ -2,27 +2,27 @@ use serde_derive::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct ChainStats {
-    funded_txo_count: u64,
+    pub funded_txo_count: u64,
     pub funded_txo_sum: u64,
-    spent_txo_count: u64,
+    pub spent_txo_count: u64,
     pub spent_txo_sum: u64,
-    tx_count: u64,
+    pub tx_count: u64,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct MempoolStats {
-    funded_txo_count: u64,
-    funded_txo_sum: u64,
-    spent_txo_count: u64,
-    spent_txo_sum: u64,
-    tx_count: u64,
+    pub funded_txo_count: u64,
+    pub funded_txo_sum: u64,
+    pub spent_txo_count: u64,
+    pub spent_txo_sum: u64,
+    pub tx_count: u64,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AddressInfo {
     address: String,
     pub chain_stats: ChainStats,
-    mempool_stats: MempoolStats,
+    pub mempool_stats: MempoolStats,
 }
 
 impl AddressInfo {

@@ -15,6 +15,7 @@ pub const CONTACT_MAP_FILE_PATH: &str = "contacts/contacts";
 pub const BOOTSTRAP_NODES_FILE_PATH: &str = "bootstrap/bootstrap_nodes.json";
 pub const BTC: &str = "BTC";
 pub const mBTC: &str = "mBTC";
+pub const SATOSHI: &str = "sats";
 pub const BILLS_PREFIX: &str = "BILLS";
 pub const TESTNET: Network = Network::Testnet;
 pub const MAINNET: Network = Network::Bitcoin;

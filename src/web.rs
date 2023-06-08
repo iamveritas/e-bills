@@ -7,7 +7,7 @@ use rocket::form::Form;
 use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
+use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId, OperationCode};
 use crate::constants::{
     NUMBER_SATOSHI_IN_mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET,
 };
@@ -116,11 +116,86 @@ pub async fn get_bill_history(id: String) -> Template {
         let mut bill: BitcreditBill = read_bill_from_file(&id);
         let chain = Chain::read_chain_from_file(&bill.name);
         let history = chain.get_bill_history();
+
+        let address_to_pay = get_address_to_pay(bill.clone());
+        let info_about_address =
+            api::AddressInfo::get_testnet_address_info(address_to_pay.clone()).await;
+        let chain_received_summ = info_about_address.chain_stats.funded_txo_sum;
+        let chain_spent_summ = info_about_address.chain_stats.spent_txo_sum;
+        let chain_summ = chain_received_summ + chain_spent_summ;
+        let mempool_received_summ = info_about_address.mempool_stats.funded_txo_sum;
+        let mempool_spent_summ = info_about_address.mempool_stats.spent_txo_sum;
+        let mempool_summ = mempool_received_summ + mempool_spent_summ;
+
         Template::render(
             "hbs/bill_history",
             context! {
                 bill: Some(bill),
                 history: history,
+                chain_summ: chain_summ,
+                mempool_summ: mempool_summ,
+                address_to_pay: address_to_pay,
+            },
+        )
+    } else {
+        let bills = get_bills();
+        let identity: IdentityWithAll = get_whole_identity();
+        let peer_id = read_peer_id_from_file().to_string();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                peer_id: Some(peer_id),
+                identity: Some(identity.identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[get("/blockchain/<id>")]
+pub async fn get_bill_chain(id: String) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
+        let mut bill: BitcreditBill = read_bill_from_file(&id);
+        let chain = Chain::read_chain_from_file(&bill.name);
+        Template::render(
+            "hbs/bill_chain",
+            context! {
+                bill: Some(bill),
+                chain: chain,
+            },
+        )
+    } else {
+        let bills = get_bills();
+        let identity: IdentityWithAll = get_whole_identity();
+        let peer_id = read_peer_id_from_file().to_string();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                peer_id: Some(peer_id),
+                identity: Some(identity.identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[get("/<id>/block/<block_id>")]
+pub async fn get_block(id: String, block_id: u64) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
+        let mut bill: BitcreditBill = read_bill_from_file(&id);
+        let chain = Chain::read_chain_from_file(&bill.name);
+        let block = chain.get_block_by_id(block_id);
+        Template::render(
+            "hbs/block",
+            context! {
+                bill: Some(bill),
+                block: block,
             },
         )
     } else {
@@ -146,16 +221,17 @@ pub async fn get_bill(id: String) -> Template {
     } else if Path::new((BILLS_FOLDER_PATH.to_string() + "/" + &id + ".json").as_str()).exists() {
         let mut bill: BitcreditBill = read_bill_from_file(&id);
         let chain = Chain::read_chain_from_file(&bill.name);
+        let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
         let last_block = chain.get_latest_block().clone();
         let operation_code = last_block.operation_code;
         let identity: IdentityWithAll = get_whole_identity();
         let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
-        let holder = bill.holder.clone();
+        let payee = bill.payee.clone();
         let local_peer_id = identity.peer_id.to_string().clone();
         let drawer_from_bill = bill.drawer.clone();
         let drawee_from_bill = bill.drawee.clone();
         let amount = bill.amount_numbers.clone();
-        let holder_public_key = bill.holder.bitcoin_public_key.clone();
+        let payee_public_key = bill.payee.bitcoin_public_key.clone();
         let mut address_to_pay = String::new();
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
@@ -163,15 +239,22 @@ pub async fn get_bill(id: String) -> Template {
 
         address_to_pay = get_address_to_pay(bill.clone());
         payed = check_if_paid(address_to_pay.clone(), amount).await;
-        if holder_public_key.eq(&identity.identity.bitcoin_public_key)
-            && !holder.peer_id.eq(&drawee_from_bill.peer_id)
+        if !endorsed.clone() && payee_public_key.eq(&identity.identity.bitcoin_public_key)
+        // && !payee.peer_id.eq(&drawee_from_bill.peer_id)
         {
-            pr_key_bill = get_holder_private_key(identity.identity.clone(), bill.clone());
+            pr_key_bill = get_current_payee_private_key(identity.identity.clone(), bill.clone());
+        } else if endorsed
+            && bill
+                .endorsee
+                .bitcoin_public_key
+                .eq(&identity.identity.bitcoin_public_key)
+        {
+            pr_key_bill = get_current_payee_private_key(identity.identity.clone(), bill.clone());
         }
 
-        if payed {
-            bill.holder = bill.drawee.clone();
-        }
+        // if payed {
+        //     bill.payee = bill.drawee.clone();
+        // }
 
         Template::render(
             "hbs/bill",
@@ -206,12 +289,10 @@ pub async fn get_bill(id: String) -> Template {
 
 async fn check_if_paid(address: String, amount: u64) -> bool {
     //todo check what net we used
-    let amount_in_satoshi = amount * NUMBER_SATOSHI_IN_mBTC;
-
     let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
     let received_summ = info_about_address.chain_stats.funded_txo_sum;
     let spent_summ = info_about_address.chain_stats.spent_txo_sum;
-    return if amount_in_satoshi.eq(&(received_summ + spent_summ)) {
+    return if amount.eq(&(received_summ + spent_summ)) {
         true
     } else {
         false
@@ -221,7 +302,13 @@ async fn check_if_paid(address: String, amount: u64) -> bool {
 fn get_address_to_pay(bill: BitcreditBill) -> String {
     let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
 
-    let public_key_holder = bill.holder.bitcoin_public_key;
+    let mut person_to_pay = bill.payee.clone();
+
+    if !bill.endorsee.name.is_empty() {
+        person_to_pay = bill.endorsee.clone();
+    }
+
+    let public_key_holder = person_to_pay.bitcoin_public_key;
     let public_key_bill_holder = bitcoin::PublicKey::from_str(&public_key_holder).unwrap();
 
     let public_key_bill = public_key_bill
@@ -234,7 +321,7 @@ fn get_address_to_pay(bill: BitcreditBill) -> String {
     address_to_pay
 }
 
-fn get_holder_private_key(identity: Identity, bill: BitcreditBill) -> String {
+fn get_current_payee_private_key(identity: Identity, bill: BitcreditBill) -> String {
     let private_key_bill = bitcoin::PrivateKey::from_str(&bill.private_key).unwrap();
 
     let private_key_bill_holder =
@@ -309,13 +396,18 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
 
         let public_data_drawee = get_identity_public_data(bill.drawee_name, client.clone()).await;
 
+        let public_data_payee = get_identity_public_data(bill.payee_name, client.clone()).await;
+
         let bill = issue_new_bill(
             bill.bill_jurisdiction,
             bill.place_of_drawing,
             bill.amount_numbers,
+            bill.place_of_payment,
+            bill.maturity_date,
             drawer.clone(),
             bill.language,
             public_data_drawee,
+            public_data_payee,
         );
 
         let mut nodes: Vec<String> = Vec::new();
@@ -323,6 +415,7 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         let my_peer_id = drawer.peer_id.to_string().clone();
         nodes.push(my_peer_id.to_string());
         nodes.push(bill.drawee.peer_id.clone());
+        nodes.push(bill.payee.peer_id.clone());
 
         for node in nodes {
             if !node.is_empty() {
@@ -371,11 +464,11 @@ pub async fn endorse_bill(
     } else {
         let mut client = state.inner().clone();
 
-        let public_data_holder =
-            get_identity_public_data(endorse_bill_form.new_holder.clone(), client.clone()).await;
+        let public_data_endorsee =
+            get_identity_public_data(endorse_bill_form.endorsee.clone(), client.clone()).await;
 
         let correct =
-            endorse_bitcredit_bill(&endorse_bill_form.bill_name, public_data_holder.clone());
+            endorse_bitcredit_bill(&endorse_bill_form.bill_name, public_data_endorsee.clone());
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
             let block = chain.get_latest_block();
@@ -391,7 +484,7 @@ pub async fn endorse_bill(
             client
                 .add_bill_to_dht_for_node(
                     &endorse_bill_form.bill_name,
-                    &public_data_holder.peer_id.to_string().clone(),
+                    &public_data_endorsee.peer_id.to_string().clone(),
                 )
                 .await;
         }

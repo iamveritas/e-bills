@@ -12,11 +12,19 @@
         <h1>History of your bill {{bill.name}}</h1>
     </div>
     <ul>
-        {{#each history}}
-            <li>{{this}}</li>
+        {{#each history}}Щ
+            <li><a href="http://localhost:8000/bill/{{this.bill_name}}/block/{{this.id}}">{{this.text}}</a></li>
         {{/each}}
+        <br>
+        {{#unless (eq chain_summ 0)}}
+            <li>{{chain_summ}} sats paid to address {{address_to_pay}} on chain</li>
+        {{/unless}}
+        {{#unless (eq mempool_summ 0)}}
+            <li>{{mempool_summ}} sats paid to address {{address_to_pay}} on mempool</li>
+        {{/unless}}
     </ul>
-    <h3><a href="http://localhost:8000/bill/{{bill.name}}">Back</a></h3>
+    <h3><a href="http://localhost:8000/bill/blockchain/{{bill.name}}">Chain</a></h3>
+    <h3><a href="http://localhost:8000/bill/{{bill.name}}">Bill info</a></h3>
 </div>
 </body>
 <footer>
