@@ -269,6 +269,7 @@ pub async fn get_bill(id: String) -> Template {
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,
                 usednet: usednet,
+                endorsed: endorsed,
             },
         )
     } else {
@@ -292,7 +293,9 @@ async fn check_if_paid(address: String, amount: u64) -> bool {
     let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
     let received_summ = info_about_address.chain_stats.funded_txo_sum;
     let spent_summ = info_about_address.chain_stats.spent_txo_sum;
-    return if amount.eq(&(received_summ + spent_summ)) {
+    let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
+    let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
+    return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool)) {
         true
     } else {
         false

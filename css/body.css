@@ -58,6 +58,8 @@ input[readonly] {
 
 .content h3 {
     word-break: break-all;
+    margin-bottom: 7px;
+    margin-top: 7px;
 }
 
 

@@ -20,8 +20,10 @@
         <input type="text" required="required" id="payee_name" name="payee_name" placeholder="Payee name"><br>
         <label for="amount_numbers">Amount numbers:</label><br>
         <input type="number" required="required" id="amount_numbers" name="amount_numbers" placeholder="Amount numbers"><br>
+        <label for="currency_code">Currency code:</label><br>
+        <input type="text" required="required" id="currency_code" name="currency_code" value="sats" placeholder="Currency code" readonly><br>
         <label for="maturity_date">Maturity date:</label><br>
-        <input type="date" required="required" id="maturity_date" name="maturity_date" placeholder="yyyy-mm-dd"><br>
+        <input type="date" min="{{date_of_issue}}" required="required" id="maturity_date" name="maturity_date" placeholder="yyyy-mm-dd"><br>
         <label for="place_of_drawing">Place of drawing:</label><br>
         <input type="text" required="required" id="place_of_drawing" name="place_of_drawing" placeholder="Place of drawing"><br>
         <label for="place_of_payment">Place of payment:</label><br>
@@ -30,8 +32,6 @@
         <input type="text" required="required" id="bill_jurisdiction" name="bill_jurisdiction" placeholder="Bill jurisdiction"><br>
         <label for="language">Language:</label><br>
         <input type="text" required="required" id="language" name="language" placeholder="Language" value="en" readonly><br>
-        <label for="currency_code">Currency code:</label><br>
-        <input type="text" required="required" id="currency_code" name="currency_code" value="sats" placeholder="Currency code" readonly><br>
         <label for="date_of_issue">Date of issue:</label><br>
         <input type="text" required="required" id="date_of_issue" name="date_of_issue" value="{{date_of_issue}}" placeholder="Date of issue" readonly><br>
         <input type="submit" id="button_submit" value="Issue bill">
