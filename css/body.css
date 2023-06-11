@@ -56,6 +56,17 @@ input[readonly] {
     text-align: center;
 }
 
+.content h3 {
+    word-break: break-all;
+    margin-bottom: 7px;
+    margin-top: 7px;
+}
+
+
+.content li {
+    word-break: break-all;
+}
+
 .content div.main_info {
     text-align: justify;
     margin: 20px;

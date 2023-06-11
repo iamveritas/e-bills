@@ -7,10 +7,11 @@ use openssl::sha::Sha256;
 use openssl::sign::{Signer, Verifier};
 use serde::{Deserialize, Serialize};
 
+use crate::blockchain::OperationCode::Endorse;
 use crate::constants::BILLS_FOLDER_PATH;
 use crate::{
     bill_from_byte_array, bill_to_byte_array, private_key_from_pem_u8, public_key_from_pem_u8,
-    BitcreditBill,
+    BitcreditBill, IdentityPublicData,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -97,61 +98,37 @@ impl Chain {
         exist_block_with_operation_code
     }
 
-    pub fn get_last_version_bill_with_operation_code(
-        &self,
-        operation_code: OperationCode,
-    ) -> BitcreditBill {
-        let first_block_data = &self.get_first_block().data;
-        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
-        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
-
-        let mut holder_bill_last_version: String = bill_first_version.holder_name.clone();
-
-        if self.blocks.len() > 1 && self.exist_block_with_operation_code(operation_code.clone()) {
-            let last_version_block =
-                self.get_last_version_block_with_operation_code(operation_code);
-            let last_version_block_data = &last_version_block.data;
-            let holder_bill_last_version_u8 = hex::decode(last_version_block_data).unwrap();
-            holder_bill_last_version = String::from_utf8(holder_bill_last_version_u8).unwrap();
-        }
-
-        let bill = BitcreditBill {
-            name: bill_first_version.name,
-            to_payee: bill_first_version.to_payee,
-            bill_jurisdiction: bill_first_version.bill_jurisdiction,
-            timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
-            drawee_name: bill_first_version.drawee_name,
-            drawer_name: bill_first_version.drawer_name,
-            holder_name: holder_bill_last_version.clone(),
-            place_of_drawing: bill_first_version.place_of_drawing,
-            currency_code: bill_first_version.currency_code,
-            amount_numbers: bill_first_version.amount_numbers,
-            amounts_letters: bill_first_version.amounts_letters,
-            maturity_date: bill_first_version.maturity_date,
-            date_of_issue: bill_first_version.date_of_issue,
-            compounding_interest_rate: bill_first_version.compounding_interest_rate,
-            type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
-            place_of_payment: bill_first_version.place_of_payment,
-            public_key_pem: bill_first_version.public_key_pem,
-            private_key_pem: bill_first_version.private_key_pem,
-            language: bill_first_version.language,
-        };
-
-        bill
-    }
-
     pub fn get_last_version_bill(&self) -> BitcreditBill {
         let first_block_data = &self.get_first_block().data;
         let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
         let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
 
-        let mut holder_bill_last_version: String = bill_first_version.holder_name.clone();
+        let mut last_endorsee = IdentityPublicData {
+            peer_id: "".to_string(),
+            name: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            email: "".to_string(),
+        };
 
-        if self.blocks.len() > 1 {
-            let last_block_data = &self.get_latest_block().data;
-            let holder_bill_last_version_in_bytes = hex::decode(last_block_data).unwrap();
-            holder_bill_last_version =
-                String::from_utf8(holder_bill_last_version_in_bytes).unwrap();
+        if self.blocks.len() > 1 && self.exist_block_with_operation_code(Endorse.clone()) {
+            let last_version_block = self.get_last_version_block_with_operation_code(Endorse);
+            let last_version_block_data = last_version_block.data.clone();
+            let mut part_with_endorsee = last_version_block_data
+                .split("Endorsed to ")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .unwrap()
+                .to_string();
+
+            part_with_endorsee = part_with_endorsee
+                .split(" endorsed by ")
+                .collect::<Vec<&str>>()
+                .get(0)
+                .unwrap()
+                .to_string();
+            let endorsee = hex::decode(part_with_endorsee).unwrap();
+            last_endorsee = serde_json::from_slice(&endorsee).unwrap();
         }
 
         let bill = BitcreditBill {
@@ -159,9 +136,10 @@ impl Chain {
             to_payee: bill_first_version.to_payee,
             bill_jurisdiction: bill_first_version.bill_jurisdiction,
             timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
-            drawee_name: bill_first_version.drawee_name,
-            drawer_name: bill_first_version.drawer_name,
-            holder_name: holder_bill_last_version.clone(),
+            drawee: bill_first_version.drawee,
+            drawer: bill_first_version.drawer,
+            payee: bill_first_version.payee,
+            endorsee: last_endorsee.clone(),
             place_of_drawing: bill_first_version.place_of_drawing,
             currency_code: bill_first_version.currency_code,
             amount_numbers: bill_first_version.amount_numbers,
@@ -171,15 +149,22 @@ impl Chain {
             compounding_interest_rate: bill_first_version.compounding_interest_rate,
             type_of_interest_calculation: bill_first_version.type_of_interest_calculation,
             place_of_payment: bill_first_version.place_of_payment,
-            public_key_pem: bill_first_version.public_key_pem,
-            private_key_pem: bill_first_version.private_key_pem,
+            public_key: bill_first_version.public_key,
+            private_key: bill_first_version.private_key,
             language: bill_first_version.language,
         };
 
         bill
     }
 
-    fn get_block_by_id(&self, id: u64) -> Block {
+    fn get_first_version_bill(&self) -> BitcreditBill {
+        let first_block_data = &self.get_first_block().data;
+        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
+        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
+        bill_first_version
+    }
+
+    pub fn get_block_by_id(&self, id: u64) -> Block {
         let mut block = self.get_first_block().clone();
         for b in &self.blocks {
             if b.id == id {
@@ -209,6 +194,131 @@ impl Chain {
             }
         }
     }
+
+    pub fn get_bill_history(&self) -> Vec<BlockForHistory> {
+        let mut history: Vec<BlockForHistory> = Vec::new();
+
+        for block in &self.blocks {
+            let mut line = String::new();
+            match block.operation_code {
+                OperationCode::Issue => {
+                    let bill = self.get_first_version_bill();
+                    let time_of_issue = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
+                    line = format!(
+                        "Bill issued by {} at {} in {}",
+                        bill.drawer.name, time_of_issue, bill.place_of_drawing
+                    );
+                }
+                OperationCode::Endorse => {
+                    let block = self.get_block_by_id(block.id.clone());
+                    let time_of_endorse = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
+                    let mut part_with_endorsee = block
+                        .data
+                        .split("Endorsed to ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+
+                    let part_with_endorsed_by = part_with_endorsee
+                        .clone()
+                        .split(" endorsed by ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+
+                    part_with_endorsee = part_with_endorsee
+                        .split(" endorsed by ")
+                        .collect::<Vec<&str>>()
+                        .get(0)
+                        .unwrap()
+                        .to_string();
+
+                    let endorsee_bill_u8 = hex::decode(part_with_endorsee).unwrap();
+                    let endorsee_bill: IdentityPublicData =
+                        serde_json::from_slice(&endorsee_bill_u8).unwrap();
+
+                    let endorser_bill_u8 = hex::decode(part_with_endorsed_by).unwrap();
+                    let endorser_bill: IdentityPublicData =
+                        serde_json::from_slice(&endorser_bill_u8).unwrap();
+                    line = format!(
+                        "Bill endorsed to {} at {} by {} in {}",
+                        endorsee_bill.name,
+                        time_of_endorse,
+                        endorser_bill.name,
+                        endorser_bill.postal_address
+                    );
+                }
+                OperationCode::RequestToAccept => {
+                    let block = self.get_block_by_id(block.id.clone());
+                    let time_of_request_to_accept =
+                        Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
+                    let part_with_identity = block
+                        .data
+                        .split("Requested to accept by ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+                    let requester_to_accept_bill_u8 = hex::decode(part_with_identity).unwrap();
+                    let requester_to_accept_bill: IdentityPublicData =
+                        serde_json::from_slice(&requester_to_accept_bill_u8).unwrap();
+                    line = format!(
+                        "Bill requested to accept by {} at {} in {}",
+                        requester_to_accept_bill.name,
+                        time_of_request_to_accept,
+                        requester_to_accept_bill.postal_address
+                    );
+                }
+                OperationCode::Accept => {
+                    let block = self.get_block_by_id(block.id.clone());
+                    let time_of_accept = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
+                    let part_with_identity = block
+                        .data
+                        .split("Accepted by ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+                    let accepter_bill_u8 = hex::decode(part_with_identity).unwrap();
+                    let accepter_bill: IdentityPublicData =
+                        serde_json::from_slice(&accepter_bill_u8).unwrap();
+                    line = format!(
+                        "Bill accepted by {} at {} in {}",
+                        accepter_bill.name, time_of_accept, accepter_bill.postal_address
+                    );
+                }
+                OperationCode::RequestToPay => {
+                    let block = self.get_block_by_id(block.id.clone());
+                    let time_of_request_to_pay =
+                        Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
+                    let part_with_identity = block
+                        .data
+                        .split("Requested to pay by ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string();
+                    let requester_to_pay_bill_u8 = hex::decode(part_with_identity).unwrap();
+                    let requester_to_pay_bill: IdentityPublicData =
+                        serde_json::from_slice(&requester_to_pay_bill_u8).unwrap();
+                    line = format!(
+                        "Bill requested to pay by {} at {} in {}",
+                        requester_to_pay_bill.name,
+                        time_of_request_to_pay,
+                        requester_to_pay_bill.postal_address
+                    );
+                }
+            }
+            history.push(BlockForHistory {
+                id: block.id.clone(),
+                text: line,
+                bill_name: block.bill_name.clone(),
+            });
+        }
+        history
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromFormField)]
@@ -217,6 +327,7 @@ pub enum OperationCode {
     Accept,
     Endorse,
     RequestToAccept,
+    RequestToPay,
 }
 
 impl OperationCode {
@@ -226,6 +337,7 @@ impl OperationCode {
             OperationCode::Accept,
             OperationCode::Endorse,
             OperationCode::RequestToAccept,
+            OperationCode::RequestToPay,
         ]
     }
 
@@ -235,6 +347,7 @@ impl OperationCode {
             OperationCode::Accept => "Accept".to_string(),
             OperationCode::Endorse => "Endorse".to_string(),
             OperationCode::RequestToAccept => "RequestToAccept".to_string(),
+            OperationCode::RequestToPay => "RequestToPay".to_string(),
         }
     }
 }
@@ -332,6 +445,13 @@ pub enum GossipsubEventId {
     CommandGetChain,
 }
 
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
+pub struct BlockForHistory {
+    id: u64,
+    text: String,
+    bill_name: String,
+}
+
 fn mine_block(
     id: &u64,
     bill_name: &str,
@@ -410,7 +530,7 @@ pub fn start_blockchain_for_new_bill(
     public_key: String,
     private_key: String,
 ) {
-    let genesis_hash: String = hash_data_from_bill(&bill);
+    let genesis_hash: String = hex::encode("GENESIS".to_string().as_bytes());
 
     let bill_data: String = hash_data_from_bill(&bill);
 
@@ -425,8 +545,6 @@ pub fn start_blockchain_for_new_bill(
     );
 
     let chain = Chain::new(first_block);
-
-    //Write chain to file
     let output_path = BILLS_FOLDER_PATH.to_string() + "/" + bill.name.clone().as_str() + ".json";
     std::fs::write(
         output_path.clone(),
