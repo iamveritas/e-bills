@@ -295,7 +295,8 @@ async fn check_if_paid(address: String, amount: u64) -> bool {
     let spent_summ = info_about_address.chain_stats.spent_txo_sum;
     let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
     let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
-    return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool)) {
+    return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
+    {
         true
     } else {
         false

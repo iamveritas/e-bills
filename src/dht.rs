@@ -58,7 +58,7 @@ pub mod network {
 
     use crate::blockchain::{Block, Chain, GossipsubEvent, GossipsubEventId};
     use crate::constants::{
-        BILLS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
+        BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILLS_PREFIX, BOOTSTRAP_NODES_FILE_PATH,
         IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_PEER_ID_FILE_PATH,
         RELAY_BOOTSTRAP_NODE_ONE_IP, RELAY_BOOTSTRAP_NODE_ONE_PEER_ID,
         RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
@@ -279,11 +279,18 @@ pub mod network {
                     )
                     .exists()
                     {
-                        let bill_bytes = self.get(bill_id.to_string().clone()).await;
+                        let bill_bytes = self.get_bill(bill_id.to_string().clone()).await;
                         if !bill_bytes.is_empty() {
                             let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
                             fs::write(path, bill_bytes).expect("Can't write file.");
                         }
+
+                        let key_bytes = self.get_key(bill_id.to_string().clone()).await;
+                        if !key_bytes.is_empty() {
+                            let path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
+                            fs::write(path, key_bytes).expect("Can't write file.");
+                        }
+
                         self.sender
                             .send(Command::SubscribeToTopic {
                                 topic: bill_id.to_string().clone(),
@@ -461,7 +468,7 @@ pub mod network {
             self.start_providing(name.clone()).await;
         }
 
-        pub async fn get(&mut self, name: String) -> Vec<u8> {
+        pub async fn get_bill(&mut self, name: String) -> Vec<u8> {
             let providers = self.get_providers(name.clone()).await;
             if providers.is_empty() {
                 eprintln!("No providers was found.");
@@ -472,6 +479,34 @@ pub mod network {
                     let mut network_client = self.clone();
                     let name = name.clone();
                     async move { network_client.request_file(peer, name).await }.boxed()
+                });
+
+                let file_content = futures::future::select_ok(requests)
+                    .await
+                    .map_err(|_| "None of the providers returned file.")
+                    .expect("Can not get file content.")
+                    .0;
+
+                file_content
+            }
+        }
+
+        pub async fn get_key(&mut self, name: String) -> Vec<u8> {
+            let providers = self.get_providers(name.clone()).await;
+            if providers.is_empty() {
+                eprintln!("No providers was found.");
+                Vec::new()
+            } else {
+                //TODO: If it's me - don't continue.
+                let requests = providers.into_iter().map(|peer| {
+                    let mut network_client = self.clone();
+                    let name = name.clone();
+                    async move {
+                        network_client
+                            .request_file(peer, "KEY_".to_string() + name.as_str())
+                            .await
+                    }
+                    .boxed()
                 });
 
                 let file_content = futures::future::select_ok(requests)
@@ -578,9 +613,17 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request + ".json";
-                    self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
-                        .await;
+                    if request.starts_with("KEY_") {
+                        let key_name = request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                        let path_to_bill =
+                            BILLS_KEYS_FOLDER_PATH.to_string() + "/" + &key_name + ".json";
+                        self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
+                            .await;
+                    } else {
+                        let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request + ".json";
+                        self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
+                            .await;
+                    }
                 }
 
                 _ => {}
@@ -605,7 +648,7 @@ pub mod network {
                     self.put(&name).await;
                 }
 
-                Some("GET") => {
+                Some("GET_BILL") => {
                     let name: String = {
                         match args.next() {
                             Some(name) => String::from(name),
@@ -615,7 +658,20 @@ pub mod network {
                             }
                         }
                     };
-                    self.get(name).await;
+                    self.get_bill(name).await;
+                }
+
+                Some("GET_KEY") => {
+                    let name: String = {
+                        match args.next() {
+                            Some(name) => String::from(name),
+                            None => {
+                                eprintln!("Expected name.");
+                                return;
+                            }
+                        }
+                    };
+                    self.get_key(name).await;
                 }
 
                 Some("PUT_RECORD") => {

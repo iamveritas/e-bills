@@ -22,7 +22,7 @@ use rocket_dyn_templates::Template;
 
 use crate::blockchain::{start_blockchain_for_new_bill, Block, Chain, OperationCode};
 use crate::constants::{
-    mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
+    mBTC, BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, SATOSHI, TEMPLATES_FOLDER_PATH, USEDNET,
@@ -111,6 +111,9 @@ fn init_folders() {
     if !Path::new(BILLS_FOLDER_PATH).exists() {
         fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills.");
     }
+    if !Path::new(BILLS_KEYS_FOLDER_PATH).exists() {
+        fs::create_dir(BILLS_KEYS_FOLDER_PATH).expect("Can't create folder bills_keys.");
+    }
     if !Path::new(CSS_FOLDER_PATH).exists() {
         fs::create_dir(CSS_FOLDER_PATH).expect("Can't create folder css.");
     }
@@ -121,7 +124,7 @@ fn init_folders() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
     }
     if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
-        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder bootstrap.");
     }
 }
 
@@ -511,6 +514,12 @@ pub struct BitcreditBill {
     language: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BillKeys {
+    private_key_pem: String,
+    public_key_pem: String,
+}
+
 pub fn issue_new_bill(
     bill_jurisdiction: String,
     place_of_drawing: String,
@@ -534,6 +543,15 @@ pub fn issue_new_bill(
 
     let private_key_bitcoin: String = private_key.to_string();
     let public_key_bitcoin: String = public_key.to_string();
+
+    let rsa: Rsa<Private> = generation_rsa_key();
+    let private_key_pem: String = pem_private_key_from_rsa(&rsa);
+    let public_key_pem: String = pem_public_key_from_rsa(&rsa);
+    write_bill_keys_to_file(
+        bill_name.clone(),
+        private_key_pem.clone(),
+        public_key_pem.clone(),
+    );
 
     let amount_letters: String = encode(&amount_numbers);
 
@@ -584,9 +602,24 @@ pub fn issue_new_bill(
         OperationCode::Issue,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
+        private_key_pem.clone(),
     );
 
     new_bill
+}
+
+fn write_bill_keys_to_file(bill_name: String, private_key: String, public_key: String) {
+    let keys: BillKeys = BillKeys {
+        private_key_pem: private_key,
+        public_key_pem: public_key,
+    };
+
+    let output_path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_name.as_str() + ".json";
+    std::fs::write(
+        output_path.clone(),
+        serde_json::to_string_pretty(&keys).unwrap(),
+    )
+    .unwrap();
 }
 
 fn create_bill_name(public_key: &PublicKey) -> String {
@@ -642,10 +675,18 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
             + " endorsed by "
             + &hex::encode(endorsed_by);
 
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
+
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data_for_new_block,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::Endorse,
@@ -683,12 +724,21 @@ pub fn request_pay(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data = "Requested to pay by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+        let data_for_new_block =
+            "Requested to pay by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToPay,
@@ -726,13 +776,21 @@ pub fn request_acceptance(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data =
+        let data_for_new_block =
             "Requested to accept by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToAccept,
@@ -765,12 +823,21 @@ pub fn accept_bill(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data = "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+        let data_for_new_block =
+            "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::Accept,
@@ -801,6 +868,12 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
+}
+
+fn read_keys_from_bill_file(bill_name: &String) -> BillKeys {
+    let input_path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_name.as_str() + ".json";
+    let blockchain_from_file = std::fs::read(input_path.clone()).expect("file not found");
+    serde_json::from_slice(blockchain_from_file.as_slice()).unwrap()
 }
 //--------------------------------------------------------------
 

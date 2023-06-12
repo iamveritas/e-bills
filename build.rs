@@ -10,7 +10,8 @@ const CSS_FOLDER_PATH: &str = "css";
 const IMAGE_FOLDER_PATH: &str = "image";
 const TEMPLATES_FOLDER_PATH: &str = "templates";
 pub const BOOTSTRAP_FOLDER_PATH: &str = "bootstrap";
-const COPY_DIR: [&str; 7] = [
+const BILLS_KEYS_FOLDER_PATH: &str = "bills_keys";
+const COPY_DIR: [&str; 8] = [
     IDENTITY_FOLDER_PATH,
     BILLS_FOLDER_PATH,
     CONTACT_MAP_FOLDER_PATH,
@@ -18,6 +19,7 @@ const COPY_DIR: [&str; 7] = [
     IMAGE_FOLDER_PATH,
     TEMPLATES_FOLDER_PATH,
     BOOTSTRAP_FOLDER_PATH,
+    BILLS_KEYS_FOLDER_PATH,
 ];
 
 /// A helper function for recursively copying a directory.
@@ -77,6 +79,9 @@ fn init_folders() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
     }
     if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
-        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder bootstrap.");
+    }
+    if !Path::new(BILLS_KEYS_FOLDER_PATH).exists() {
+        fs::create_dir(BILLS_KEYS_FOLDER_PATH).expect("Can't create folder bills_keys.");
     }
 }

@@ -3,6 +3,9 @@ use chrono::prelude::*;
 use log::{info, warn};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
+use openssl::pkey::{Private, Public};
+use openssl::rsa;
+use openssl::rsa::Rsa;
 use openssl::sha::Sha256;
 use openssl::sign::{Signer, Verifier};
 use serde::{Deserialize, Serialize};
@@ -10,8 +13,9 @@ use serde::{Deserialize, Serialize};
 use crate::blockchain::OperationCode::Endorse;
 use crate::constants::BILLS_FOLDER_PATH;
 use crate::{
-    bill_from_byte_array, bill_to_byte_array, private_key_from_pem_u8, public_key_from_pem_u8,
-    BitcreditBill, IdentityPublicData,
+    bill_from_byte_array, bill_to_byte_array, decrypt_bytes, encrypt_bytes,
+    private_key_from_pem_u8, public_key_from_pem_u8, read_keys_from_bill_file, BitcreditBill,
+    IdentityPublicData,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -99,9 +103,14 @@ impl Chain {
     }
 
     pub fn get_last_version_bill(&self) -> BitcreditBill {
-        let first_block_data = &self.get_first_block().data;
-        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
-        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
+        let first_block = self.get_first_block();
+
+        let bill_keys = read_keys_from_bill_file(&first_block.bill_name);
+        let key: Rsa<Private> =
+            Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+        let bytes = hex::decode(first_block.data.clone()).unwrap();
+        let decrypted_bytes = decrypt_bytes(&bytes, &key);
+        let bill_first_version: BitcreditBill = bill_from_byte_array(&decrypted_bytes);
 
         let mut last_endorsee = IdentityPublicData {
             peer_id: "".to_string(),
@@ -113,8 +122,15 @@ impl Chain {
 
         if self.blocks.len() > 1 && self.exist_block_with_operation_code(Endorse.clone()) {
             let last_version_block = self.get_last_version_block_with_operation_code(Endorse);
-            let last_version_block_data = last_version_block.data.clone();
-            let mut part_with_endorsee = last_version_block_data
+
+            let bill_keys = read_keys_from_bill_file(&last_version_block.bill_name);
+            let key: Rsa<Private> =
+                Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+            let bytes = hex::decode(last_version_block.data.clone()).unwrap();
+            let decrypted_bytes = decrypt_bytes(&bytes, &key);
+            let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+            let mut part_with_endorsee = block_data_decrypted
                 .split("Endorsed to ")
                 .collect::<Vec<&str>>()
                 .get(1)
@@ -158,9 +174,13 @@ impl Chain {
     }
 
     fn get_first_version_bill(&self) -> BitcreditBill {
-        let first_block_data = &self.get_first_block().data;
-        let bill_first_version_in_bytes = hex::decode(first_block_data).unwrap();
-        let bill_first_version: BitcreditBill = bill_from_byte_array(&bill_first_version_in_bytes);
+        let first_block_data = &self.get_first_block();
+        let bill_keys = read_keys_from_bill_file(&first_block_data.bill_name);
+        let key: Rsa<Private> =
+            Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+        let bytes = hex::decode(first_block_data.data.clone()).unwrap();
+        let decrypted_bytes = decrypt_bytes(&bytes, &key);
+        let bill_first_version: BitcreditBill = bill_from_byte_array(&decrypted_bytes);
         bill_first_version
     }
 
@@ -212,8 +232,15 @@ impl Chain {
                 OperationCode::Endorse => {
                     let block = self.get_block_by_id(block.id.clone());
                     let time_of_endorse = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    let mut part_with_endorsee = block
-                        .data
+
+                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
+                    let key: Rsa<Private> =
+                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                    let bytes = hex::decode(block.data.clone()).unwrap();
+                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                    let mut part_with_endorsee = block_data_decrypted
                         .split("Endorsed to ")
                         .collect::<Vec<&str>>()
                         .get(1)
@@ -254,8 +281,15 @@ impl Chain {
                     let block = self.get_block_by_id(block.id.clone());
                     let time_of_request_to_accept =
                         Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    let part_with_identity = block
-                        .data
+
+                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
+                    let key: Rsa<Private> =
+                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                    let bytes = hex::decode(block.data.clone()).unwrap();
+                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                    let part_with_identity = block_data_decrypted
                         .split("Requested to accept by ")
                         .collect::<Vec<&str>>()
                         .get(1)
@@ -274,8 +308,15 @@ impl Chain {
                 OperationCode::Accept => {
                     let block = self.get_block_by_id(block.id.clone());
                     let time_of_accept = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    let part_with_identity = block
-                        .data
+
+                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
+                    let key: Rsa<Private> =
+                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                    let bytes = hex::decode(block.data.clone()).unwrap();
+                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                    let part_with_identity = block_data_decrypted
                         .split("Accepted by ")
                         .collect::<Vec<&str>>()
                         .get(1)
@@ -293,8 +334,15 @@ impl Chain {
                     let block = self.get_block_by_id(block.id.clone());
                     let time_of_request_to_pay =
                         Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    let part_with_identity = block
-                        .data
+
+                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
+                    let key: Rsa<Private> =
+                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                    let bytes = hex::decode(block.data.clone()).unwrap();
+                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                    let part_with_identity = block_data_decrypted
                         .split("Requested to pay by ")
                         .collect::<Vec<&str>>()
                         .get(1)
@@ -518,9 +566,11 @@ pub fn signature(hash: String, private_key_pem: String) -> String {
     signature_readable
 }
 
-pub fn hash_data_from_bill(bill: &BitcreditBill) -> String {
-    let bill_bytes: Vec<u8> = bill_to_byte_array(bill);
-    let data_from_bill_hash_readable = hex::encode(bill_bytes);
+pub fn encrypted_hash_data_from_bill(bill: &BitcreditBill, private_key_pem: String) -> String {
+    let bytes = bill.try_to_vec().unwrap();
+    let key: Rsa<Private> = Rsa::private_key_from_pem(private_key_pem.as_bytes()).unwrap();
+    let encrypted_bytes = encrypt_bytes(&bytes, &key);
+    let data_from_bill_hash_readable = hex::encode(encrypted_bytes);
     data_from_bill_hash_readable
 }
 
@@ -529,10 +579,11 @@ pub fn start_blockchain_for_new_bill(
     operation_code: OperationCode,
     public_key: String,
     private_key: String,
+    private_key_pem: String,
 ) {
     let genesis_hash: String = hex::encode("GENESIS".to_string().as_bytes());
 
-    let bill_data: String = hash_data_from_bill(&bill);
+    let bill_data: String = encrypted_hash_data_from_bill(&bill, private_key_pem);
 
     let first_block = Block::new(
         1,
