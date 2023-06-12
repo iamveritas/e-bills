@@ -236,9 +236,14 @@ pub async fn get_bill(id: String) -> Template {
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
         let usednet = USEDNET.to_string();
+        let mut pending = String::new();
 
         address_to_pay = get_address_to_pay(bill.clone());
-        payed = check_if_paid(address_to_pay.clone(), amount).await;
+        let check_if_already_paid = check_if_paid(address_to_pay.clone(), amount).await;
+        payed = check_if_already_paid.0;
+        if payed && check_if_already_paid.1.eq(&0) {
+            pending = "Pending".to_string();
+        }
         if !endorsed.clone() && payee_public_key.eq(&identity.identity.bitcoin_public_key)
         // && !payee.peer_id.eq(&drawee_from_bill.peer_id)
         {
@@ -270,6 +275,7 @@ pub async fn get_bill(id: String) -> Template {
                 pr_key_bill: pr_key_bill,
                 usednet: usednet,
                 endorsed: endorsed,
+                pending: pending,
             },
         )
     } else {
@@ -288,7 +294,7 @@ pub async fn get_bill(id: String) -> Template {
     }
 }
 
-async fn check_if_paid(address: String, amount: u64) -> bool {
+async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
     //todo check what net we used
     let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
     let received_summ = info_about_address.chain_stats.funded_txo_sum;
@@ -297,9 +303,9 @@ async fn check_if_paid(address: String, amount: u64) -> bool {
     let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
     return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
     {
-        true
+        (true, received_summ.clone())
     } else {
-        false
+        (false, 0)
     };
 }
 
