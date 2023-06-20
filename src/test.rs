@@ -234,10 +234,6 @@ mod test {
         println!("public key: {}", pub_key3);
         println!("address: {}", address3);
         println!("{}", address3.is_spend_standard());
-
-        assert_eq!(private_key1.to_string(), "private key".to_string());
-        assert_eq!(public_key1.to_string(), "public key".to_string());
-        assert_eq!(address1.to_string(), "address".to_string());
     }
 
     #[tokio::test]
@@ -286,7 +282,6 @@ mod test {
             .await
             .expect("Failed to read response");
         println!("{:?}", response);
-        assert_eq!("dsad".to_string(), "address".to_string());
     }
 
     #[test]

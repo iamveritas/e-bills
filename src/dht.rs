@@ -629,7 +629,8 @@ pub mod network {
 
                         let mut bill_name = request.clone();
                         if request.starts_with("KEY_") {
-                            bill_name = request.splitn(2, "KEY_").collect::<Vec<&str>>()[1].to_string();
+                            bill_name =
+                                request.splitn(2, "KEY_").collect::<Vec<&str>>()[1].to_string();
                         } else if request.starts_with("BILL_") {
                             bill_name =
                                 request.split("BILL_").collect::<Vec<&str>>()[1].to_string();
@@ -657,8 +658,9 @@ pub mod network {
 
                                 self.respond_file(file_encrypted, channel).await;
                             } else if request.starts_with("BILL_") {
-                                let bill_name =
-                                    request.splitn(2, "BILL_").collect::<Vec<&str>>()[1].to_string();
+                                let bill_name = request.splitn(2, "BILL_").collect::<Vec<&str>>()
+                                    [1]
+                                .to_string();
                                 let path_to_bill =
                                     BILLS_FOLDER_PATH.to_string() + "/" + &bill_name + ".json";
                                 let file = std::fs::read(&path_to_bill).unwrap();
