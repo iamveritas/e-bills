@@ -28,6 +28,7 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 }
 
 pub mod network {
+    use std::any::Any;
     use std::collections::{HashMap, HashSet};
     use std::net::Ipv4Addr;
     use std::path::Path;
@@ -64,8 +65,9 @@ pub mod network {
         RELAY_BOOTSTRAP_NODE_ONE_TCP, TCP_PORT_TO_LISTEN,
     };
     use crate::{
-        generate_dht_logic, get_bills, get_whole_identity, read_ed25519_keypair_from_file,
-        read_peer_id_from_file, IdentityPublicData, IdentityWithAll,
+        decrypt_bytes_with_private_key, encrypt_bytes_with_public_key, generate_dht_logic,
+        get_bills, get_whole_identity, read_ed25519_keypair_from_file, read_peer_id_from_file,
+        IdentityPublicData, IdentityWithAll,
     };
 
     use super::*;
@@ -287,8 +289,13 @@ pub mod network {
 
                         let key_bytes = self.get_key(bill_id.to_string().clone()).await;
                         if !key_bytes.is_empty() {
+                            let pr_key = get_whole_identity().identity.private_key_pem;
+
+                            let key_bytes_decrypted =
+                                decrypt_bytes_with_private_key(&key_bytes, pr_key);
+
                             let path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
-                            fs::write(path, key_bytes).expect("Can't write file.");
+                            fs::write(path, key_bytes_decrypted).expect("Can't write file.");
                         }
 
                         self.sender
@@ -477,7 +484,10 @@ pub mod network {
                 //TODO: If it's me - don't continue.
                 let requests = providers.into_iter().map(|peer| {
                     let mut network_client = self.clone();
-                    let name = name.clone();
+                    let local_peer_id = read_peer_id_from_file().to_string();
+                    let mut name = name.clone();
+                    name = "BILL_".to_string() + name.as_str();
+                    name = local_peer_id + "_" + name.as_str();
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
@@ -500,13 +510,11 @@ pub mod network {
                 //TODO: If it's me - don't continue.
                 let requests = providers.into_iter().map(|peer| {
                     let mut network_client = self.clone();
-                    let name = name.clone();
-                    async move {
-                        network_client
-                            .request_file(peer, "KEY_".to_string() + name.as_str())
-                            .await
-                    }
-                    .boxed()
+                    let local_peer_id = read_peer_id_from_file().to_string();
+                    let mut name = name.clone();
+                    name = "KEY_".to_string() + name.as_str();
+                    name = local_peer_id + "_" + name.as_str();
+                    async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
                 let file_content = futures::future::select_ok(requests)
@@ -613,16 +621,51 @@ pub mod network {
         async fn handle_event(&mut self, event: Event) {
             match event {
                 Event::InboundRequest { request, channel } => {
-                    if request.starts_with("KEY_") {
-                        let key_name = request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
-                        let path_to_bill =
-                            BILLS_KEYS_FOLDER_PATH.to_string() + "/" + &key_name + ".json";
-                        self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
-                            .await;
-                    } else {
-                        let path_to_bill = BILLS_FOLDER_PATH.to_string() + "/" + &request + ".json";
-                        self.respond_file(std::fs::read(&path_to_bill).unwrap(), channel)
-                            .await;
+                    let size_request = request.split("_").collect::<Vec<&str>>();
+                    if size_request.len().eq(&3) {
+                        let request_node_id: String =
+                            request.split("_").collect::<Vec<&str>>()[0].to_string();
+                        let request = request.split("_").collect::<Vec<&str>>()[1].to_string();
+
+                        let mut bill_name = request.clone();
+                        if request.starts_with("KEY_") {
+                            bill_name = request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                        } else if request.starts_with("BILL_") {
+                            bill_name =
+                                request.split("BILL_").collect::<Vec<&str>>()[1].to_string();
+                        }
+                        let chain = Chain::read_chain_from_file(&bill_name);
+
+                        let bill_contain_node = chain.bill_contain_node(request_node_id.clone());
+
+                        if bill_contain_node {
+                            if request.starts_with("KEY_") {
+                                let public_key = self
+                                    .get_identity_public_data_from_dht(request_node_id.clone())
+                                    .await
+                                    .rsa_public_key_pem;
+
+                                let key_name =
+                                    request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                                let path_to_key =
+                                    BILLS_KEYS_FOLDER_PATH.to_string() + "/" + &key_name + ".json";
+                                let file = std::fs::read(&path_to_key).unwrap();
+                                //TODO: encrypt key file
+
+                                let file_encrypted =
+                                    encrypt_bytes_with_public_key(&file, public_key);
+
+                                self.respond_file(file_encrypted, channel).await;
+                            } else if request.starts_with("BILL_") {
+                                let bill_name =
+                                    request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                                let path_to_bill =
+                                    BILLS_FOLDER_PATH.to_string() + "/" + &bill_name + ".json";
+                                let file = std::fs::read(&path_to_bill).unwrap();
+
+                                self.respond_file(file, channel).await;
+                            }
+                        }
                     }
                 }
 

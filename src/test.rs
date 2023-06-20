@@ -464,12 +464,44 @@ mod test {
     // }
 
     #[test]
+    fn encrypt_and_decrypt_simple_data_with_keypair() {
+        // Create data
+        let data = "test";
+
+        // Generate a keypair
+        let rsa_key = generation_rsa_key();
+
+        let public_key =
+            Rsa::public_key_from_pem(rsa_key.public_key_to_pem().unwrap().as_slice()).unwrap();
+        let private_key =
+            Rsa::private_key_from_pem(rsa_key.private_key_to_pem().unwrap().as_slice()).unwrap();
+
+        // Encrypt with public key
+        let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];
+        let _ = public_key
+            .public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1)
+            .unwrap();
+
+        let data_enc = buf;
+
+        // Decrypt with private key
+        let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];
+        let _ = rsa_key
+            .private_decrypt(&data_enc, &mut buf, Padding::PKCS1)
+            .unwrap();
+        assert!(String::from_utf8(buf).unwrap().starts_with(data));
+    }
+
+    #[test]
     fn encrypt_and_decrypt_simple_data_with_rsa_keypair() {
         // Create data
         let data = "test";
 
         // Generate a keypair
         let rsa_key = generation_rsa_key();
+
+        let p_key =
+            Rsa::public_key_from_pem(rsa_key.public_key_to_pem().unwrap().as_slice()).unwrap();
 
         // Encrypt with public key
         let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];

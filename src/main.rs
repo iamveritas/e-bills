@@ -8,7 +8,7 @@ use std::path::Path;
 use std::{env, fs, mem, path};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
-use chrono::{Days, Utc};
+use chrono::Utc;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
@@ -22,7 +22,7 @@ use rocket_dyn_templates::Template;
 
 use crate::blockchain::{start_blockchain_for_new_bill, Block, Chain, OperationCode};
 use crate::constants::{
-    mBTC, BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, SATOSHI, TEMPLATES_FOLDER_PATH, USEDNET,
@@ -192,6 +192,108 @@ fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
 //--------------------------------------------------------------
 
 //-------------------------Bytes common-------------------------
+fn encrypt_bytes_with_public_key(bytes: &Vec<u8>, public_key: String) -> Vec<u8> {
+    let public_key = Rsa::public_key_from_pem(public_key.as_bytes()).unwrap();
+
+    let key_size: usize = (public_key.size() / 2) as usize; //128
+
+    let mut whole_encrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; key_size];
+    let mut temp_buff_encrypted: Vec<u8> = vec![0; public_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    let remainder: usize = bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number: usize = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let _encrypted_len: usize = public_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff = vec![0; key_size];
+        temp_buff_encrypted = vec![0; public_key.size() as usize];
+    }
+
+    if remainder != 0 {
+        temp_buff = vec![0; remainder];
+
+        let position: usize = key_size * number_of_key_size_in_whole_bill;
+        let mut index_in_temp_buff: usize = 0;
+
+        for i in position..bytes.len() {
+            temp_buff[index_in_temp_buff] = bytes[i];
+            index_in_temp_buff += 1;
+        }
+
+        index_in_temp_buff = 0;
+
+        let _encrypted_len: usize = public_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff.clear();
+        temp_buff_encrypted.clear();
+    }
+
+    whole_encrypted_buff
+}
+
+fn decrypt_bytes_with_private_key(bytes: &Vec<u8>, private_key: String) -> Vec<u8> {
+    let private_key = Rsa::private_key_from_pem(private_key.as_bytes()).unwrap();
+
+    let key_size: usize = private_key.size() as usize; //256
+
+    let mut whole_decrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; private_key.size() as usize];
+    let mut temp_buff_decrypted: Vec<u8> = vec![0; private_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let decrypted_len: usize = private_key
+            .private_decrypt(&temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
+        temp_buff = vec![0; private_key.size() as usize];
+        temp_buff_decrypted = vec![0; private_key.size() as usize];
+    }
+
+    // if remainder != 0 {
+    //     let position = key_size * number_of_key_size_in_whole_bill;
+    //     let mut index_in_temp_buff = 0;
+    //
+    //     for i in position..bill_bytes.len() {
+    //         temp_buff[index_in_temp_buff] = bill_bytes[i];
+    //         index_in_temp_buff = index_in_temp_buff + 1;
+    //     }
+    //
+    //     index_in_temp_buff = 0;
+    //
+    //     let decrypted_len = rsa_key
+    //         .public_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+    //         .unwrap();
+    //
+    //     whole_decrypted_buff.append(&mut temp_buff_decrypted);
+    //     temp_buff.clear();
+    //     temp_buff_decrypted.clear();
+    // }
+
+    whole_decrypted_buff
+}
+
 fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size: usize = (rsa_key.size() / 2) as usize; //128
 
@@ -303,6 +405,7 @@ pub struct IdentityPublicData {
     bitcoin_public_key: String,
     postal_address: String,
     email: String,
+    rsa_public_key_pem: String,
 }
 
 impl IdentityPublicData {
@@ -313,6 +416,7 @@ impl IdentityPublicData {
             bitcoin_public_key: identity.bitcoin_public_key,
             postal_address: identity.postal_address,
             email: identity.email,
+            rsa_public_key_pem: identity.public_key_pem,
         }
     }
 }
@@ -594,6 +698,7 @@ pub fn issue_new_bill(
             bitcoin_public_key: "".to_string(),
             postal_address: "".to_string(),
             email: "".to_string(),
+            rsa_public_key_pem: "".to_string(),
         },
     };
 
