@@ -624,12 +624,12 @@ pub mod network {
                     let size_request = request.split("_").collect::<Vec<&str>>();
                     if size_request.len().eq(&3) {
                         let request_node_id: String =
-                            request.split("_").collect::<Vec<&str>>()[0].to_string();
-                        let request = request.split("_").collect::<Vec<&str>>()[1].to_string();
+                            request.splitn(2, "_").collect::<Vec<&str>>()[0].to_string();
+                        let request = request.splitn(2, "_").collect::<Vec<&str>>()[1].to_string();
 
                         let mut bill_name = request.clone();
                         if request.starts_with("KEY_") {
-                            bill_name = request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                            bill_name = request.splitn(2, "KEY_").collect::<Vec<&str>>()[1].to_string();
                         } else if request.starts_with("BILL_") {
                             bill_name =
                                 request.split("BILL_").collect::<Vec<&str>>()[1].to_string();
@@ -646,7 +646,7 @@ pub mod network {
                                     .rsa_public_key_pem;
 
                                 let key_name =
-                                    request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                                    request.splitn(2, "KEY_").collect::<Vec<&str>>()[1].to_string();
                                 let path_to_key =
                                     BILLS_KEYS_FOLDER_PATH.to_string() + "/" + &key_name + ".json";
                                 let file = std::fs::read(&path_to_key).unwrap();
@@ -658,7 +658,7 @@ pub mod network {
                                 self.respond_file(file_encrypted, channel).await;
                             } else if request.starts_with("BILL_") {
                                 let bill_name =
-                                    request.split("KEY_").collect::<Vec<&str>>()[1].to_string();
+                                    request.splitn(2, "BILL_").collect::<Vec<&str>>()[1].to_string();
                                 let path_to_bill =
                                     BILLS_FOLDER_PATH.to_string() + "/" + &bill_name + ".json";
                                 let file = std::fs::read(&path_to_bill).unwrap();
