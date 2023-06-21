@@ -40,6 +40,11 @@ pub async fn start() -> Template {
 }
 
 #[get("/")]
+pub async fn exit() {
+    std::process::exit(0x0100);
+}
+
+#[get("/")]
 pub async fn info() -> Template {
     Template::render("hbs/info", context! {})
 }
