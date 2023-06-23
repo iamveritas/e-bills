@@ -28,9 +28,10 @@ mod test {
     use crate::{
         bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
         byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
-        generation_rsa_key, issue_new_bill, pem_private_key_from_rsa, pem_public_key_from_rsa,
-        private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file,
-        read_identity_from_file, structure_as_u8_slice, BitcreditBill, Identity,
+        endorse_bitcredit_bill, generation_rsa_key, get_whole_identity, issue_new_bill,
+        pem_private_key_from_rsa, pem_public_key_from_rsa, private_key_from_pem_u8,
+        public_key_from_pem_u8, read_bill_from_file, read_identity_from_file,
+        read_peer_id_from_file, structure_as_u8_slice, BitcreditBill, Identity, IdentityPublicData,
     };
 
     //TODO: Change. Because we create new bill every time we run tests
@@ -137,6 +138,69 @@ mod test {
     //     assert!(verifier.verify(signature.as_slice()).unwrap());
     // }
 
+    // #[test]
+    // fn test_new_bill_enc() {
+    //     let public_data_drawee = IdentityPublicData {
+    //         peer_id: "".to_string(),
+    //         name: "bill.drawee_name".to_string(),
+    //         bitcoin_public_key: "".to_string(),
+    //         postal_address: "".to_string(),
+    //         email: "".to_string(),
+    //     };
+    //
+    //     let peer_id = read_peer_id_from_file().to_string();
+    //
+    //     let public_data_payee = IdentityPublicData {
+    //         peer_id: peer_id,
+    //         name: "bill.payee_name".to_string(),
+    //         bitcoin_public_key: "".to_string(),
+    //         postal_address: "".to_string(),
+    //         email: "".to_string(),
+    //     };
+    //
+    //     let drawer = get_whole_identity();
+    //
+    //     let bill = issue_new_bill(
+    //         "bill.bill_jurisdiction".to_string(),
+    //         "bill.place_of_drawing".to_string(),
+    //         12,
+    //         "bill.place_of_payment".to_string(),
+    //         "bill.maturity_date".to_string(),
+    //         drawer.clone(),
+    //         "bill.language".to_string(),
+    //         public_data_drawee,
+    //         public_data_payee,
+    //     );
+    //
+    //     let bill2 = read_bill_from_file(&bill.name);
+    //
+    //     assert_eq!(bill.bill_jurisdiction, bill2.bill_jurisdiction);
+    // }
+
+    // #[test]
+    // fn test_new_bill_end() {
+    //     let peer_id = read_peer_id_from_file().to_string();
+    //
+    //     let public_data_drawee = IdentityPublicData {
+    //         peer_id,
+    //         name: "bill.drawee_name".to_string(),
+    //         bitcoin_public_key: "".to_string(),
+    //         postal_address: "".to_string(),
+    //         email: "".to_string(),
+    //     };
+    //
+    //     endorse_bitcredit_bill(
+    //         &"5f58c116fa86af48dc4442e7daa4cf062564415fad31a889b3ed7e02f76bcf8b".to_string(),
+    //         public_data_drawee,
+    //     );
+    //
+    //     let bill = read_bill_from_file(
+    //         &"5f58c116fa86af48dc4442e7daa4cf062564415fad31a889b3ed7e02f76bcf8b".to_string(),
+    //     );
+    //
+    //     assert_eq!(bill.bill_jurisdiction, "bill.bill_jurisdiction".to_string());
+    // }
+
     #[test]
     fn test_bitcoin() {
         let s1 = bitcoin::secp256k1::Secp256k1::new();
@@ -170,10 +234,6 @@ mod test {
         println!("public key: {}", pub_key3);
         println!("address: {}", address3);
         println!("{}", address3.is_spend_standard());
-
-        assert_eq!(private_key1.to_string(), "private key".to_string());
-        assert_eq!(public_key1.to_string(), "public key".to_string());
-        assert_eq!(address1.to_string(), "address".to_string());
     }
 
     #[tokio::test]
@@ -222,7 +282,6 @@ mod test {
             .await
             .expect("Failed to read response");
         println!("{:?}", response);
-        assert_eq!("dsad".to_string(), "address".to_string());
     }
 
     #[test]
@@ -400,12 +459,44 @@ mod test {
     // }
 
     #[test]
+    fn encrypt_and_decrypt_simple_data_with_keypair() {
+        // Create data
+        let data = "test";
+
+        // Generate a keypair
+        let rsa_key = generation_rsa_key();
+
+        let public_key =
+            Rsa::public_key_from_pem(rsa_key.public_key_to_pem().unwrap().as_slice()).unwrap();
+        let private_key =
+            Rsa::private_key_from_pem(rsa_key.private_key_to_pem().unwrap().as_slice()).unwrap();
+
+        // Encrypt with public key
+        let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];
+        let _ = public_key
+            .public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1)
+            .unwrap();
+
+        let data_enc = buf;
+
+        // Decrypt with private key
+        let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];
+        let _ = rsa_key
+            .private_decrypt(&data_enc, &mut buf, Padding::PKCS1)
+            .unwrap();
+        assert!(String::from_utf8(buf).unwrap().starts_with(data));
+    }
+
+    #[test]
     fn encrypt_and_decrypt_simple_data_with_rsa_keypair() {
         // Create data
         let data = "test";
 
         // Generate a keypair
         let rsa_key = generation_rsa_key();
+
+        let p_key =
+            Rsa::public_key_from_pem(rsa_key.public_key_to_pem().unwrap().as_slice()).unwrap();
 
         // Encrypt with public key
         let mut buf: Vec<u8> = vec![0; rsa_key.size() as usize];

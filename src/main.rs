@@ -8,7 +8,7 @@ use std::path::Path;
 use std::{env, fs, mem, path};
 
 use borsh::{self, BorshDeserialize, BorshSerialize};
-use chrono::{Days, Utc};
+use chrono::Utc;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use openssl::pkey::{Private, Public};
@@ -22,7 +22,7 @@ use rocket_dyn_templates::Template;
 
 use crate::blockchain::{start_blockchain_for_new_bill, Block, Chain, OperationCode};
 use crate::constants::{
-    mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, SATOSHI, TEMPLATES_FOLDER_PATH, USEDNET,
@@ -66,6 +66,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/image", FileServer::from(IMAGE_FOLDER_PATH))
         .mount("/css", FileServer::from(CSS_FOLDER_PATH))
         .mount("/", routes![web::start])
+        .mount("/exit", routes![web::exit])
         .mount(
             "/identity",
             routes![web::get_identity, web::create_identity,],
@@ -96,7 +97,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             web::customize(&mut engines.handlebars);
         }));
 
-    // open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
 
     rocket
 }
@@ -111,6 +112,9 @@ fn init_folders() {
     if !Path::new(BILLS_FOLDER_PATH).exists() {
         fs::create_dir(BILLS_FOLDER_PATH).expect("Can't create folder bills.");
     }
+    if !Path::new(BILLS_KEYS_FOLDER_PATH).exists() {
+        fs::create_dir(BILLS_KEYS_FOLDER_PATH).expect("Can't create folder bills_keys.");
+    }
     if !Path::new(CSS_FOLDER_PATH).exists() {
         fs::create_dir(CSS_FOLDER_PATH).expect("Can't create folder css.");
     }
@@ -121,7 +125,7 @@ fn init_folders() {
         fs::create_dir(TEMPLATES_FOLDER_PATH).expect("Can't create folder templates.");
     }
     if !Path::new(BOOTSTRAP_FOLDER_PATH).exists() {
-        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder templates.");
+        fs::create_dir(BOOTSTRAP_FOLDER_PATH).expect("Can't create folder bootstrap.");
     }
 }
 
@@ -189,6 +193,108 @@ fn public_key_from_pem_u8(public_key_u8: &Vec<u8>) -> Rsa<Public> {
 //--------------------------------------------------------------
 
 //-------------------------Bytes common-------------------------
+fn encrypt_bytes_with_public_key(bytes: &Vec<u8>, public_key: String) -> Vec<u8> {
+    let public_key = Rsa::public_key_from_pem(public_key.as_bytes()).unwrap();
+
+    let key_size: usize = (public_key.size() / 2) as usize; //128
+
+    let mut whole_encrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; key_size];
+    let mut temp_buff_encrypted: Vec<u8> = vec![0; public_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    let remainder: usize = bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number: usize = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let _encrypted_len: usize = public_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff = vec![0; key_size];
+        temp_buff_encrypted = vec![0; public_key.size() as usize];
+    }
+
+    if remainder != 0 {
+        temp_buff = vec![0; remainder];
+
+        let position: usize = key_size * number_of_key_size_in_whole_bill;
+        let mut index_in_temp_buff: usize = 0;
+
+        for i in position..bytes.len() {
+            temp_buff[index_in_temp_buff] = bytes[i];
+            index_in_temp_buff += 1;
+        }
+
+        index_in_temp_buff = 0;
+
+        let _encrypted_len: usize = public_key
+            .public_encrypt(&temp_buff, &mut temp_buff_encrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_encrypted_buff.append(&mut temp_buff_encrypted);
+        temp_buff.clear();
+        temp_buff_encrypted.clear();
+    }
+
+    whole_encrypted_buff
+}
+
+fn decrypt_bytes_with_private_key(bytes: &Vec<u8>, private_key: String) -> Vec<u8> {
+    let private_key = Rsa::private_key_from_pem(private_key.as_bytes()).unwrap();
+
+    let key_size: usize = private_key.size() as usize; //256
+
+    let mut whole_decrypted_buff: Vec<u8> = Vec::new();
+    let mut temp_buff: Vec<u8> = vec![0; private_key.size() as usize];
+    let mut temp_buff_decrypted: Vec<u8> = vec![0; private_key.size() as usize];
+
+    let number_of_key_size_in_whole_bill: usize = bytes.len() / key_size;
+    // let remainder = bill_bytes.len() - key_size * number_of_key_size_in_whole_bill;
+
+    for i in 0..number_of_key_size_in_whole_bill {
+        for j in 0..key_size {
+            let byte_number = key_size * i + j;
+            temp_buff[j] = bytes[byte_number];
+        }
+
+        let decrypted_len: usize = private_key
+            .private_decrypt(&temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+            .unwrap();
+
+        whole_decrypted_buff.append(&mut temp_buff_decrypted[0..decrypted_len].to_vec());
+        temp_buff = vec![0; private_key.size() as usize];
+        temp_buff_decrypted = vec![0; private_key.size() as usize];
+    }
+
+    // if remainder != 0 {
+    //     let position = key_size * number_of_key_size_in_whole_bill;
+    //     let mut index_in_temp_buff = 0;
+    //
+    //     for i in position..bill_bytes.len() {
+    //         temp_buff[index_in_temp_buff] = bill_bytes[i];
+    //         index_in_temp_buff = index_in_temp_buff + 1;
+    //     }
+    //
+    //     index_in_temp_buff = 0;
+    //
+    //     let decrypted_len = rsa_key
+    //         .public_decrypt(&*temp_buff, &mut temp_buff_decrypted, Padding::PKCS1)
+    //         .unwrap();
+    //
+    //     whole_decrypted_buff.append(&mut temp_buff_decrypted);
+    //     temp_buff.clear();
+    //     temp_buff_decrypted.clear();
+    // }
+
+    whole_decrypted_buff
+}
+
 fn encrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
     let key_size: usize = (rsa_key.size() / 2) as usize; //128
 
@@ -300,6 +406,7 @@ pub struct IdentityPublicData {
     bitcoin_public_key: String,
     postal_address: String,
     email: String,
+    rsa_public_key_pem: String,
 }
 
 impl IdentityPublicData {
@@ -310,6 +417,7 @@ impl IdentityPublicData {
             bitcoin_public_key: identity.bitcoin_public_key,
             postal_address: identity.postal_address,
             email: identity.email,
+            rsa_public_key_pem: identity.public_key_pem,
         }
     }
 }
@@ -511,6 +619,12 @@ pub struct BitcreditBill {
     language: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BillKeys {
+    private_key_pem: String,
+    public_key_pem: String,
+}
+
 pub fn issue_new_bill(
     bill_jurisdiction: String,
     place_of_drawing: String,
@@ -534,6 +648,15 @@ pub fn issue_new_bill(
 
     let private_key_bitcoin: String = private_key.to_string();
     let public_key_bitcoin: String = public_key.to_string();
+
+    let rsa: Rsa<Private> = generation_rsa_key();
+    let private_key_pem: String = pem_private_key_from_rsa(&rsa);
+    let public_key_pem: String = pem_public_key_from_rsa(&rsa);
+    write_bill_keys_to_file(
+        bill_name.clone(),
+        private_key_pem.clone(),
+        public_key_pem.clone(),
+    );
 
     let amount_letters: String = encode(&amount_numbers);
 
@@ -576,6 +699,7 @@ pub fn issue_new_bill(
             bitcoin_public_key: "".to_string(),
             postal_address: "".to_string(),
             email: "".to_string(),
+            rsa_public_key_pem: "".to_string(),
         },
     };
 
@@ -584,9 +708,24 @@ pub fn issue_new_bill(
         OperationCode::Issue,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
+        private_key_pem.clone(),
     );
 
     new_bill
+}
+
+fn write_bill_keys_to_file(bill_name: String, private_key: String, public_key: String) {
+    let keys: BillKeys = BillKeys {
+        private_key_pem: private_key,
+        public_key_pem: public_key,
+    };
+
+    let output_path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_name.as_str() + ".json";
+    std::fs::write(
+        output_path.clone(),
+        serde_json::to_string_pretty(&keys).unwrap(),
+    )
+    .unwrap();
 }
 
 fn create_bill_name(public_key: &PublicKey) -> String {
@@ -642,10 +781,18 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
             + " endorsed by "
             + &hex::encode(endorsed_by);
 
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
+
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data_for_new_block,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::Endorse,
@@ -683,12 +830,21 @@ pub fn request_pay(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data = "Requested to pay by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+        let data_for_new_block =
+            "Requested to pay by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToPay,
@@ -726,13 +882,21 @@ pub fn request_acceptance(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data =
+        let data_for_new_block =
             "Requested to accept by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToAccept,
@@ -765,12 +929,21 @@ pub fn accept_bill(bill_name: &String) -> bool {
             IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
         let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data = "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+        let data_for_new_block =
+            "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
 
         let new_block = Block::new(
             last_block.id + 1,
             last_block.hash.clone(),
-            data,
+            data_for_new_block_encrypted_in_string_format,
             bill_name.clone(),
             identity.identity.public_key_pem.clone(),
             OperationCode::Accept,
@@ -801,6 +974,12 @@ fn bill_to_byte_array(bill: &BitcreditBill) -> Vec<u8> {
 
 fn bill_from_byte_array(bill: &Vec<u8>) -> BitcreditBill {
     BitcreditBill::try_from_slice(bill).unwrap()
+}
+
+fn read_keys_from_bill_file(bill_name: &String) -> BillKeys {
+    let input_path = BILLS_KEYS_FOLDER_PATH.to_string() + "/" + bill_name.as_str() + ".json";
+    let blockchain_from_file = std::fs::read(input_path.clone()).expect("file not found");
+    serde_json::from_slice(blockchain_from_file.as_slice()).unwrap()
 }
 //--------------------------------------------------------------
 

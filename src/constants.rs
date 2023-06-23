@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 
 pub const IDENTITY_FOLDER_PATH: &str = "identity";
 pub const BILLS_FOLDER_PATH: &str = "bills";
+pub const BILLS_KEYS_FOLDER_PATH: &str = "bills_keys";
 pub const CONTACT_MAP_FOLDER_PATH: &str = "contacts";
 pub const CSS_FOLDER_PATH: &str = "css";
 pub const IMAGE_FOLDER_PATH: &str = "image";

@@ -17,10 +17,10 @@
         {{/each}}
         <br>
         {{#unless (eq chain_summ 0)}}
-            <li>{{chain_summ}} sats paid to address {{address_to_pay}} on chain</li>
+            <li>{{chain_summ}} sats paid to address {{address_to_pay}} (currently on chain)</li>
         {{/unless}}
         {{#unless (eq mempool_summ 0)}}
-            <li>{{mempool_summ}} sats paid to address {{address_to_pay}} in mempool</li>
+            <li>{{mempool_summ}} sats paid to address {{address_to_pay}} (currently in mempool)</li>
         {{/unless}}
     </ul>
     <h3><a href="http://localhost:8000/bill/blockchain/{{bill.name}}">Chain</a></h3>

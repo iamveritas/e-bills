@@ -7,10 +7,8 @@ use rocket::form::Form;
 use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId, OperationCode};
-use crate::constants::{
-    NUMBER_SATOSHI_IN_mBTC, BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET,
-};
+use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity,
@@ -39,6 +37,11 @@ pub async fn start() -> Template {
             },
         )
     }
+}
+
+#[get("/")]
+pub async fn exit() {
+    std::process::exit(0x0100);
 }
 
 #[get("/")]
@@ -236,9 +239,14 @@ pub async fn get_bill(id: String) -> Template {
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
         let usednet = USEDNET.to_string();
+        let mut pending = String::new();
 
         address_to_pay = get_address_to_pay(bill.clone());
-        payed = check_if_paid(address_to_pay.clone(), amount).await;
+        let check_if_already_paid = check_if_paid(address_to_pay.clone(), amount).await;
+        payed = check_if_already_paid.0;
+        if payed && check_if_already_paid.1.eq(&0) {
+            pending = "Pending".to_string();
+        }
         if !endorsed.clone() && payee_public_key.eq(&identity.identity.bitcoin_public_key)
         // && !payee.peer_id.eq(&drawee_from_bill.peer_id)
         {
@@ -270,6 +278,7 @@ pub async fn get_bill(id: String) -> Template {
                 pr_key_bill: pr_key_bill,
                 usednet: usednet,
                 endorsed: endorsed,
+                pending: pending,
             },
         )
     } else {
@@ -288,17 +297,18 @@ pub async fn get_bill(id: String) -> Template {
     }
 }
 
-async fn check_if_paid(address: String, amount: u64) -> bool {
+async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
     //todo check what net we used
     let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
     let received_summ = info_about_address.chain_stats.funded_txo_sum;
     let spent_summ = info_about_address.chain_stats.spent_txo_sum;
     let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
     let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
-    return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool)) {
-        true
+    return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
+    {
+        (true, received_summ.clone())
     } else {
-        false
+        (false, 0)
     };
 }
 
