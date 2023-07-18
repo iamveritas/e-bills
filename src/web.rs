@@ -1,10 +1,15 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+
 use bitcoin::secp256k1::Scalar;
-use std::path::Path;
 use std::str::FromStr;
+use std::io;
+use std::env;
+use std::path::{Path, PathBuf};
 
 use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::{Request, State};
+use rocket::fs::NamedFile;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
@@ -513,6 +518,23 @@ pub async fn endorse_bill(
             },
         )
     }
+}
+
+
+#[get("/")]
+pub async fn index() -> io::Result<NamedFile> {
+    let page_directory_path = get_directory_path();
+    NamedFile::open(Path::new(&page_directory_path).join("index.html")).await
+}
+
+fn get_directory_path() -> String {
+    "frontend/build".to_string()
+}
+
+#[get("/<file..>")]
+pub async fn files(file: PathBuf) -> io::Result<NamedFile> {
+    let page_directory_path = get_directory_path();
+    NamedFile::open(Path::new(&page_directory_path).join(file)).await
 }
 
 //TODO: change

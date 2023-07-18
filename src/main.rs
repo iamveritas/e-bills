@@ -77,6 +77,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             "/contacts",
             routes![web::add_contact, web::new_contact, web::contacts],
         )
+        .mount("/test", routes![web::index, web::files])
         .mount(
             "/bill",
             routes![
