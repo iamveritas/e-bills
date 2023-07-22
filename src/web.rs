@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::{Request, State};
-use rocket::fs::NamedFile;
+use rocket::http::Status;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
@@ -376,36 +376,36 @@ pub async fn search_bill(state: &State<Client>) -> Template {
     }
 }
 
-#[get("/")]
-pub async fn new_bill() -> Template {
-    if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
-    } else {
-        let identity: IdentityWithAll = get_whole_identity();
-        let utc = Utc::now();
-        let date_of_issue = utc.naive_local().date().to_string();
-        let maturity_date = utc
-            .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
-            .unwrap()
-            .naive_local()
-            .date()
-            .to_string();
-
-        Template::render(
-            "hbs/new_bill",
-            context! {
-                identity: Some(identity.identity),
-                date_of_issue: date_of_issue,
-                maturity_date: maturity_date,
-            },
-        )
-    }
-}
+// #[get("/")]
+// pub async fn new_bill() -> Template {
+//     if !Path::new(IDENTITY_FILE_PATH).exists() {
+//         Template::render("hbs/create_identity", context! {})
+//     } else {
+//         let identity: IdentityWithAll = get_whole_identity();
+//         let utc = Utc::now();
+//         let date_of_issue = utc.naive_local().date().to_string();
+//         let maturity_date = utc
+//             .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
+//             .unwrap()
+//             .naive_local()
+//             .date()
+//             .to_string();
+//
+//         Template::render(
+//             "hbs/new_bill",
+//             context! {
+//                 identity: Some(identity.identity),
+//                 date_of_issue: date_of_issue,
+//                 maturity_date: maturity_date,
+//             },
+//         )
+//     }
+// }
 
 #[post("/issue", data = "<bill_form>")]
-pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) -> Template {
+pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm>) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         let bill = bill_form.into_inner();
         let drawer = get_whole_identity();
@@ -449,13 +449,15 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         let bills = get_bills();
         let identity = read_identity_from_file();
 
-        Template::render(
-            "hbs/home",
-            context! {
-                identity: Some(identity),
-                bills: bills,
-            },
-        )
+        Status::Ok
+
+        // Template::render(
+        //     "hbs/home",
+        //     context! {
+        //         identity: Some(identity),
+        //         bills: bills,
+        //     },
+        // )
     }
 }
 
@@ -518,23 +520,6 @@ pub async fn endorse_bill(
             },
         )
     }
-}
-
-
-#[get("/")]
-pub async fn index() -> io::Result<NamedFile> {
-    let page_directory_path = get_directory_path();
-    NamedFile::open(Path::new(&page_directory_path).join("index.html")).await
-}
-
-fn get_directory_path() -> String {
-    "frontend/build".to_string()
-}
-
-#[get("/<file..>")]
-pub async fn files(file: PathBuf) -> io::Result<NamedFile> {
-    let page_directory_path = get_directory_path();
-    NamedFile::open(Path::new(&page_directory_path).join(file)).await
 }
 
 //TODO: change

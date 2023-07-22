@@ -14,12 +14,18 @@ import Bill from "./components/pages/Bill";
 export default function App() {
   const [current, setCurrent] = useState("issue");
   const [data, setData] = useState({
-    payon: "",
-    payonDate: "",
-    toOrder: "",
-    toSumCurrency: "",
-    toSumAmount: "",
-    drawee: "",
+    maturity_date: "",
+    payee_name: "",
+    currency_code: "",
+    amount_numbers: "",
+    drawee_name: "",
+    drawer_name: "",
+    place_of_drawing: "",
+    place_of_payment: "",
+    bill_jurisdiction: "",
+    date_of_issue: "",
+    language: "en",
+
   });
 
   const changeHandle = (e) => {
@@ -56,7 +62,7 @@ export default function App() {
       {current !== "bill" && (
         <>
           <Header title="Issue" />
-          <UniqueNumber UID="001" date="16-Feb-2023" />
+          {/*<UniqueNumber UID="001" date="16-Feb-2023" />*/}
           <div className="head">
             <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
             <IconHolder icon={attachment} />

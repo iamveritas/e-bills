@@ -15,7 +15,7 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-use rocket::fs::FileServer;
+use rocket::fs::{FileServer, relative};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
@@ -73,18 +73,17 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         )
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])
+        .mount("/issue_bill", FileServer::from(relative!("frontend/build")))
         .mount(
             "/contacts",
             routes![web::add_contact, web::new_contact, web::contacts],
         )
-        .mount("/test", routes![web::index, web::files])
         .mount(
             "/bill",
             routes![
                 web::get_bill,
                 web::issue_bill,
                 web::endorse_bill,
-                web::new_bill,
                 web::search_bill,
                 web::request_to_accept_bill,
                 web::accept_bill_form,
