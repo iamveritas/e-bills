@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, {useEffect, useState} from "react";
 
 import attachment from "./assests/attachment.svg";
 // components
@@ -16,7 +16,7 @@ export default function App() {
   const [data, setData] = useState({
     maturity_date: "",
     payee_name: "",
-    currency_code: "",
+    currency_code: "sats",
     amount_numbers: "",
     drawee_name: "",
     drawer_name: "",
@@ -27,6 +27,32 @@ export default function App() {
     language: "en",
 
   });
+
+  const [identity, setIdentity] = useState({
+    name: String,
+    date_of_birth: String,
+    city_of_birth: String,
+    country_of_birth: String,
+    email: String,
+    postal_address: String,
+    public_key_pem: String,
+    private_key_pem: String,
+    bitcoin_public_key: String,
+    bitcoin_private_key: String,
+
+  });
+
+  useEffect(() => {
+    fetch('http://localhost:8000/identity/return')
+        .then((res) => res.json())
+        .then((data) => {
+          console.log(data);
+          setIdentity(data);
+        }).catch((err) => {
+          console.log(err.message);
+        });
+    }, []);
+
 
   const changeHandle = (e) => {
     let value = e.target.value;
@@ -43,17 +69,18 @@ export default function App() {
       case "issue":
         return (
           <IssuePage
+            identity={identity}
             data={data}
             changeHandle={changeHandle}
             handlePage={handlePage}
           />
         );
       case "accept":
-        return <AcceptPage data={data} handlePage={handlePage} />;
+        return <AcceptPage identity={identity} data={data} handlePage={handlePage} />;
       case "repay":
-        return <RepayPage data={data} handlePage={handlePage} />;
+        return <RepayPage identity={identity} data={data} handlePage={handlePage} />;
       case "bill":
-        return <Bill data={data} handlePage={handlePage} />;
+        return <Bill identity={identity} data={data} handlePage={handlePage} />;
     }
   };
 
