@@ -10,6 +10,7 @@ use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::{Request, State};
 use rocket::http::Status;
+use rocket::serde::json::Json;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
@@ -72,6 +73,13 @@ pub async fn get_identity() -> Template {
             },
         )
     }
+}
+
+#[get("/return")]
+pub async fn return_identity() -> Json<Identity> {
+    let identity: IdentityWithAll = get_whole_identity();
+    Json(identity.identity)
+
 }
 
 #[post("/create", data = "<identity_form>")]

@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function RepayPage({data, handlePage}) {
+export default function RepayPage({identity, data, handlePage}) {
     return (
         <div className="Repay">
             <div className="col">
@@ -10,8 +10,8 @@ export default function RepayPage({data, handlePage}) {
             <div className="inline">
                 <span>the sum of </span>
                 <span className="colored">
-          {data.currency_code} {data.amount_numbers}
-        </span>
+                    {data.currency_code} {data.amount_numbers}
+                </span>
             </div>
             <div className="col mtt">
                 <label htmlFor="wallet">Send from wallet:</label>
@@ -20,8 +20,8 @@ export default function RepayPage({data, handlePage}) {
                     <option value="BTC" defaultValue="btc">
                         Default BTC wallet
                     </option>
-          </select>
-        </span>
+                    </select>
+                </span>
                 <button className="btn mtt" onClick={() => handlePage("bill")}>
                     SIGN
                 </button>

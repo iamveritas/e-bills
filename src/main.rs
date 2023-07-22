@@ -69,7 +69,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/exit", routes![web::exit])
         .mount(
             "/identity",
-            routes![web::get_identity, web::create_identity,],
+            routes![web::get_identity, web::create_identity, web::return_identity],
         )
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])

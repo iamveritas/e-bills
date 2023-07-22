@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function IssueForm({data, changeHandle, handlePage}) {
+export default function IssueForm({data, identity, changeHandle, handlePage}) {
 
     const handleSubmition = e => {
         e.preventDefault();
@@ -61,8 +61,7 @@ export default function IssueForm({data, changeHandle, handlePage}) {
                             required
                             value={data.currency_code}
                         >
-                            <option value=""/>
-                            <option value="sats">sats</option>
+                            <option value={data.currency_code}>sats</option>
                         </select>
                     </span>
                     <input
@@ -96,10 +95,11 @@ export default function IssueForm({data, changeHandle, handlePage}) {
                     <input
                         id="drawer_name"
                         name="drawer_name"
-                        value={data.drawer_name}
+                        value={identity.name}
                         onChange={changeHandle}
                         type="text"
                         placeholder="Drawer Company, London"
+                        readOnly={true}
                         required
                     />
                 </div>
