@@ -76,7 +76,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/issue_bill", FileServer::from(relative!("frontend/build")))
         .mount(
             "/contacts",
-            routes![web::add_contact, web::new_contact, web::contacts],
+            routes![web::add_contact, web::new_contact, web::contacts, web::return_contacts],
         )
         .mount(
             "/bill",
@@ -130,6 +130,26 @@ fn init_folders() {
 }
 
 //-------------------------Contacts map-------------------------
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct Contact {
+    name: String,
+    peer_id: String,
+}
+
+fn get_contacts_vec() -> Vec<Contact> {
+    if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        create_contacts_map();
+    }
+    let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
+    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    let mut contacts_vec: Vec<Contact> = Vec::new();
+    for (name, peer_id) in contacts {
+        contacts_vec.push(Contact { name, peer_id });
+    }
+    contacts_vec
+}
+
 fn read_contacts_map() -> HashMap<String, String> {
     if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
         create_contacts_map();

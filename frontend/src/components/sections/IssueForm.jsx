@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function IssueForm({data, identity, changeHandle, handlePage}) {
+export default function IssueForm({contacts, data, identity, changeHandle, handlePage}) {
 
     const handleSubmition = e => {
         e.preventDefault();
@@ -16,6 +16,13 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             handlePage("accept");
         }).catch(err => err);
     };
+
+    let listContacts = contacts.map( contact => {
+            return (
+                <option key={contact.name}>{contact.name}</option>
+            )
+    })
+
     return (
         <form className="form" onSubmit={handleSubmition}>
             <div className="form-input">
@@ -34,17 +41,18 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
                 </div>
             </div>
             <div className="form-input">
-                <label htmlFor="payee_name">to the order of</label>
-                <div className="form-input">
-                    <input
+                <label htmlFor="drawee_name">to the order of</label>
+                <div className="form-input-row">
+                    <select
                         id="payee_name"
                         name="payee_name"
                         value={data.payee_name}
                         onChange={changeHandle}
-                        type="text"
-                        placeholder="Payee"
+                        placeholder="Payee Company, Zurich"
                         required
-                    />
+                    >
+                        {listContacts}
+                    </select>
                 </div>
             </div>
             <div className="form-input">
@@ -56,10 +64,8 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
                             id="currency_code"
                             name="currency_code"
                             onChange={changeHandle}
-                            type="text"
                             placeholder="EUR"
                             required
-                            value={data.currency_code}
                         >
                             <option value={data.currency_code}>sats</option>
                         </select>
@@ -77,21 +83,22 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             </div>
             <div className="form-input">
                 <label htmlFor="drawee_name">Drawee</label>
-                <div className="form-input">
-                    <input
+                <div className="form-input-row">
+                    <select
                         id="drawee_name"
                         name="drawee_name"
+                        placeholder="Drawee Company, Vienna"
                         value={data.drawee_name}
                         onChange={changeHandle}
-                        type="text"
-                        placeholder="Drawee Company, Vienna"
                         required
-                    />
+                    >
+                        {listContacts}
+                    </select>
                 </div>
             </div>
             <div className="form-input">
                 <label htmlFor="drawer_name">Drawer</label>
-                <div className="form-input">
+                <div className="form-input-row">
                     <input
                         id="drawer_name"
                         name="drawer_name"
@@ -106,7 +113,7 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             </div>
             <div className="form-input">
                 <label htmlFor="place_of_drawing">Place of drawing</label>
-                <div className="form-input">
+                <div className="form-input-row">
                     <input
                         id="place_of_drawing"
                         name="place_of_drawing"
@@ -120,7 +127,7 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             </div>
             <div className="form-input">
                 <label htmlFor="place_of_payment">Place of payment</label>
-                <div className="form-input">
+                <div className="form-input-row">
                     <input
                         id="place_of_payment"
                         name="place_of_payment"
@@ -134,7 +141,7 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             </div>
             <div className="form-input">
                 <label htmlFor="bill_jurisdiction">Bill jurisdiction</label>
-                <div className="form-input">
+                <div className="form-input-row">
                     <input
                         id="bill_jurisdiction"
                         name="bill_jurisdiction"
@@ -148,7 +155,7 @@ export default function IssueForm({data, identity, changeHandle, handlePage}) {
             </div>
             <div className="form-input">
                 <label htmlFor="language">Language</label>
-                <div className="form-input">
+                <div className="form-input-row">
                     <input
                         id="language"
                         name="language"

@@ -13,6 +13,7 @@ import RepayPage from "./components/pages/RepayPage";
 import Bill from "./components/pages/Bill";
 export default function App() {
   const [current, setCurrent] = useState("issue");
+
   const [data, setData] = useState({
     maturity_date: "",
     payee_name: "",
@@ -25,7 +26,6 @@ export default function App() {
     bill_jurisdiction: "",
     date_of_issue: "",
     language: "en",
-
   });
 
   const [identity, setIdentity] = useState({
@@ -39,9 +39,9 @@ export default function App() {
     private_key_pem: String,
     bitcoin_public_key: String,
     bitcoin_private_key: String,
-
   });
 
+  // Set identity
   useEffect(() => {
     fetch('http://localhost:8000/identity/return')
         .then((res) => res.json())
@@ -53,6 +53,20 @@ export default function App() {
         });
     }, []);
 
+
+  const [contacts, setContacts] = useState([]);
+
+  // Set contacts
+  useEffect(() => {
+    fetch('http://localhost:8000/contacts/return')
+        .then((res) => res.json())
+        .then((data) => {
+          console.log(data);
+          setContacts(data);
+        }).catch((err) => {
+      console.log(err.message);
+    });
+  }, []);
 
   const changeHandle = (e) => {
     let value = e.target.value;
@@ -69,6 +83,7 @@ export default function App() {
       case "issue":
         return (
           <IssuePage
+            contacts={contacts}
             identity={identity}
             data={data}
             changeHandle={changeHandle}
@@ -76,11 +91,11 @@ export default function App() {
           />
         );
       case "accept":
-        return <AcceptPage identity={identity} data={data} handlePage={handlePage} />;
+        return <AcceptPage contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
       case "repay":
-        return <RepayPage identity={identity} data={data} handlePage={handlePage} />;
+        return <RepayPage contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
       case "bill":
-        return <Bill identity={identity} data={data} handlePage={handlePage} />;
+        return <Bill contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
     }
   };
 

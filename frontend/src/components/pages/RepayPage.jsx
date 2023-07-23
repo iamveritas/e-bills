@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function RepayPage({identity, data, handlePage}) {
+export default function RepayPage({contacts, identity, data, handlePage}) {
     return (
         <div className="Repay">
             <div className="col">

@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function AcceptPage({ identity, data, handlePage }) {
+export default function AcceptPage({ contacts, identity, data, handlePage }) {
   return (
     <div className="accept">
       <div className="accept-container">
