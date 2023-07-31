@@ -49,7 +49,7 @@
             <h3>Payed: {{pending}}</h3>
         {{/unless}}
         {{#if (eq pending "")}}
-            <h3>Payed: {{payed}}</h3>
+            <h3>Payed: {{payed}} ({{number_of_confirmations}} confirmations)</h3>
         {{/if}}
     {{/if}}
     {{#unless payed}}
