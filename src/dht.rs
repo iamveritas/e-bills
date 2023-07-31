@@ -28,7 +28,6 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 }
 
 pub mod network {
-    use std::any::Any;
     use std::collections::{HashMap, HashSet};
     use std::net::Ipv4Addr;
     use std::path::Path;
@@ -66,8 +65,8 @@ pub mod network {
     };
     use crate::{
         decrypt_bytes_with_private_key, encrypt_bytes_with_public_key, generate_dht_logic,
-        get_bills, get_whole_identity, read_ed25519_keypair_from_file, read_peer_id_from_file,
-        IdentityPublicData, IdentityWithAll,
+        get_bills, get_whole_identity, is_not_hidden, read_ed25519_keypair_from_file,
+        read_peer_id_from_file, IdentityPublicData, IdentityWithAll,
     };
 
     use super::*;
@@ -350,17 +349,20 @@ pub mod network {
                 let mut new_record: String = record_in_dht.clone();
 
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let dir = file.unwrap();
+                    if is_not_hidden(&dir) {
+                        let mut bill_name = dir.file_name().into_string().unwrap();
 
-                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                        .expect("File name error")
-                        .to_str()
-                        .expect("File name error")
-                        .to_string();
+                        bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                            .expect("File name error")
+                            .to_str()
+                            .expect("File name error")
+                            .to_string();
 
-                    if !record_in_dht.contains(&bill_name) {
-                        new_record += (",".to_string() + &bill_name.clone()).as_str();
-                        self.put(&bill_name).await;
+                        if !record_in_dht.contains(&bill_name) {
+                            new_record += (",".to_string() + &bill_name.clone()).as_str();
+                            self.put(&bill_name).await;
+                        }
                     }
                 }
                 if !record_in_dht.eq(&new_record) {
@@ -369,19 +371,22 @@ pub mod network {
             } else {
                 let mut new_record = String::new();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
-                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                        .expect("File name error")
-                        .to_str()
-                        .expect("File name error")
-                        .to_string();
+                    let dir = file.unwrap();
+                    if is_not_hidden(&dir) {
+                        let mut bill_name = dir.file_name().into_string().unwrap();
+                        bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                            .expect("File name error")
+                            .to_str()
+                            .expect("File name error")
+                            .to_string();
 
-                    if new_record.is_empty() {
-                        new_record = bill_name.clone();
-                        self.put(&bill_name).await;
-                    } else {
-                        new_record += (",".to_string() + &bill_name.clone()).as_str();
-                        self.put(&bill_name).await;
+                        if new_record.is_empty() {
+                            new_record = bill_name.clone();
+                            self.put(&bill_name).await;
+                        } else {
+                            new_record += (",".to_string() + &bill_name.clone()).as_str();
+                            self.put(&bill_name).await;
+                        }
                     }
                 }
                 if !new_record.is_empty() {
@@ -392,13 +397,16 @@ pub mod network {
 
         pub async fn start_provide(&mut self) {
             for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                let mut bill_name = file.unwrap().file_name().into_string().unwrap();
-                bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                    .expect("File name error")
-                    .to_str()
-                    .expect("File name error")
-                    .to_string();
-                self.put(&bill_name).await;
+                let dir = file.unwrap();
+                if is_not_hidden(&dir) {
+                    let mut bill_name = dir.file_name().into_string().unwrap();
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
+                    self.put(&bill_name).await;
+                }
             }
         }
 
