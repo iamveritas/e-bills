@@ -5,7 +5,7 @@ import download from "../../assests/download.svg";
 import wechsel from "../../assests/WECHSEL.svg";
 import dumySig from "../../assests/Jordan-signature.png";
 import Pdf from "react-to-pdf";
-function Bill({ identity, data, handlePage }) {
+function Bill({ contacts, identity, data, handlePage }) {
   const divRef = React.createRef();
   const [offSet, setOffSet] = useState({
     width: 0,

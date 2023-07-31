@@ -2,11 +2,8 @@
 
 use bitcoin::secp256k1::Scalar;
 use std::str::FromStr;
-use std::io;
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use chrono::{Days, Utc};
 use rocket::form::Form;
 use rocket::{Request, State};
 use rocket::http::Status;
@@ -14,16 +11,9 @@ use rocket::serde::json::Json;
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
+use crate::constants::{BILLS_FOLDER_PATH, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
-use crate::{
-    accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity,
-    endorse_bitcredit_bill, get_bills, get_contact_from_map, get_whole_identity, issue_new_bill,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
-    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
-    NewContactForm, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
-};
+use crate::{accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity, endorse_bitcredit_bill, get_bills, get_contact_from_map, get_whole_identity, issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll, NewContactForm, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm, Contact, get_contacts_vec};
 
 use self::handlebars::{Handlebars, JsonRender};
 
@@ -79,7 +69,12 @@ pub async fn get_identity() -> Template {
 pub async fn return_identity() -> Json<Identity> {
     let identity: IdentityWithAll = get_whole_identity();
     Json(identity.identity)
+}
 
+#[get("/return")]
+pub async fn return_contacts() -> Json<Vec<Contact>> {
+    let contacts: Vec<Contact> = get_contacts_vec();
+    Json(contacts)
 }
 
 #[post("/create", data = "<identity_form>")]
