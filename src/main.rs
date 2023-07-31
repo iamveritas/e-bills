@@ -4,6 +4,7 @@ extern crate rocket;
 
 use bitcoin::PublicKey;
 use std::collections::HashMap;
+use std::fs::DirEntry;
 use std::path::Path;
 use std::{env, fs, mem, path};
 
@@ -15,14 +16,14 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-use rocket::fs::{FileServer, relative};
+use rocket::fs::{relative, FileServer};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::blockchain::{start_blockchain_for_new_bill, Block, Chain, OperationCode};
 use crate::constants::{
-    BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BILL_VALIDITY_PERIOD, BOOTSTRAP_FOLDER_PATH,
+    BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, SATOSHI, TEMPLATES_FOLDER_PATH, USEDNET,
@@ -69,14 +70,23 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/exit", routes![web::exit])
         .mount(
             "/identity",
-            routes![web::get_identity, web::create_identity, web::return_identity],
+            routes![
+                web::get_identity,
+                web::create_identity,
+                web::return_identity
+            ],
         )
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])
         .mount("/issue_bill", FileServer::from(relative!("frontend/build")))
         .mount(
             "/contacts",
-            routes![web::add_contact, web::new_contact, web::contacts, web::return_contacts],
+            routes![
+                web::add_contact,
+                web::new_contact,
+                web::contacts,
+                web::return_contacts
+            ],
         )
         .mount(
             "/bill",
@@ -415,6 +425,14 @@ fn decrypt_bytes(bytes: &Vec<u8>, rsa_key: &Rsa<Private>) -> Vec<u8> {
 
 unsafe fn structure_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+}
+
+fn is_not_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| !s.starts_with("."))
+        .unwrap_or(false)
 }
 //--------------------------------------------------------------
 
@@ -758,20 +776,22 @@ pub fn get_bills() -> Vec<BitcreditBill> {
     let mut bills = Vec::new();
     let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
     for _path in paths {
-        let mut file_name = _path
-            .unwrap()
-            .file_name()
-            .to_str()
-            .expect("File name error")
-            .to_string();
-        //TODO change
-        let path_without_extension = path::Path::file_stem(path::Path::new(&file_name))
-            .expect("File name error")
-            .to_str()
-            .expect("File name error")
-            .to_string();
-        let bill = read_bill_from_file(&path_without_extension);
-        bills.push(bill);
+        let dir = _path.unwrap();
+        if is_not_hidden(&dir) {
+            let mut file_name = dir
+                .file_name()
+                .to_str()
+                .expect("File name error")
+                .to_string();
+            //TODO change
+            let path_without_extension = path::Path::file_stem(path::Path::new(&file_name))
+                .expect("File name error")
+                .to_str()
+                .expect("File name error")
+                .to_string();
+            let bill = read_bill_from_file(&path_without_extension);
+            bills.push(bill);
+        }
     }
     bills
 }
