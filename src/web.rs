@@ -254,6 +254,7 @@ pub async fn get_bill(id: String) -> Template {
         let mut address_to_pay = String::new();
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
+        let mut number_of_confirmations: u64 = 0;
         let usednet = USEDNET.to_string();
         let mut pending = String::new();
 
@@ -262,6 +263,11 @@ pub async fn get_bill(id: String) -> Template {
         payed = check_if_already_paid.0;
         if payed && check_if_already_paid.1.eq(&0) {
             pending = "Pending".to_string();
+        } else if payed && !check_if_already_paid.1.eq(&0) {
+            let transaction = api::get_transactions_testet(address_to_pay.clone()).await;
+            let txid = api::Txid::get_first_transaction(transaction.clone()).await;
+            let height = api::get_testnet_last_block_height().await;
+            number_of_confirmations = height - txid.status.block_height;
         }
         if !endorsed.clone() && payee_public_key.eq(&identity.identity.bitcoin_public_key)
         // && !payee.peer_id.eq(&drawee_from_bill.peer_id)
@@ -295,6 +301,7 @@ pub async fn get_bill(id: String) -> Template {
                 usednet: usednet,
                 endorsed: endorsed,
                 pending: pending,
+                number_of_confirmations: number_of_confirmations,
             },
         )
     } else {
