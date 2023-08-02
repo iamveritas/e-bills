@@ -17,10 +17,10 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
         }).catch(err => err);
     };
 
-    let listContacts = contacts.map( contact => {
-            return (
-                <option key={contact.name}>{contact.name}</option>
-            )
+    let listContacts = contacts.map(contact => {
+        return (
+            <option key={contact.name}>{contact.name}</option>
+        )
     })
 
     return (
