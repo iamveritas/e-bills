@@ -91,11 +91,11 @@ export default function App() {
           />
         );
       case "accept":
-        return <AcceptPage contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
+        return <AcceptPage identity={identity} data={data} handlePage={handlePage} />;
       case "repay":
         return <RepayPage contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
       case "bill":
-        return <Bill contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
+        return <Bill identity={identity} data={data} handlePage={handlePage} />;
     }
   };
 

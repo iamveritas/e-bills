@@ -17,10 +17,10 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
         }).catch(err => err);
     };
 
-    let listContacts = contacts.map( contact => {
-            return (
-                <option key={contact.name}>{contact.name}</option>
-            )
+    let listContacts = contacts.map(contact => {
+        return (
+            <option key={contact.name}>{contact.name}</option>
+        )
     })
 
     return (
@@ -96,7 +96,7 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                     </select>
                 </div>
             </div>
-            <div className="form-input">
+            <div className="form-input" hidden={true}>
                 <label htmlFor="drawer_name">Drawer</label>
                 <div className="form-input-row">
                     <input
@@ -153,7 +153,7 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                     />
                 </div>
             </div>
-            <div className="form-input">
+            <div className="form-input" hidden={true}>
                 <label htmlFor="language">Language</label>
                 <div className="form-input-row">
                     <input
