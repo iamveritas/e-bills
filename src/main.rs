@@ -78,7 +78,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         )
         .mount("/bills", routes![web::bills_list])
         .mount("/info", routes![web::info])
-        .mount("/issue_bill", FileServer::from(relative!("frontend/build")))
+        .mount("/issue_bill", FileServer::from("frontend_build"))
         .mount(
             "/contacts",
             routes![
