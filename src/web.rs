@@ -1,6 +1,7 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use bitcoin::secp256k1::Scalar;
+use chrono::{Days, Utc};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -11,16 +12,17 @@ use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
-use crate::constants::{BILLS_FOLDER_PATH, IDENTITY_FILE_PATH, USEDNET};
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity,
     endorse_bitcredit_bill, get_bills, get_contact_from_map, get_contacts_vec, get_whole_identity,
-    issue_new_bill, read_bill_from_file, read_contacts_map, read_identity_from_file,
-    read_peer_id_from_file, request_acceptance, request_pay, AcceptBitcreditBillForm,
-    BitcreditBill, BitcreditBillForm, Contact, EndorseBitcreditBillForm, Identity, IdentityForm,
-    IdentityPublicData, IdentityWithAll, NewContactForm, RequestToAcceptBitcreditBillForm,
-    RequestToPayBitcreditBillForm,
+    issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee,
+    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
+    request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
+    BitcreditBillFormDrawerIsDrawee, BitcreditBillFormDrawerIsPayee, Contact,
+    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
+    NewContactForm, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -476,6 +478,187 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
         //         bills: bills,
         //     },
         // )
+    }
+}
+
+#[get("/")]
+pub async fn new_two_party_bill_drawer_is_payee() -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let identity: IdentityWithAll = get_whole_identity();
+        let utc = Utc::now();
+        let date_of_issue = utc.naive_local().date().to_string();
+        let maturity_date = utc
+            .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
+            .unwrap()
+            .naive_local()
+            .date()
+            .to_string();
+
+        Template::render(
+            "hbs/new_two_party_bill_drawer_is_payee",
+            context! {
+                identity: Some(identity.identity),
+                date_of_issue: date_of_issue,
+                maturity_date: maturity_date,
+            },
+        )
+    }
+}
+
+#[post("/issue_2_party_bill_drawer_is_payee", data = "<bill_form>")]
+pub async fn issue_2_party_bill_drawer_is_payee(
+    state: &State<Client>,
+    bill_form: Form<BitcreditBillFormDrawerIsPayee>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let bill = bill_form.into_inner();
+        let drawer = get_whole_identity();
+
+        let mut client = state.inner().clone();
+
+        let public_data_drawee = get_identity_public_data(bill.drawee_name, client.clone()).await;
+
+        let bill = issue_new_bill_drawer_is_payee(
+            bill.bill_jurisdiction,
+            bill.place_of_drawing,
+            bill.amount_numbers,
+            bill.place_of_payment,
+            bill.maturity_date,
+            drawer.clone(),
+            bill.language,
+            public_data_drawee,
+        );
+
+        let mut nodes: Vec<String> = Vec::new();
+
+        let my_peer_id = drawer.peer_id.to_string().clone();
+        nodes.push(my_peer_id.to_string());
+        nodes.push(bill.drawee.peer_id.clone());
+        nodes.push(bill.payee.peer_id.clone());
+
+        for node in nodes {
+            if !node.is_empty() {
+                println!("Add {} for node {}", &bill.name, &node);
+                client.add_bill_to_dht_for_node(&bill.name, &node).await;
+            }
+        }
+
+        client.subscribe_to_topic(bill.name.clone()).await;
+
+        client.put(&bill.name).await;
+
+        let bills = get_bills();
+        let identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
+    }
+}
+
+#[get("/")]
+pub async fn new_two_party_bill_drawer_is_drawee() -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let identity: IdentityWithAll = get_whole_identity();
+        let utc = Utc::now();
+        let date_of_issue = utc.naive_local().date().to_string();
+        let maturity_date = utc
+            .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
+            .unwrap()
+            .naive_local()
+            .date()
+            .to_string();
+
+        Template::render(
+            "hbs/new_two_party_bill_drawer_is_drawee",
+            context! {
+                identity: Some(identity.identity),
+                date_of_issue: date_of_issue,
+                maturity_date: maturity_date,
+            },
+        )
+    }
+}
+
+#[post("/issue_2_party_bill_drawer_is_drawee", data = "<bill_form>")]
+pub async fn issue_2_party_bill_drawer_is_drawee(
+    state: &State<Client>,
+    bill_form: Form<BitcreditBillFormDrawerIsDrawee>,
+) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        let bill = bill_form.into_inner();
+        let drawer = get_whole_identity();
+
+        let mut client = state.inner().clone();
+
+        let public_data_payee = get_identity_public_data(bill.payee_name, client.clone()).await;
+
+        let bill = issue_new_bill_drawer_is_drawee(
+            bill.bill_jurisdiction,
+            bill.place_of_drawing,
+            bill.amount_numbers,
+            bill.place_of_payment,
+            bill.maturity_date,
+            drawer.clone(),
+            bill.language,
+            public_data_payee,
+        );
+
+        let mut nodes: Vec<String> = Vec::new();
+
+        let my_peer_id = drawer.peer_id.to_string().clone();
+        nodes.push(my_peer_id.to_string());
+        nodes.push(bill.drawee.peer_id.clone());
+        nodes.push(bill.payee.peer_id.clone());
+
+        for node in nodes {
+            if !node.is_empty() {
+                println!("Add {} for node {}", &bill.name, &node);
+                client.add_bill_to_dht_for_node(&bill.name, &node).await;
+            }
+        }
+
+        client.subscribe_to_topic(bill.name.clone()).await;
+
+        client.put(&bill.name).await;
+
+        let correct = accept_bill(&bill.name);
+
+        if correct {
+            let chain: Chain = Chain::read_chain_from_file(&bill.name);
+            let block = chain.get_latest_block();
+
+            let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+            let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+            let message = event.to_byte_array();
+
+            client
+                .add_message_to_topic(message, bill.name.clone())
+                .await;
+        }
+
+        let bills = get_bills();
+        let identity = read_identity_from_file();
+
+        Template::render(
+            "hbs/home",
+            context! {
+                identity: Some(identity),
+                bills: bills,
+            },
+        )
     }
 }
 

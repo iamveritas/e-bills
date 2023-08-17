@@ -16,7 +16,7 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
-use rocket::fs::{relative, FileServer};
+use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
@@ -80,6 +80,14 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/info", routes![web::info])
         .mount("/issue_bill", FileServer::from("frontend_build"))
         .mount(
+            "/new_two_party_bill_drawer_is_payee",
+            routes![web::new_two_party_bill_drawer_is_payee],
+        )
+        .mount(
+            "/new_two_party_bill_drawer_is_drawee",
+            routes![web::new_two_party_bill_drawer_is_drawee],
+        )
+        .mount(
             "/contacts",
             routes![
                 web::add_contact,
@@ -101,6 +109,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::get_bill_history,
                 web::get_bill_chain,
                 web::get_block,
+                web::issue_2_party_bill_drawer_is_payee,
+                web::issue_2_party_bill_drawer_is_drawee,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -458,6 +468,17 @@ impl IdentityPublicData {
             rsa_public_key_pem: identity.public_key_pem,
         }
     }
+
+    pub fn new_empty() -> Self {
+        Self {
+            peer_id: "".to_string(),
+            name: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            email: "".to_string(),
+            rsa_public_key_pem: "".to_string(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -731,14 +752,169 @@ pub fn issue_new_bill(
         drawee: public_data_drawee,
         drawer: public_data_drawer,
         payee: public_data_payee,
-        endorsee: IdentityPublicData {
-            peer_id: "".to_string(),
-            name: "".to_string(),
-            bitcoin_public_key: "".to_string(),
-            postal_address: "".to_string(),
-            email: "".to_string(),
-            rsa_public_key_pem: "".to_string(),
-        },
+        endorsee: IdentityPublicData::new_empty(),
+    };
+
+    start_blockchain_for_new_bill(
+        &new_bill,
+        OperationCode::Issue,
+        drawer.identity.public_key_pem.clone(),
+        drawer.identity.private_key_pem.clone(),
+        private_key_pem.clone(),
+    );
+
+    new_bill
+}
+
+pub fn issue_new_bill_drawer_is_payee(
+    bill_jurisdiction: String,
+    place_of_drawing: String,
+    amount_numbers: u64,
+    place_of_payment: String,
+    maturity_date: String,
+    drawer: IdentityWithAll,
+    language: String,
+    public_data_drawee: IdentityPublicData,
+) -> BitcreditBill {
+    let s = bitcoin::secp256k1::Secp256k1::new();
+    let private_key = bitcoin::PrivateKey::new(
+        s.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng())
+            .0,
+        USEDNET,
+    );
+    let public_key = private_key.public_key(&s);
+
+    let bill_name: String = create_bill_name(&public_key);
+
+    let private_key_bitcoin: String = private_key.to_string();
+    let public_key_bitcoin: String = public_key.to_string();
+
+    let rsa: Rsa<Private> = generation_rsa_key();
+    let private_key_pem: String = pem_private_key_from_rsa(&rsa);
+    let public_key_pem: String = pem_public_key_from_rsa(&rsa);
+    write_bill_keys_to_file(
+        bill_name.clone(),
+        private_key_pem.clone(),
+        public_key_pem.clone(),
+    );
+
+    let amount_letters: String = encode(&amount_numbers);
+
+    let public_data_payee =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
+    let utc = Utc::now();
+    let timestamp_at_drawing = utc.timestamp();
+    let date_of_issue = utc.naive_local().date().to_string();
+    // let maturity_date = utc
+    //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
+    //     .unwrap()
+    //     .naive_local()
+    //     .date()
+    //     .to_string();
+
+    let new_bill = BitcreditBill {
+        name: bill_name.clone(),
+        to_payee: false,
+        bill_jurisdiction,
+        timestamp_at_drawing,
+        place_of_drawing,
+        currency_code: SATOSHI.to_string(),
+        amount_numbers,
+        amounts_letters: amount_letters,
+        maturity_date,
+        date_of_issue,
+        compounding_interest_rate: COMPOUNDING_INTEREST_RATE_ZERO,
+        type_of_interest_calculation: false,
+        place_of_payment,
+        public_key: public_key_bitcoin,
+        private_key: private_key_bitcoin,
+        language,
+        drawee: public_data_drawee,
+        drawer: IdentityPublicData::new_empty(),
+        payee: public_data_payee,
+        endorsee: IdentityPublicData::new_empty(),
+    };
+
+    start_blockchain_for_new_bill(
+        &new_bill,
+        OperationCode::Issue,
+        drawer.identity.public_key_pem.clone(),
+        drawer.identity.private_key_pem.clone(),
+        private_key_pem.clone(),
+    );
+
+    new_bill
+}
+
+pub fn issue_new_bill_drawer_is_drawee(
+    bill_jurisdiction: String,
+    place_of_drawing: String,
+    amount_numbers: u64,
+    place_of_payment: String,
+    maturity_date: String,
+    drawer: IdentityWithAll,
+    language: String,
+    public_data_payee: IdentityPublicData,
+) -> BitcreditBill {
+    let s = bitcoin::secp256k1::Secp256k1::new();
+    let private_key = bitcoin::PrivateKey::new(
+        s.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng())
+            .0,
+        USEDNET,
+    );
+    let public_key = private_key.public_key(&s);
+
+    let bill_name: String = create_bill_name(&public_key);
+
+    let private_key_bitcoin: String = private_key.to_string();
+    let public_key_bitcoin: String = public_key.to_string();
+
+    let rsa: Rsa<Private> = generation_rsa_key();
+    let private_key_pem: String = pem_private_key_from_rsa(&rsa);
+    let public_key_pem: String = pem_public_key_from_rsa(&rsa);
+    write_bill_keys_to_file(
+        bill_name.clone(),
+        private_key_pem.clone(),
+        public_key_pem.clone(),
+    );
+
+    let amount_letters: String = encode(&amount_numbers);
+
+    let public_data_drawee =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
+    let utc = Utc::now();
+    let timestamp_at_drawing = utc.timestamp();
+    let date_of_issue = utc.naive_local().date().to_string();
+    // let maturity_date = utc
+    //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
+    //     .unwrap()
+    //     .naive_local()
+    //     .date()
+    //     .to_string();
+
+    let new_bill = BitcreditBill {
+        name: bill_name.clone(),
+        to_payee: false,
+        bill_jurisdiction,
+        timestamp_at_drawing,
+        place_of_drawing,
+        currency_code: SATOSHI.to_string(),
+        amount_numbers,
+        amounts_letters: amount_letters,
+        maturity_date,
+        date_of_issue,
+        compounding_interest_rate: COMPOUNDING_INTEREST_RATE_ZERO,
+        type_of_interest_calculation: false,
+        place_of_payment,
+        public_key: public_key_bitcoin,
+        private_key: private_key_bitcoin,
+        language,
+        drawee: public_data_drawee,
+        drawer: IdentityPublicData::new_empty(),
+        payee: public_data_payee,
+        endorsee: IdentityPublicData::new_empty(),
     };
 
     start_blockchain_for_new_bill(
@@ -1032,6 +1208,30 @@ pub struct BitcreditBillForm {
     pub amount_numbers: u64,
     pub language: String,
     pub drawee_name: String,
+    pub payee_name: String,
+    pub place_of_payment: String,
+    pub maturity_date: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct BitcreditBillFormDrawerIsPayee {
+    pub bill_jurisdiction: String,
+    pub place_of_drawing: String,
+    pub amount_numbers: u64,
+    pub language: String,
+    pub drawee_name: String,
+    pub place_of_payment: String,
+    pub maturity_date: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct BitcreditBillFormDrawerIsDrawee {
+    pub bill_jurisdiction: String,
+    pub place_of_drawing: String,
+    pub amount_numbers: u64,
+    pub language: String,
     pub payee_name: String,
     pub place_of_payment: String,
     pub maturity_date: String,
