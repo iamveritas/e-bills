@@ -73,9 +73,9 @@ select::-ms-expand {
 }
 
 select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
   background: url("./assests/dropdown.svg") no-repeat;
   background-size: calcView(20);
   background-position: 90%;

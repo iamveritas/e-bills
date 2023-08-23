@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 
 import attachment from "./assests/attachment.svg";
 // components
@@ -43,29 +43,30 @@ export default function App() {
 
   // Set identity
   useEffect(() => {
-    fetch('http://localhost:8000/identity/return')
-        .then((res) => res.json())
-        .then((data) => {
-          console.log(data);
-          setIdentity(data);
-        }).catch((err) => {
-          console.log(err.message);
-        });
-    }, []);
-
+    fetch("http://localhost:8000/identity/return")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log(data);
+        setIdentity(data);
+      })
+      .catch((err) => {
+        console.log(err.message);
+      });
+  }, []);
 
   const [contacts, setContacts] = useState([]);
 
   // Set contacts
   useEffect(() => {
-    fetch('http://localhost:8000/contacts/return')
-        .then((res) => res.json())
-        .then((data) => {
-          console.log(data);
-          setContacts(data);
-        }).catch((err) => {
-      console.log(err.message);
-    });
+    fetch("http://localhost:8000/contacts/return")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log(data);
+        setContacts(data);
+      })
+      .catch((err) => {
+        console.log(err.message);
+      });
   }, []);
 
   const changeHandle = (e) => {
@@ -91,9 +92,18 @@ export default function App() {
           />
         );
       case "accept":
-        return <AcceptPage identity={identity} data={data} handlePage={handlePage} />;
+        return (
+          <AcceptPage identity={identity} data={data} handlePage={handlePage} />
+        );
       case "repay":
-        return <RepayPage contacts={contacts} identity={identity} data={data} handlePage={handlePage} />;
+        return (
+          <RepayPage
+            contacts={contacts}
+            identity={identity}
+            data={data}
+            handlePage={handlePage}
+          />
+        );
       case "bill":
         return <Bill identity={identity} data={data} handlePage={handlePage} />;
     }
