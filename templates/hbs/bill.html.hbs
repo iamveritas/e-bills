@@ -12,11 +12,13 @@
         <h1>Information about your bill {{bill.name}}</h1>
     </div>
     <h3>Net: {{usednet}}</h3>
-    <h3>Drawer name: {{bill.drawer.name}}</h3>
-    <h3>Drawer peer id: {{bill.drawer.peer_id}}</h3>
-    <h3>Drawer bitcoin public key: {{bill.drawer.bitcoin_public_key}}</h3>
-    <h3>Drawer postal address: {{bill.drawer.postal_address}}</h3>
-    <h3>Drawer email: {{bill.drawer.email}}</h3>
+    {{#unless (eq bill.drawer.name "")}}
+        <h3>Drawer name: {{bill.drawer.name}}</h3>
+        <h3>Drawer peer id: {{bill.drawer.peer_id}}</h3>
+        <h3>Drawer bitcoin public key: {{bill.drawer.bitcoin_public_key}}</h3>
+        <h3>Drawer postal address: {{bill.drawer.postal_address}}</h3>
+        <h3>Drawer email: {{bill.drawer.email}}</h3>
+    {{/unless}}
     <h3>Drawee name: {{bill.drawee.name}}</h3>
     <h3>Drawee peer id: {{bill.drawee.peer_id}}</h3>
     <h3>Drawee bitcoin public key: {{bill.drawee.bitcoin_public_key}}</h3>
