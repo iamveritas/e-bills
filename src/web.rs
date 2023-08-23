@@ -259,6 +259,8 @@ pub async fn get_bill(id: String) -> Template {
         let mut number_of_confirmations: u64 = 0;
         let usednet = USEDNET.to_string();
         let mut pending = String::new();
+        let mut requested_to_pay =
+            chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
 
         address_to_pay = get_address_to_pay(bill.clone());
         let check_if_already_paid = check_if_paid(address_to_pay.clone(), amount).await;
@@ -298,6 +300,7 @@ pub async fn get_bill(id: String) -> Template {
                 identity: Some(identity.identity),
                 accepted: accepted,
                 payed: payed,
+                requested_to_pay: requested_to_pay,
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,
                 usednet: usednet,
@@ -723,7 +726,6 @@ pub async fn endorse_bill(
     }
 }
 
-//TODO: change
 #[post("/request_to_pay", data = "<request_to_pay_bill_form>")]
 pub async fn request_to_pay_bill(
     state: &State<Client>,

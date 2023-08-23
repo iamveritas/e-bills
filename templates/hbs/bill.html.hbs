@@ -81,6 +81,29 @@
                     <input type="submit" id="button_submit" value="Request to accept">
                 </form>
             {{/unless}}
+            {{#unless requested_to_pay}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
+                </form>
+            {{/unless}}
+        {{/if}}
+        {{#if (eq operation_code codes.[4])}}
+            {{#unless accepted}}
+                <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to accept">
+                </form>
+            {{/unless}}
+            {{#unless requested_to_pay}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
+                </form>
+            {{/unless}}
         {{/if}}
         {{#if (eq operation_code codes.[0])}}
             {{#unless payed}}
@@ -88,6 +111,13 @@
                     <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
                            placeholder="Bill name" readonly><br>
                     <input type="submit" id="button_submit" value="Request to accept">
+                </form>
+            {{/unless}}
+            {{#unless payed}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
                 </form>
             {{/unless}}
         {{/if}}
@@ -113,6 +143,29 @@
                     <input type="submit" id="button_submit" value="Request to accept">
                 </form>
             {{/unless}}
+            {{#unless requested_to_pay}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
+                </form>
+            {{/unless}}
+        {{/if}}
+        {{#if (eq operation_code codes.[4])}}
+            {{#unless accepted}}
+                <form class="content" action="http://localhost:8000/bill/request_to_accept" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to accept">
+                </form>
+            {{/unless}}
+            {{#unless requested_to_pay}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
+                </form>
+            {{/unless}}
         {{/if}}
         {{#if (eq operation_code codes.[0])}}
             {{#unless payed}}
@@ -120,6 +173,13 @@
                     <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
                            placeholder="Bill name" readonly><br>
                     <input type="submit" id="button_submit" value="Request to accept">
+                </form>
+            {{/unless}}
+            {{#unless payed}}
+                <form class="content" action="http://localhost:8000/bill/request_to_pay" method="post">
+                    <input hidden type="text" required="required" id="bill_name" name="bill_name" value="{{bill.name}}"
+                           placeholder="Bill name" readonly><br>
+                    <input type="submit" id="button_submit" value="Request to pay">
                 </form>
             {{/unless}}
         {{/if}}
