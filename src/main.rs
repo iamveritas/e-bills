@@ -114,12 +114,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::return_bill,
             ],
         )
-        .mount(
-            "/bills",
-            routes![
-                web::return_bills_list,
-            ],
-        )
+        .mount("/bills", routes![web::return_bills_list,])
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
         }));
