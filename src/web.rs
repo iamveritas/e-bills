@@ -81,10 +81,22 @@ pub async fn return_identity() -> Json<Identity> {
     Json(identity.identity)
 }
 
+#[get("/return/<id>")]
+pub async fn return_bill(id: String) -> Json<BitcreditBill> {
+    let bill: BitcreditBill = read_bill_from_file(&id);
+    Json(bill)
+}
+
 #[get("/return")]
 pub async fn return_contacts() -> Json<Vec<Contact>> {
     let contacts: Vec<Contact> = get_contacts_vec();
     Json(contacts)
+}
+
+#[get("/return")]
+pub async fn return_bills_list() -> Json<Vec<BitcreditBill>> {
+    let bills: Vec<BitcreditBill> = get_bills();
+    Json(bills)
 }
 
 #[post("/create", data = "<identity_form>")]

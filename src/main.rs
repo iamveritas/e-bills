@@ -111,6 +111,13 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::get_block,
                 web::issue_2_party_bill_drawer_is_payee,
                 web::issue_2_party_bill_drawer_is_drawee,
+                web::return_bill,
+            ],
+        )
+        .mount(
+            "/bills",
+            routes![
+                web::return_bills_list,
             ],
         )
         .attach(Template::custom(|engines| {
@@ -447,7 +454,8 @@ fn is_not_hidden(entry: &DirEntry) -> bool {
 //--------------------------------------------------------------
 
 //-------------------------Identity-----------------------------
-#[derive(BorshSerialize, BorshDeserialize, Debug, Serialize, Deserialize, Clone, FromForm)]
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
 pub struct IdentityPublicData {
     peer_id: String,
     name: String,
