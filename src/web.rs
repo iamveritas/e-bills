@@ -266,6 +266,7 @@ pub async fn get_bill(id: String) -> Template {
         let amount = bill.amount_numbers.clone();
         let payee_public_key = bill.payee.bitcoin_public_key.clone();
         let mut address_to_pay = String::new();
+        let mut link_to_pay = String::new();
         let mut pr_key_bill = String::new();
         let mut payed: bool = false;
         let mut number_of_confirmations: u64 = 0;
@@ -275,6 +276,8 @@ pub async fn get_bill(id: String) -> Template {
             chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
 
         address_to_pay = get_address_to_pay(bill.clone());
+        let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
+        link_to_pay = generate_link_to_pay(address_to_pay.clone(), amount, message).await;
         let check_if_already_paid = check_if_paid(address_to_pay.clone(), amount).await;
         payed = check_if_already_paid.0;
         if payed && check_if_already_paid.1.eq(&0) {
@@ -319,9 +322,11 @@ pub async fn get_bill(id: String) -> Template {
                 endorsed: endorsed,
                 pending: pending,
                 number_of_confirmations: number_of_confirmations,
+                link_to_pay: link_to_pay,
             },
         )
     } else {
+        //todo: add for this block of code some function
         let bills = get_bills();
         let identity: IdentityWithAll = get_whole_identity();
         let peer_id = read_peer_id_from_file().to_string();
@@ -335,6 +340,12 @@ pub async fn get_bill(id: String) -> Template {
             },
         )
     }
+}
+
+async fn generate_link_to_pay(address: String, amount: u64, message: String) -> String {
+    //todo check what net we used
+    let link = format!("bitcoin:{}?amount={}&message={}", address, amount, message);
+    link
 }
 
 async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
