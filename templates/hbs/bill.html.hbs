@@ -19,11 +19,20 @@
         <h3>Drawer postal address: {{bill.drawer.postal_address}}</h3>
         <h3>Drawer email: {{bill.drawer.email}}</h3>
     {{/unless}}
-    <h3>Drawee name: {{bill.drawee.name}}</h3>
-    <h3>Drawee peer id: {{bill.drawee.peer_id}}</h3>
-    <h3>Drawee bitcoin public key: {{bill.drawee.bitcoin_public_key}}</h3>
-    <h3>Drawee postal address: {{bill.drawee.postal_address}}</h3>
-    <h3>Drawee email: {{bill.drawee.email}}</h3>
+    {{#unless (eq bill.drawer.name "")}}
+        <h3>Drawee name: {{bill.drawee.name}}</h3>
+        <h3>Drawee peer id: {{bill.drawee.peer_id}}</h3>
+        <h3>Drawee bitcoin public key: {{bill.drawee.bitcoin_public_key}}</h3>
+        <h3>Drawee postal address: {{bill.drawee.postal_address}}</h3>
+        <h3>Drawee email: {{bill.drawee.email}}</h3>
+    {{/unless}}
+    {{#if (eq bill.drawer.name "")}}
+        <h3>Payer name: {{bill.drawee.name}}</h3>
+        <h3>Payer peer id: {{bill.drawee.peer_id}}</h3>
+        <h3>Payer bitcoin public key: {{bill.drawee.bitcoin_public_key}}</h3>
+        <h3>Payer postal address: {{bill.drawee.postal_address}}</h3>
+        <h3>Payer email: {{bill.drawee.email}}</h3>
+    {{/if}}
     <h3>Payee name: {{bill.payee.name}}</h3>
     <h3>Payee peer id: {{bill.payee.peer_id}}</h3>
     <h3>Payee bitcoin public key: {{bill.payee.bitcoin_public_key}}</h3>
