@@ -52,6 +52,9 @@
     {{#unless (eq address_to_pay "")}}
         <h3>Address to pay: {{address_to_pay}}</h3>
     {{/unless}}
+    {{#unless (eq link_to_pay "")}}
+        <h3>Link to pay: {{link_to_pay}}</h3>
+    {{/unless}}
     {{#if payed}}
         {{#unless (eq pr_key_bill "")}}
             <h3>Private key to receive money: {{pr_key_bill}}</h3>
