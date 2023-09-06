@@ -1140,39 +1140,45 @@ pub fn accept_bill(bill_name: &String) -> bool {
 
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
+    let accepted = blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
 
     if bill.drawee.peer_id.eq(&my_peer_id) {
-        let identity = get_whole_identity();
+        if !accepted {
+            let identity = get_whole_identity();
 
-        let my_identity_public =
-            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+            let my_identity_public =
+                IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
-        let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data_for_new_block =
-            "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+            let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
+            let data_for_new_block =
+                "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
 
-        let keys = read_keys_from_bill_file(&bill_name);
-        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+            let keys = read_keys_from_bill_file(&bill_name);
+            let key: Rsa<Private> =
+                Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
 
-        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
-        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
-        let data_for_new_block_encrypted_in_string_format =
-            hex::encode(data_for_new_block_encrypted);
+            let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+            let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+            let data_for_new_block_encrypted_in_string_format =
+                hex::encode(data_for_new_block_encrypted);
 
-        let new_block = Block::new(
-            last_block.id + 1,
-            last_block.hash.clone(),
-            data_for_new_block_encrypted_in_string_format,
-            bill_name.clone(),
-            identity.identity.public_key_pem.clone(),
-            OperationCode::Accept,
-            identity.identity.private_key_pem.clone(),
-        );
+            let new_block = Block::new(
+                last_block.id + 1,
+                last_block.hash.clone(),
+                data_for_new_block_encrypted_in_string_format,
+                bill_name.clone(),
+                identity.identity.public_key_pem.clone(),
+                OperationCode::Accept,
+                identity.identity.private_key_pem.clone(),
+            );
 
-        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
-        if try_add_block && blockchain_from_file.is_chain_valid() {
-            blockchain_from_file.write_chain_to_file(&bill.name);
-            true
+            let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+            if try_add_block && blockchain_from_file.is_chain_valid() {
+                blockchain_from_file.write_chain_to_file(&bill.name);
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
