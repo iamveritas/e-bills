@@ -26,6 +26,8 @@ export default function App() {
     bill_jurisdiction: "",
     date_of_issue: "",
     language: "en",
+    drawer_is_payee: false,
+    drawer_is_drawee: false,
   });
 
   const [identity, setIdentity] = useState({
@@ -74,6 +76,18 @@ export default function App() {
     setData({ ...data, [name]: value });
   };
 
+  const handleChangeDrawerIsPayee = (e) => {
+    let value = !data.drawer_is_payee;
+    let name = e.target.name;
+    setData({ ...data, [name]: value });
+  };
+
+  const handleChangeDrawerIsDrawee = (e) => {
+    let value = !data.drawer_is_drawee;
+    let name = e.target.name;
+    setData({ ...data, [name]: value });
+  };
+
   const handlePage = (page) => {
     setCurrent(page);
   };
@@ -87,6 +101,8 @@ export default function App() {
             identity={identity}
             data={data}
             changeHandle={changeHandle}
+            handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
+            handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}
             handlePage={handlePage}
           />
         );
