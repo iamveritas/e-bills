@@ -274,6 +274,8 @@ pub async fn get_bill(id: String) -> Template {
         let mut pending = String::new();
         let mut requested_to_pay =
             chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
+        let mut requested_to_accept =
+            chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToAccept);
 
         address_to_pay = get_address_to_pay(bill.clone());
         let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
@@ -316,6 +318,7 @@ pub async fn get_bill(id: String) -> Template {
                 accepted: accepted,
                 payed: payed,
                 requested_to_pay: requested_to_pay,
+                requested_to_accept: requested_to_accept,
                 address_to_pay: address_to_pay,
                 pr_key_bill: pr_key_bill,
                 usednet: usednet,
@@ -462,6 +465,8 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
 
         let public_data_payee = get_identity_public_data(bill.payee_name, client.clone()).await;
 
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
         let bill = issue_new_bill(
             bill.bill_jurisdiction,
             bill.place_of_drawing,
@@ -472,6 +477,7 @@ pub async fn issue_bill(state: &State<Client>, bill_form: Form<BitcreditBillForm
             bill.language,
             public_data_drawee,
             public_data_payee,
+            timestamp,
         );
 
         let mut nodes: Vec<String> = Vec::new();
@@ -548,6 +554,8 @@ pub async fn issue_2_party_bill_drawer_is_payee(
 
         let public_data_drawee = get_identity_public_data(bill.drawee_name, client.clone()).await;
 
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
         let bill = issue_new_bill_drawer_is_payee(
             bill.bill_jurisdiction,
             bill.place_of_drawing,
@@ -557,6 +565,7 @@ pub async fn issue_2_party_bill_drawer_is_payee(
             drawer.clone(),
             bill.language,
             public_data_drawee,
+            timestamp,
         );
 
         let mut nodes: Vec<String> = Vec::new();
@@ -631,6 +640,8 @@ pub async fn issue_2_party_bill_drawer_is_drawee(
 
         let public_data_payee = get_identity_public_data(bill.payee_name, client.clone()).await;
 
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
         let bill = issue_new_bill_drawer_is_drawee(
             bill.bill_jurisdiction,
             bill.place_of_drawing,
@@ -640,6 +651,7 @@ pub async fn issue_2_party_bill_drawer_is_drawee(
             drawer.clone(),
             bill.language,
             public_data_payee,
+            timestamp,
         );
 
         let mut nodes: Vec<String> = Vec::new();
@@ -660,7 +672,9 @@ pub async fn issue_2_party_bill_drawer_is_drawee(
 
         client.put(&bill.name).await;
 
-        let correct = accept_bill(&bill.name);
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+        let correct = accept_bill(&bill.name, timestamp);
 
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&bill.name);
@@ -714,8 +728,14 @@ pub async fn endorse_bill(
         let public_data_endorsee =
             get_identity_public_data(endorse_bill_form.endorsee.clone(), client.clone()).await;
 
-        let correct =
-            endorse_bitcredit_bill(&endorse_bill_form.bill_name, public_data_endorsee.clone());
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+        let correct = endorse_bitcredit_bill(
+            &endorse_bill_form.bill_name,
+            public_data_endorsee.clone(),
+            timestamp,
+        );
+
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&endorse_bill_form.bill_name);
             let block = chain.get_latest_block();
@@ -759,7 +779,9 @@ pub async fn request_to_pay_bill(
     } else {
         let mut client = state.inner().clone();
 
-        let correct = request_pay(&request_to_pay_bill_form.bill_name);
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+        let correct = request_pay(&request_to_pay_bill_form.bill_name, timestamp);
 
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&request_to_pay_bill_form.bill_name);
@@ -797,7 +819,9 @@ pub async fn request_to_accept_bill(
     } else {
         let mut client = state.inner().clone();
 
-        let correct = request_acceptance(&request_to_accept_bill_form.bill_name);
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+        let correct = request_acceptance(&request_to_accept_bill_form.bill_name, timestamp);
 
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&request_to_accept_bill_form.bill_name);
@@ -835,7 +859,9 @@ pub async fn accept_bill_form(
     } else {
         let mut client = state.inner().clone();
 
-        let correct = accept_bill(&accept_bill_form.bill_name);
+        let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+        let correct = accept_bill(&accept_bill_form.bill_name, timestamp);
 
         if correct {
             let chain: Chain = Chain::read_chain_from_file(&accept_bill_form.bill_name);
