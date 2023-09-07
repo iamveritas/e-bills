@@ -221,6 +221,7 @@ impl Chain {
             let mut line = String::new();
             match block.operation_code {
                 OperationCode::Issue => {
+                    //todo: fix for 2 party bills
                     let bill = self.get_first_version_bill();
                     let time_of_issue = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
                     line = format!(
@@ -558,9 +559,8 @@ impl Block {
         public_key: String,
         operation_code: OperationCode,
         private_key: String,
+        timestamp: i64,
     ) -> Self {
-        let now = Utc::now();
-        let timestamp = now.timestamp();
         let hash: String = mine_block(
             &id,
             &bill_name,
@@ -576,7 +576,7 @@ impl Block {
             id,
             bill_name,
             hash,
-            timestamp: now.timestamp(),
+            timestamp,
             previous_hash,
             signature,
             data,
@@ -716,6 +716,7 @@ pub fn start_blockchain_for_new_bill(
     public_key: String,
     private_key: String,
     private_key_pem: String,
+    timestamp: i64,
 ) {
     let genesis_hash: String = hex::encode("GENESIS".to_string().as_bytes());
 
@@ -729,6 +730,7 @@ pub fn start_blockchain_for_new_bill(
         public_key,
         operation_code,
         private_key,
+        timestamp,
     );
 
     let chain = Chain::new(first_block);

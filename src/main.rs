@@ -697,6 +697,7 @@ pub fn issue_new_bill(
     language: String,
     public_data_drawee: IdentityPublicData,
     public_data_payee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -726,7 +727,6 @@ pub fn issue_new_bill(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -739,7 +739,7 @@ pub fn issue_new_bill(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -764,6 +764,7 @@ pub fn issue_new_bill(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp,
     );
 
     new_bill
@@ -778,6 +779,7 @@ pub fn issue_new_bill_drawer_is_payee(
     drawer: IdentityWithAll,
     language: String,
     public_data_drawee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -807,7 +809,6 @@ pub fn issue_new_bill_drawer_is_payee(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -820,7 +821,7 @@ pub fn issue_new_bill_drawer_is_payee(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -845,6 +846,7 @@ pub fn issue_new_bill_drawer_is_payee(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp.clone(),
     );
 
     new_bill
@@ -859,6 +861,7 @@ pub fn issue_new_bill_drawer_is_drawee(
     drawer: IdentityWithAll,
     language: String,
     public_data_payee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -888,7 +891,6 @@ pub fn issue_new_bill_drawer_is_drawee(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -901,7 +903,7 @@ pub fn issue_new_bill_drawer_is_drawee(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -926,6 +928,7 @@ pub fn issue_new_bill_drawer_is_drawee(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp.clone(),
     );
 
     new_bill
@@ -975,7 +978,11 @@ pub fn get_bills() -> Vec<BitcreditBill> {
     bills
 }
 
-pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) -> bool {
+pub fn endorse_bitcredit_bill(
+    bill_name: &String,
+    endorsee: IdentityPublicData,
+    timestamp: i64,
+) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let mut bill = read_bill_from_file(&bill_name);
 
@@ -1016,6 +1023,7 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
             identity.identity.public_key_pem.clone(),
             OperationCode::Endorse,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1030,7 +1038,7 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
     }
 }
 
-pub fn request_pay(bill_name: &String) -> bool {
+pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -1068,6 +1076,7 @@ pub fn request_pay(bill_name: &String) -> bool {
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToPay,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1082,7 +1091,7 @@ pub fn request_pay(bill_name: &String) -> bool {
     }
 }
 
-pub fn request_acceptance(bill_name: &String) -> bool {
+pub fn request_acceptance(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -1120,6 +1129,7 @@ pub fn request_acceptance(bill_name: &String) -> bool {
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToAccept,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1134,7 +1144,7 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     }
 }
 
-pub fn accept_bill(bill_name: &String) -> bool {
+pub fn accept_bill(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -1170,6 +1180,7 @@ pub fn accept_bill(bill_name: &String) -> bool {
                 identity.identity.public_key_pem.clone(),
                 OperationCode::Accept,
                 identity.identity.private_key_pem.clone(),
+                timestamp.clone(),
             );
 
             let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
