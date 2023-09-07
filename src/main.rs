@@ -109,8 +109,6 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::get_bill_history,
                 web::get_bill_chain,
                 web::get_block,
-                web::issue_2_party_bill_drawer_is_payee,
-                web::issue_2_party_bill_drawer_is_drawee,
                 web::return_bill,
             ],
         )
@@ -681,6 +679,33 @@ pub struct BitcreditBill {
     language: String,
 }
 
+impl BitcreditBill {
+    pub fn new_empty() -> Self {
+        Self {
+            name: "".to_string(),
+            to_payee: false,
+            bill_jurisdiction: "".to_string(),
+            timestamp_at_drawing: 0,
+            drawee: IdentityPublicData::new_empty(),
+            drawer: IdentityPublicData::new_empty(),
+            payee: IdentityPublicData::new_empty(),
+            endorsee: IdentityPublicData::new_empty(),
+            place_of_drawing: "".to_string(),
+            currency_code: "".to_string(),
+            amount_numbers: 0,
+            amounts_letters: "".to_string(),
+            maturity_date: "".to_string(),
+            date_of_issue: "".to_string(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: "".to_string(),
+            public_key: "".to_string(),
+            private_key: "".to_string(),
+            language: "".to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BillKeys {
     private_key_pem: String,
@@ -1231,30 +1256,8 @@ pub struct BitcreditBillForm {
     pub payee_name: String,
     pub place_of_payment: String,
     pub maturity_date: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillFormDrawerIsPayee {
-    pub bill_jurisdiction: String,
-    pub place_of_drawing: String,
-    pub amount_numbers: u64,
-    pub language: String,
-    pub drawee_name: String,
-    pub place_of_payment: String,
-    pub maturity_date: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillFormDrawerIsDrawee {
-    pub bill_jurisdiction: String,
-    pub place_of_drawing: String,
-    pub amount_numbers: u64,
-    pub language: String,
-    pub payee_name: String,
-    pub place_of_payment: String,
-    pub maturity_date: String,
+    pub drawer_is_payee: bool,
+    pub drawer_is_drawee: bool,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
