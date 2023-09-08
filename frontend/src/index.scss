@@ -99,7 +99,7 @@ select:focus {
   &-text {
     font-size: calcView(23);
     margin-top: calcView(24);
-    font-weight: bold;
+    font-weight: 600;
   }
 }
 
@@ -226,7 +226,9 @@ select:focus {
     font-size: calcView(20);
   }
 }
-
+.bold {
+  font-weight: 700;
+}
 .secondary-icon {
   display: flex;
   align-items: center;
@@ -240,6 +242,12 @@ select:focus {
     width: calcView(16);
     height: calcView(16);
   }
+}
+.input-blank {
+  width: 100%;
+  padding: calcView(14);
+  background: white;
+  border-radius: calcView(6);
 }
 
 .home {

@@ -2,7 +2,7 @@ import React, { createContext, useState } from "react";
 
 const MainContext = createContext();
 function MainProvider({ children }) {
-  const [current, setCurrent] = useState("activity");
+  const [current, setCurrent] = useState("reqpayment");
   const handlePage = (page) => {
     setCurrent(page);
   };
