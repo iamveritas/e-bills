@@ -14,6 +14,9 @@ import Bill from "./components/pages/Bill";
 import { MainContext, MainProvider } from "./context/MainContext";
 import HomePage from "./components/pages/HomePage";
 import ActivityPage from "./components/pages/ActivityPage";
+import EndorsePage from "./components/pages/EndorsePage";
+import ReqPaymentPage from "./components/pages/ReqPaymentPage";
+import ReqAcceptPage from "./components/pages/ReqAcceptPage";
 export default function App() {
   const { current } = useContext(MainContext);
   const [data, setData] = useState({
@@ -87,14 +90,29 @@ export default function App() {
     switch (current) {
       case "home":
         return <HomePage />;
+      case "activity":
+        return <ActivityPage />;
+      case "reqaccept":
+        return <ReqAcceptPage />;
+      case "reqpayment":
+        return <ReqPaymentPage />;
+      case "endorse":
+        return <EndorsePage />;
       case "issue":
-        return <IssuePage contacts={contacts} identity={identity} data={data} changeHandle={changeHandle} />;
+        return (
+          <IssuePage
+            contacts={contacts}
+            identity={identity}
+            data={data}
+            changeHandle={changeHandle}
+          />
+        );
       case "accept":
         return <AcceptPage identity={identity} data={data} />;
       case "repay":
-        return <RepayPage contacts={contacts} identity={identity} data={data} />;
-      case "activity":
-        return <ActivityPage />;
+        return (
+          <RepayPage contacts={contacts} identity={identity} data={data} />
+        );
       case "bill":
         return <Bill identity={identity} data={data} />;
     }
