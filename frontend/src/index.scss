@@ -6,7 +6,7 @@
   src: url(./assests/atwriter.ttf);
 }
 
-$standardWidth: 428;
+$standardWidth: 430;
 $PrimaryColor: #f7931a;
 $TextColor: #b28b00;
 $Black: #151515;
@@ -38,7 +38,6 @@ $White: #fff;
   -moz-osx-font-smoothing: grayscale;
   font-family: "Poppins", sans-serif;
   line-height: calcView(30);
-  color: $Black;
 }
 
 body {
@@ -64,8 +63,8 @@ select {
   border: none;
   outline: none;
   padding: 0 calcView(13);
-  -webkit-appearance: none;
-  -moz-appearance: none;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
 }
 
 select::-ms-expand {
@@ -95,8 +94,8 @@ select:focus {
 
 .header {
   @include flexSpace();
-  margin: calcView(45) calcView(24) calcView(45) calcView(24);
-
+  margin: calcView(45) calcView(24);
+  align-items: center;
   &-text {
     font-size: calcView(23);
     margin-top: calcView(24);
@@ -108,8 +107,8 @@ select:focus {
   background-color: #e1e1e6;
   border-radius: calcView(12);
   @include flexCenter();
-  width: calcView(49);
-  height: calcView(38);
+  width: calcView(58);
+  height: calcView(50);
 
   .primary {
     background-color: $PrimaryColor !important;
@@ -118,12 +117,12 @@ select:focus {
   .icon {
     @include flexCenter();
     background-color: #fbfbfb;
-    padding: calcView(8);
     border-radius: 50%;
-
+    width: calcView(42);
+    height: calcView(42);
     img {
-      width: calcView(16);
-      height: calcView(16);
+      width: calcView(24);
+      height: calcView(24);
       object-fit: contain;
       -o-object-fit: contain;
       object-position: center;
@@ -228,9 +227,240 @@ select:focus {
   }
 }
 
+.secondary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calcView(46);
+  height: calcView(46);
+  border-radius: calcView(43);
+  border: calcView(1) solid #d3d3d3;
+  background: #fff;
+  &-image {
+    width: calcView(16);
+    height: calcView(16);
+  }
+}
+
+.home {
+  margin-top: calcView(86);
+  width: 90%;
+  margin: 0 auto;
+  &-header {
+    margin: calcView(45) calcView(24) calcView(45) calcView(24);
+    display: flex;
+    justify-content: space-between;
+    &-left,
+    &-right {
+      display: flex;
+      gap: calcView(10);
+    }
+  }
+  &-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calcView(40);
+    &-amount {
+      display: flex;
+      justify-content: space-evenly;
+      // gap: calcView(25);
+      flex: 1 0 0;
+      align-self: stretch;
+      &-single {
+        display: flex;
+        align-items: center;
+        gap: calcView(10);
+        #arrow {
+          height: calcView(22);
+          margin-bottom: calcView(5);
+        }
+        span {
+          font-size: calcView(32);
+          font-weight: 700;
+        }
+      }
+    }
+    &-heading {
+      display: flex;
+      justify-content: space-evenly;
+      flex: 1 0 0;
+      align-self: stretch;
+      &-single {
+        display: flex;
+        padding: calcView(10) calcView(20);
+        justify-content: center;
+        align-items: center;
+        gap: calcView(20);
+        border-radius: calcView(12);
+        background: #e1e1e6;
+        .arrow {
+          display: flex;
+          width: calcView(24);
+          height: calcView(24);
+          justify-content: center;
+          align-items: center;
+          border-radius: calcView(14);
+          background: #fff;
+          #arrow {
+            width: calcView(16);
+            height: calcView(19);
+          }
+        }
+        span {
+          color: #c30000;
+          font-family: Poppins;
+          font-size: calcView(16);
+          font-style: normal;
+          font-weight: 500;
+          line-height: normal;
+        }
+      }
+    }
+    &-total {
+      display: flex;
+      justify-content: space-evenly;
+      flex: 1 0 0;
+      align-self: stretch;
+      &-single {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1vw;
+        #arrow {
+          width: calcView(16);
+          height: calcView(19);
+          transform: rotate(180deg);
+          fill: #a3a3a3;
+        }
+        span {
+          color: #a3a3a3;
+          font-family: Poppins;
+          font-size: calcView(24);
+          font-style: normal;
+          font-weight: 600;
+          line-height: normal;
+        }
+      }
+    }
+    &-bills {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: calcView(10);
+      align-self: stretch;
+      &-container {
+        display: flex;
+        height: calcView(64);
+        padding: calcView(0) calcView(10) calcView(0) calcView(6);
+        align-items: center;
+        gap: calcView(12);
+        align-self: stretch;
+        border-radius: calcView(12);
+        background: #fff;
+        .icon {
+          display: flex;
+          width: calcView(51);
+          height: calcView(48);
+          padding: calcView(10);
+          justify-content: center;
+          align-items: center;
+          gap: calcView(10);
+          border-radius: calcView(6);
+          background: #e1e1e6;
+        }
+        .details {
+          display: flex;
+          height: calcView(47);
+          flex-direction: column;
+          justify-content: space-between;
+          align-items: flex-start;
+          flex: 1 0 0;
+          .name {
+            color: #151515;
+            font-family: Poppins;
+            font-size: calcView(20);
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+          }
+          .date {
+            color: #151515;
+            font-family: Poppins;
+            font-size: calcView(12);
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+          }
+        }
+        .currency-details {
+          display: flex;
+          align-items: center;
+          gap: calcView(10);
+          .amount {
+            color: #00923a;
+            font-family: Poppins;
+            font-size: calcView(20);
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+          }
+          .red {
+            color: red;
+          }
+          .currency {
+            color: #151515;
+            font-family: Poppins;
+            font-size: calcView(20);
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+          }
+        }
+      }
+    }
+    &-payments {
+      &-details {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: calcView(5);
+        .payments {
+          color: #898989;
+          font-family: Poppins;
+          font-size: calcView(12);
+          font-style: normal;
+          font-weight: 500;
+          line-height: normal;
+        }
+        .history {
+          display: flex;
+          padding: calcView(8) calcView(12);
+          justify-content: center;
+          align-items: center;
+          gap: calcView(10);
+          font-size: calcView(12);
+          border-radius: calcView(6);
+          border: calcView(1) solid #f7931a;
+          background: #e1e1e6;
+          color: #f7931a;
+        }
+      }
+    }
+  }
+  .line {
+    display: flex;
+    height: calcView(4);
+    align-items: flex-start;
+    gap: calcView(10);
+    align-self: stretch;
+    border-radius: calcView(3);
+    background: #dcdbdb;
+  }
+}
+
 .issue {
   width: 100%;
-
   &-number {
     @include flexSpace();
     width: calcView(366);
@@ -260,9 +490,7 @@ select:focus {
 
 .accept {
   width: 100%;
-
   &-container {
-    background: $White;
     width: 100%;
     height: calcView(583);
     border-radius: calcView(32) calcView(32) 0 0;
@@ -726,5 +954,21 @@ select:focus {
         }
       }
     }
+  }
+}
+
+.activity {
+  .head {
+    display: flex;
+    width: calcView(382);
+    justify-content: space-between;
+    align-items: center;
+  }
+  .bills {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calcView(10);
+    align-self: stretch;
   }
 }

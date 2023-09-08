@@ -1,19 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
-import attachment from "./assests/attachment.svg";
-// components
-import Header from "./components/sections/Header";
-import UniqueNumber from "./components/sections/UniqueNumber";
-import TopDownHeading from "./components/elements/TopDownHeading";
-import IconHolder from "./components/elements/IconHolder";
 // Pages
 import IssuePage from "./components/pages/IssuePage";
 import AcceptPage from "./components/pages/AcceptPage";
 import RepayPage from "./components/pages/RepayPage";
 import Bill from "./components/pages/Bill";
+import { MainContext, MainProvider } from "./context/MainContext";
+import HomePage from "./components/pages/HomePage";
+import ActivityPage from "./components/pages/ActivityPage";
 export default function App() {
-  const [current, setCurrent] = useState("issue");
-
+  const { current } = useContext(MainContext);
   const [data, setData] = useState({
     maturity_date: "",
     payee_name: "",
@@ -27,7 +23,6 @@ export default function App() {
     date_of_issue: "",
     language: "en",
   });
-
   const [identity, setIdentity] = useState({
     name: String,
     date_of_birth: String,
@@ -40,7 +35,6 @@ export default function App() {
     bitcoin_public_key: String,
     bitcoin_private_key: String,
   });
-
   // Set identity
   useEffect(() => {
     fetch("http://localhost:8000/identity/return")
@@ -53,9 +47,7 @@ export default function App() {
         console.log(err.message);
       });
   }, []);
-
   const [contacts, setContacts] = useState([]);
-
   // Set contacts
   useEffect(() => {
     fetch("http://localhost:8000/contacts/return")
@@ -68,60 +60,27 @@ export default function App() {
         console.log(err.message);
       });
   }, []);
-
   const changeHandle = (e) => {
     let value = e.target.value;
     let name = e.target.name;
     setData({ ...data, [name]: value });
   };
-
-  const handlePage = (page) => {
-    setCurrent(page);
-  };
-
   const activePage = () => {
     switch (current) {
+      case "home":
+        return <HomePage />;
       case "issue":
-        return (
-          <IssuePage
-            contacts={contacts}
-            identity={identity}
-            data={data}
-            changeHandle={changeHandle}
-            handlePage={handlePage}
-          />
-        );
+        return <IssuePage contacts={contacts} identity={identity} data={data} changeHandle={changeHandle} />;
       case "accept":
-        return (
-          <AcceptPage identity={identity} data={data} handlePage={handlePage} />
-        );
+        return <AcceptPage identity={identity} data={data} />;
       case "repay":
-        return (
-          <RepayPage
-            contacts={contacts}
-            identity={identity}
-            data={data}
-            handlePage={handlePage}
-          />
-        );
+        return <RepayPage contacts={contacts} identity={identity} data={data} />;
+      case "activity":
+        return <ActivityPage />;
       case "bill":
-        return <Bill identity={identity} data={data} handlePage={handlePage} />;
+        return <Bill identity={identity} data={data} />;
     }
   };
 
-  return (
-    <>
-      {current !== "bill" && (
-        <>
-          <Header title="Issue" />
-          {/*<UniqueNumber UID="001" date="16-Feb-2023" />*/}
-          <div className="head">
-            <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
-            <IconHolder icon={attachment} />
-          </div>
-        </>
-      )}
-      {activePage()}
-    </>
-  );
+  return <>{activePage()}</>;
 }
