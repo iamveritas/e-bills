@@ -118,8 +118,8 @@ export default function App() {
             case "endorse":
                 return <EndorsePage/>;
             case "issue":
-                return <IssuePage contacts={contacts} identity={identity} data={data} changeHandle={changeHandle}
-                                  handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
+                return <IssuePage handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee} contacts={contacts}
+                                  identity={identity} data={data} changeHandle={changeHandle}
                                   handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}/>;
             case "accept":
                 return <AcceptPage identity={identity} data={data}/>;
