@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function IssueForm({contacts, data, identity, changeHandle, handlePage}) {
+export default function IssueForm({contacts, data, identity, changeHandle, handleChangeDrawerIsDrawee, handleChangeDrawerIsPayee, handlePage}) {
 
     const handleSubmition = e => {
         e.preventDefault();
@@ -13,7 +13,7 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
             mode: 'no-cors',
         }).then(response => {
             console.log(response);
-            handlePage("accept");
+            handlePage("bill");
         }).catch(err => err);
     };
 
@@ -49,11 +49,24 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                         value={data.payee_name}
                         onChange={changeHandle}
                         placeholder="Payee Company, Zurich"
-                        required
                     >
+                        <option value=''></option>
                         {listContacts}
                     </select>
                 </div>
+            </div>
+            <div className="form-input">
+                <label htmlFor="drawer_is_payee">Payee is me
+                    <div className="form-input-row">
+                        <input
+                            type="checkbox"
+                            id="drawer_is_payee"
+                            name="drawer_is_payee"
+                            checked={data.drawer_is_payee}
+                            onChange={handleChangeDrawerIsPayee}
+                        />
+                    </div>
+                </label>
             </div>
             <div className="form-input">
                 <label htmlFor="amount_numbers">the sum of</label>
@@ -90,11 +103,24 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                         placeholder="Drawee Company, Vienna"
                         value={data.drawee_name}
                         onChange={changeHandle}
-                        required
                     >
+                        <option value=''></option>
                         {listContacts}
                     </select>
                 </div>
+            </div>
+            <div className="form-input">
+                <label htmlFor="drawer_is_drawee">Drawee is me
+                    <div className="form-input-row">
+                        <input
+                            type="checkbox"
+                            id="drawer_is_drawee"
+                            name="drawer_is_drawee"
+                            onChange={handleChangeDrawerIsDrawee}
+                            checked={data.drawer_is_drawee}
+                        />
+                    </div>
+                </label>
             </div>
             <div className="form-input" hidden={true}>
                 <label htmlFor="drawer_name">Drawer</label>

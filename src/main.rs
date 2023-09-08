@@ -109,10 +109,10 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::get_bill_history,
                 web::get_bill_chain,
                 web::get_block,
-                web::issue_2_party_bill_drawer_is_payee,
-                web::issue_2_party_bill_drawer_is_drawee,
+                web::return_bill,
             ],
         )
+        .mount("/bills", routes![web::return_bills_list,])
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
         }));
@@ -447,7 +447,8 @@ fn is_not_hidden(entry: &DirEntry) -> bool {
 //--------------------------------------------------------------
 
 //-------------------------Identity-----------------------------
-#[derive(BorshSerialize, BorshDeserialize, Debug, Serialize, Deserialize, Clone, FromForm)]
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
 pub struct IdentityPublicData {
     peer_id: String,
     name: String,
@@ -678,6 +679,33 @@ pub struct BitcreditBill {
     language: String,
 }
 
+impl BitcreditBill {
+    pub fn new_empty() -> Self {
+        Self {
+            name: "".to_string(),
+            to_payee: false,
+            bill_jurisdiction: "".to_string(),
+            timestamp_at_drawing: 0,
+            drawee: IdentityPublicData::new_empty(),
+            drawer: IdentityPublicData::new_empty(),
+            payee: IdentityPublicData::new_empty(),
+            endorsee: IdentityPublicData::new_empty(),
+            place_of_drawing: "".to_string(),
+            currency_code: "".to_string(),
+            amount_numbers: 0,
+            amounts_letters: "".to_string(),
+            maturity_date: "".to_string(),
+            date_of_issue: "".to_string(),
+            compounding_interest_rate: 0,
+            type_of_interest_calculation: false,
+            place_of_payment: "".to_string(),
+            public_key: "".to_string(),
+            private_key: "".to_string(),
+            language: "".to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BillKeys {
     private_key_pem: String,
@@ -694,6 +722,7 @@ pub fn issue_new_bill(
     language: String,
     public_data_drawee: IdentityPublicData,
     public_data_payee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -723,7 +752,6 @@ pub fn issue_new_bill(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -736,7 +764,7 @@ pub fn issue_new_bill(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -761,6 +789,7 @@ pub fn issue_new_bill(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp,
     );
 
     new_bill
@@ -775,6 +804,7 @@ pub fn issue_new_bill_drawer_is_payee(
     drawer: IdentityWithAll,
     language: String,
     public_data_drawee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -804,7 +834,6 @@ pub fn issue_new_bill_drawer_is_payee(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -817,7 +846,7 @@ pub fn issue_new_bill_drawer_is_payee(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -842,6 +871,7 @@ pub fn issue_new_bill_drawer_is_payee(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp.clone(),
     );
 
     new_bill
@@ -856,6 +886,7 @@ pub fn issue_new_bill_drawer_is_drawee(
     drawer: IdentityWithAll,
     language: String,
     public_data_payee: IdentityPublicData,
+    timestamp: i64,
 ) -> BitcreditBill {
     let s = bitcoin::secp256k1::Secp256k1::new();
     let private_key = bitcoin::PrivateKey::new(
@@ -885,7 +916,6 @@ pub fn issue_new_bill_drawer_is_drawee(
         IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
 
     let utc = Utc::now();
-    let timestamp_at_drawing = utc.timestamp();
     let date_of_issue = utc.naive_local().date().to_string();
     // let maturity_date = utc
     //     .checked_add_days(Days::new(BILL_VALIDITY_PERIOD))
@@ -898,7 +928,7 @@ pub fn issue_new_bill_drawer_is_drawee(
         name: bill_name.clone(),
         to_payee: false,
         bill_jurisdiction,
-        timestamp_at_drawing,
+        timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,
         currency_code: SATOSHI.to_string(),
         amount_numbers,
@@ -923,6 +953,7 @@ pub fn issue_new_bill_drawer_is_drawee(
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
+        timestamp.clone(),
     );
 
     new_bill
@@ -972,7 +1003,11 @@ pub fn get_bills() -> Vec<BitcreditBill> {
     bills
 }
 
-pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) -> bool {
+pub fn endorse_bitcredit_bill(
+    bill_name: &String,
+    endorsee: IdentityPublicData,
+    timestamp: i64,
+) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let mut bill = read_bill_from_file(&bill_name);
 
@@ -1013,6 +1048,7 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
             identity.identity.public_key_pem.clone(),
             OperationCode::Endorse,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1027,7 +1063,7 @@ pub fn endorse_bitcredit_bill(bill_name: &String, endorsee: IdentityPublicData) 
     }
 }
 
-pub fn request_pay(bill_name: &String) -> bool {
+pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -1065,6 +1101,7 @@ pub fn request_pay(bill_name: &String) -> bool {
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToPay,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1079,7 +1116,7 @@ pub fn request_pay(bill_name: &String) -> bool {
     }
 }
 
-pub fn request_acceptance(bill_name: &String) -> bool {
+pub fn request_acceptance(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
@@ -1117,6 +1154,7 @@ pub fn request_acceptance(bill_name: &String) -> bool {
             identity.identity.public_key_pem.clone(),
             OperationCode::RequestToAccept,
             identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
         );
 
         let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
@@ -1131,45 +1169,52 @@ pub fn request_acceptance(bill_name: &String) -> bool {
     }
 }
 
-pub fn accept_bill(bill_name: &String) -> bool {
+pub fn accept_bill(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
 
     let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
     let last_block = blockchain_from_file.get_latest_block();
+    let accepted = blockchain_from_file.exist_block_with_operation_code(OperationCode::Accept);
 
     if bill.drawee.peer_id.eq(&my_peer_id) {
-        let identity = get_whole_identity();
+        if !accepted {
+            let identity = get_whole_identity();
 
-        let my_identity_public =
-            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+            let my_identity_public =
+                IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
 
-        let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
-        let data_for_new_block =
-            "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+            let data_for_new_block_in_bytes = serde_json::to_vec(&my_identity_public).unwrap();
+            let data_for_new_block =
+                "Accepted by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
 
-        let keys = read_keys_from_bill_file(&bill_name);
-        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+            let keys = read_keys_from_bill_file(&bill_name);
+            let key: Rsa<Private> =
+                Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
 
-        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
-        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
-        let data_for_new_block_encrypted_in_string_format =
-            hex::encode(data_for_new_block_encrypted);
+            let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+            let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+            let data_for_new_block_encrypted_in_string_format =
+                hex::encode(data_for_new_block_encrypted);
 
-        let new_block = Block::new(
-            last_block.id + 1,
-            last_block.hash.clone(),
-            data_for_new_block_encrypted_in_string_format,
-            bill_name.clone(),
-            identity.identity.public_key_pem.clone(),
-            OperationCode::Accept,
-            identity.identity.private_key_pem.clone(),
-        );
+            let new_block = Block::new(
+                last_block.id + 1,
+                last_block.hash.clone(),
+                data_for_new_block_encrypted_in_string_format,
+                bill_name.clone(),
+                identity.identity.public_key_pem.clone(),
+                OperationCode::Accept,
+                identity.identity.private_key_pem.clone(),
+                timestamp.clone(),
+            );
 
-        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
-        if try_add_block && blockchain_from_file.is_chain_valid() {
-            blockchain_from_file.write_chain_to_file(&bill.name);
-            true
+            let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+            if try_add_block && blockchain_from_file.is_chain_valid() {
+                blockchain_from_file.write_chain_to_file(&bill.name);
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -1211,30 +1256,8 @@ pub struct BitcreditBillForm {
     pub payee_name: String,
     pub place_of_payment: String,
     pub maturity_date: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillFormDrawerIsPayee {
-    pub bill_jurisdiction: String,
-    pub place_of_drawing: String,
-    pub amount_numbers: u64,
-    pub language: String,
-    pub drawee_name: String,
-    pub place_of_payment: String,
-    pub maturity_date: String,
-}
-
-#[derive(FromForm, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct BitcreditBillFormDrawerIsDrawee {
-    pub bill_jurisdiction: String,
-    pub place_of_drawing: String,
-    pub amount_numbers: u64,
-    pub language: String,
-    pub payee_name: String,
-    pub place_of_payment: String,
-    pub maturity_date: String,
+    pub drawer_is_payee: bool,
+    pub drawer_is_drawee: bool,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
