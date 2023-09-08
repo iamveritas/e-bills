@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function UniqueNumber({ UID, date }) {
+export default function UniqueNumber({UID, date}) {
   return (
     <div className="issue-number">
       <span className="issue-number-holder">

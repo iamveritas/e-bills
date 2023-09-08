@@ -96,6 +96,7 @@ select:focus {
   @include flexSpace();
   margin: calcView(45) calcView(24);
   align-items: center;
+
   &-text {
     font-size: calcView(23);
     margin-top: calcView(24);
@@ -120,6 +121,7 @@ select:focus {
     border-radius: 50%;
     width: calcView(42);
     height: calcView(42);
+
     img {
       width: calcView(24);
       height: calcView(24);
@@ -238,6 +240,7 @@ select:focus {
   border-radius: calcView(43);
   border: calcView(1) solid #d3d3d3;
   background: #fff;
+
   &-image {
     width: calcView(16);
     height: calcView(16);
@@ -254,46 +257,55 @@ select:focus {
   margin-top: calcView(86);
   width: 90%;
   margin: 0 auto;
+
   &-header {
     margin: calcView(45) calcView(24) calcView(45) calcView(24);
     display: flex;
     justify-content: space-between;
+
     &-left,
     &-right {
       display: flex;
       gap: calcView(10);
     }
   }
+
   &-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: calcView(40);
+
     &-amount {
       display: flex;
       justify-content: space-evenly;
       // gap: calcView(25);
       flex: 1 0 0;
       align-self: stretch;
+
       &-single {
         display: flex;
         align-items: center;
         gap: calcView(10);
+
         #arrow {
           height: calcView(22);
           margin-bottom: calcView(5);
         }
+
         span {
           font-size: calcView(32);
           font-weight: 700;
         }
       }
     }
+
     &-heading {
       display: flex;
       justify-content: space-evenly;
       flex: 1 0 0;
       align-self: stretch;
+
       &-single {
         display: flex;
         padding: calcView(10) calcView(20);
@@ -302,6 +314,7 @@ select:focus {
         gap: calcView(20);
         border-radius: calcView(12);
         background: #e1e1e6;
+
         .arrow {
           display: flex;
           width: calcView(24);
@@ -310,11 +323,13 @@ select:focus {
           align-items: center;
           border-radius: calcView(14);
           background: #fff;
+
           #arrow {
             width: calcView(16);
             height: calcView(19);
           }
         }
+
         span {
           color: #c30000;
           font-family: Poppins;
@@ -325,22 +340,26 @@ select:focus {
         }
       }
     }
+
     &-total {
       display: flex;
       justify-content: space-evenly;
       flex: 1 0 0;
       align-self: stretch;
+
       &-single {
         display: flex;
         justify-content: center;
         align-items: center;
         gap: 1vw;
+
         #arrow {
           width: calcView(16);
           height: calcView(19);
           transform: rotate(180deg);
           fill: #a3a3a3;
         }
+
         span {
           color: #a3a3a3;
           font-family: Poppins;
@@ -351,12 +370,14 @@ select:focus {
         }
       }
     }
+
     &-bills {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       gap: calcView(10);
       align-self: stretch;
+
       &-container {
         display: flex;
         height: calcView(64);
@@ -366,6 +387,7 @@ select:focus {
         align-self: stretch;
         border-radius: calcView(12);
         background: #fff;
+
         .icon {
           display: flex;
           width: calcView(51);
@@ -377,6 +399,7 @@ select:focus {
           border-radius: calcView(6);
           background: #e1e1e6;
         }
+
         .details {
           display: flex;
           height: calcView(47);
@@ -384,6 +407,7 @@ select:focus {
           justify-content: space-between;
           align-items: flex-start;
           flex: 1 0 0;
+
           .name {
             color: #151515;
             font-family: Poppins;
@@ -392,6 +416,7 @@ select:focus {
             font-weight: 500;
             line-height: normal;
           }
+
           .date {
             color: #151515;
             font-family: Poppins;
@@ -401,10 +426,12 @@ select:focus {
             line-height: normal;
           }
         }
+
         .currency-details {
           display: flex;
           align-items: center;
           gap: calcView(10);
+
           .amount {
             color: #00923a;
             font-family: Poppins;
@@ -413,9 +440,11 @@ select:focus {
             font-weight: 500;
             line-height: normal;
           }
+
           .red {
             color: red;
           }
+
           .currency {
             color: #151515;
             font-family: Poppins;
@@ -427,12 +456,14 @@ select:focus {
         }
       }
     }
+
     &-payments {
       &-details {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: calcView(5);
+
         .payments {
           color: #898989;
           font-family: Poppins;
@@ -441,6 +472,7 @@ select:focus {
           font-weight: 500;
           line-height: normal;
         }
+
         .history {
           display: flex;
           padding: calcView(8) calcView(12);
@@ -456,6 +488,7 @@ select:focus {
       }
     }
   }
+
   .line {
     display: flex;
     height: calcView(4);
@@ -469,6 +502,7 @@ select:focus {
 
 .issue {
   width: 100%;
+
   &-number {
     @include flexSpace();
     width: calcView(366);
@@ -498,6 +532,7 @@ select:focus {
 
 .accept {
   width: 100%;
+
   &-container {
     width: 100%;
     height: calcView(583);
@@ -972,6 +1007,7 @@ select:focus {
     justify-content: space-between;
     align-items: center;
   }
+
   .bills {
     display: flex;
     flex-direction: column;

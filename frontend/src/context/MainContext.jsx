@@ -1,4 +1,4 @@
-import React, { createContext, useState } from "react";
+import React, {createContext, useState} from "react";
 
 const MainContext = createContext();
 function MainProvider({ children }) {
@@ -12,4 +12,5 @@ function MainProvider({ children }) {
     </MainContext.Provider>
   );
 }
-export { MainContext, MainProvider };
+
+export {MainContext, MainProvider};

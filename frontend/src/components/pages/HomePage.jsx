@@ -7,20 +7,16 @@ import BillDetails from "../elements/BillDetails";
 import Payments from "../elements/Payments";
 import bills from "../../assests/bills.svg";
 
-export default function HomePage() {
-  const billsData = [
-    { id: 1, name: "Bill on Bob", date: "16 April 2023", sign: "+", amount: "12.05", currency: "BTC" },
-    { id: 2, name: "Billed By Dave", date: "06 May 2023", sign: "-", amount: "4.01", currency: "BTC" },
-    { id: 3, name: "IOU to Charlie", date: "01 June 2023", sign: "-", amount: "3.01", currency: "BTC" },
-    { id: 4, name: "IOU to Charlie", date: "04 June 2023", sign: "-", amount: "4.01", currency: "BTC" },
-  ];
+export default function HomePage({
+                                   bills_list,
+                                 }) {
   return (
     <div className="home">
       <HomeHeader />
       <div className="home-container">
         <div className="home-container-amount">
           <Amount color="38A665" currency="BTC" amount="1.021" degree="0deg" />
-          <hr className="home-container-amount-line" />
+          <hr className="home-container-amount-line"/>
           <Amount color="C30000" currency="BTC" amount="1.011" degree="180deg" />
         </div>
         <div className="home-container-heading">
@@ -32,7 +28,7 @@ export default function HomePage() {
         </div>
         <div className="line"></div>
         <div className="home-container-bills">
-          <BillDetails color="a3a3a3" data={billsData} icon={bills} />
+          <BillDetails color="a3a3a3" data={bills_list} icon={bills} />
         </div>
         <div className="home-container-payments">
           <Payments payments="4 Recent Payments" history="Full Payment History" />
