@@ -228,9 +228,11 @@ select:focus {
     font-size: calcView(20);
   }
 }
+
 .bold {
   font-weight: 700;
 }
+
 .secondary-icon {
   display: flex;
   align-items: center;
@@ -246,6 +248,7 @@ select:focus {
     height: calcView(16);
   }
 }
+
 .input-blank {
   width: 100%;
   padding: calcView(14);
