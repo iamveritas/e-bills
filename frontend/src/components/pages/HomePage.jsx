@@ -7,17 +7,20 @@ import BillDetails from "../elements/BillDetails";
 import Payments from "../elements/Payments";
 import bills from "../../assests/bills.svg";
 
-export default function HomePage({
-                                   bills_list,
-                                 }) {
+export default function HomePage({ bills_list }) {
   return (
     <div className="home">
       <HomeHeader />
       <div className="home-container">
         <div className="home-container-amount">
           <Amount color="38A665" currency="BTC" amount="1.021" degree="0deg" />
-          <hr className="home-container-amount-line"/>
-          <Amount color="C30000" currency="BTC" amount="1.011" degree="180deg" />
+          <hr className="home-container-amount-line" />
+          <Amount
+            color="C30000"
+            currency="BTC"
+            amount="1.011"
+            degree="180deg"
+          />
         </div>
         <div className="home-container-heading">
           <SubHeading color="38A665" currency="Bill" />
@@ -28,10 +31,17 @@ export default function HomePage({
         </div>
         <div className="line"></div>
         <div className="home-container-bills">
-          <BillDetails color="a3a3a3" data={bills_list} icon={bills} />
+          <BillDetails
+            color="a3a3a3"
+            data={bills_list.slice(0, 4)}
+            icon={bills}
+          />
         </div>
         <div className="home-container-payments">
-          <Payments payments="4 Recent Payments" history="Full Payment History" />
+          <Payments
+            payments="4 Recent Payments"
+            history="Full Payment History"
+          />
         </div>
       </div>
     </div>
