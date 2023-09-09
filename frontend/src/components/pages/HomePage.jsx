@@ -33,7 +33,7 @@ export default function HomePage({ bills_list }) {
         <div className="home-container-bills">
           <BillDetails
             color="a3a3a3"
-            data={bills_list.slice(0, 4)}
+            data={bills_list?.slice(0, 4)}
             icon={bills}
           />
         </div>
