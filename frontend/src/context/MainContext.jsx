@@ -1,6 +1,7 @@
 import React, { createContext, useState } from "react";
 
 const MainContext = createContext();
+
 function MainProvider({ children }) {
   const [current, setCurrent] = useState("home");
   const handlePage = (page) => {
@@ -12,5 +13,4 @@ function MainProvider({ children }) {
     </MainContext.Provider>
   );
 }
-
 export { MainContext, MainProvider };

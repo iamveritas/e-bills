@@ -17,6 +17,7 @@ import ActivityPage from "./components/pages/ActivityPage";
 import EndorsePage from "./components/pages/EndorsePage";
 import ReqPaymentPage from "./components/pages/ReqPaymentPage";
 import ReqAcceptPage from "./components/pages/ReqAcceptPage";
+
 export default function App() {
     const {current} = useContext(MainContext);
     // Set data for bill issue
@@ -104,32 +105,32 @@ export default function App() {
         let name = e.target.name;
         setData({...data, [name]: value});
     };
-  const activePage = () => {
-    switch (current) {
-        case "home":
-            return <HomePage bills_list={bills_list}/>;
-        case "activity":
-            return <ActivityPage bills_list={bills_list}/>;
-      case "reqaccept":
-        return <ReqAcceptPage />;
-      case "reqpayment":
-        return <ReqPaymentPage />;
-      case "endorse":
-        return <EndorsePage />;
-        case "issue":
-            return <IssuePage contacts={contacts} identity={identity} data={data} changeHandle={changeHandle}
-                              handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
-                              handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}/>;
-      case "accept":
-        return <AcceptPage identity={identity} data={data} />;
-      case "repay":
-        return (
-          <RepayPage contacts={contacts} identity={identity} data={data} />
-        );
-      case "bill":
-        return <Bill identity={identity} data={data} />;
-    }
-  };
+    const activePage = () => {
+        switch (current) {
+            case "home":
+                return <HomePage bills_list={bills_list}/>;
+            case "activity":
+                return <ActivityPage bills_list={bills_list}/>;
+            case "reqaccept":
+                return <ReqAcceptPage/>;
+            case "reqpayment":
+                return <ReqPaymentPage/>;
+            case "endorse":
+                return <EndorsePage/>;
+            case "issue":
+                return <IssuePage handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee} contacts={contacts}
+                                  identity={identity} data={data} changeHandle={changeHandle}
+                                  handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}/>;
+            case "accept":
+                return <AcceptPage identity={identity} data={data}/>;
+            case "repay":
+                return (
+                    <RepayPage contacts={contacts} identity={identity} data={data}/>
+                );
+            case "bill":
+                return <Bill identity={identity} data={data}/>;
+        }
+    };
 
     return <>{activePage()}</>;
 }

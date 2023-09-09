@@ -31,11 +31,7 @@ export default function HomePage({ bills_list }) {
         </div>
         <div className="line"></div>
         <div className="home-container-bills">
-          <BillDetails
-            color="a3a3a3"
-            data={bills_list.slice(0, 4)}
-            icon={bills}
-          />
+          <BillDetails color="a3a3a3" data={bills_list} icon={bills} />
         </div>
         <div className="home-container-payments">
           <Payments

@@ -1,40 +1,41 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {useContext, useEffect, useRef, useState} from "react";
 import IconHolder from "../elements/IconHolder";
 import back from "../../assests/back.svg";
 import download from "../../assests/download.svg";
 import wechsel from "../../assests/WECHSEL.svg";
 import dumySig from "../../assests/Jordan-signature.png";
 import Pdf from "react-to-pdf";
-import { MainContext } from "../../context/MainContext";
-function Bill({ identity, data }) {
-  const { handlePage } = useContext(MainContext);
-  const divRef = React.createRef();
-  const [offSet, setOffSet] = useState({
-    width: 0,
-    height: 0,
-  });
-  const options = {
-    orientation: "portrait",
-    unit: "px",
-    format: [offSet.width, offSet.height],
-  };
-  console.log(offSet);
-  const handlePdfSize = () => {
-    const divEle = document.getElementById("main-container");
-    setOffSet({
-      width: divEle.offsetWidth - divEle.offsetWidth / 2.29,
-      height: divEle.offsetHeight - divEle.offsetWidth / 0.805,
+import {MainContext} from "../../context/MainContext";
+
+function Bill({identity, data}) {
+    const {handlePage} = useContext(MainContext);
+    const divRef = React.createRef();
+    const [offSet, setOffSet] = useState({
+        width: 0,
+        height: 0,
     });
-  };
-  useEffect(() => {
-    window.addEventListener("resize", handlePdfSize);
-    return () => {
-      window.removeEventListener("resize", handlePdfSize);
+    const options = {
+        orientation: "portrait",
+        unit: "px",
+        format: [offSet.width, offSet.height],
     };
-  }, []);
-  useEffect(() => {
-    handlePdfSize();
-  }, []);
+    console.log(offSet);
+    const handlePdfSize = () => {
+        const divEle = document.getElementById("main-container");
+        setOffSet({
+            width: divEle.offsetWidth - divEle.offsetWidth / 2.29,
+            height: divEle.offsetHeight - divEle.offsetWidth / 0.805,
+        });
+    };
+    useEffect(() => {
+        window.addEventListener("resize", handlePdfSize);
+        return () => {
+            window.removeEventListener("resize", handlePdfSize);
+        };
+    }, []);
+    useEffect(() => {
+        handlePdfSize();
+    }, []);
 
     return (
         <div className="billing">
