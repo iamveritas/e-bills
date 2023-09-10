@@ -30,6 +30,19 @@ export default function App() {
     drawer_is_drawee: false,
   });
 
+  const [peer_id, setPeerId] = useState({});
+  // Set peer id
+  useEffect(() => {
+    fetch('http://localhost:8000/identity/peer_id/return')
+        .then((res) => res.json())
+        .then((data) => {
+          console.log(data);
+          setPeerId(data);
+        }).catch((err) => {
+      console.log(err.message);
+    });
+  }, []);
+
   const [identity, setIdentity] = useState({
     name: String,
     date_of_birth: String,
@@ -42,7 +55,6 @@ export default function App() {
     bitcoin_public_key: String,
     bitcoin_private_key: String,
   });
-
   // Set identity
   useEffect(() => {
     fetch('http://localhost:8000/identity/return')
@@ -55,9 +67,7 @@ export default function App() {
         });
     }, []);
 
-
   const [contacts, setContacts] = useState([]);
-
   // Set contacts
   useEffect(() => {
     fetch('http://localhost:8000/contacts/return')
