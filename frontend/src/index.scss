@@ -417,7 +417,7 @@ select:focus {
             text-overflow: ellipsis;
             color: #151515;
             font-family: Poppins;
-            font-size: calcView(20);
+            font-size: calcView(18);
             font-style: normal;
             font-weight: 500;
             line-height: normal;
@@ -450,7 +450,9 @@ select:focus {
           .red {
             color: red;
           }
-
+          .grey {
+            color: grey;
+          }
           .currency {
             color: #151515;
             font-family: Poppins;
