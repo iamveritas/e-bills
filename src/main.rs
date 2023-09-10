@@ -73,7 +73,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             routes![
                 web::get_identity,
                 web::create_identity,
-                web::return_identity
+                web::return_identity,
+                web::return_peer_id
             ],
         )
         .mount("/bills", routes![web::bills_list])
@@ -447,6 +448,19 @@ fn is_not_hidden(entry: &DirEntry) -> bool {
 //--------------------------------------------------------------
 
 //-------------------------Identity-----------------------------
+
+#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+pub struct NodeId {
+    id: String,
+}
+
+impl NodeId {
+    pub fn new(peer_id: String) -> Self {
+        Self { id: peer_id }
+    }
+}
+
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct IdentityPublicData {

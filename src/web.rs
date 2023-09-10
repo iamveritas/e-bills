@@ -2,6 +2,7 @@
 
 use bitcoin::secp256k1::Scalar;
 use chrono::{Days, Utc};
+use libp2p::PeerId;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -21,7 +22,7 @@ use crate::{
     read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
     request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
     Contact, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
-    NewContactForm, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    NewContactForm, NodeId, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -78,6 +79,13 @@ pub async fn get_identity() -> Template {
 pub async fn return_identity() -> Json<Identity> {
     let identity: IdentityWithAll = get_whole_identity();
     Json(identity.identity)
+}
+
+#[get("/peer_id/return")]
+pub async fn return_peer_id() -> Json<NodeId> {
+    let peer_id: PeerId = read_peer_id_from_file();
+    let node_id = NodeId::new(peer_id.to_string());
+    Json(node_id)
 }
 
 #[get("/return/<id>")]
