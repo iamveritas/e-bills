@@ -37,6 +37,19 @@ export default function App() {
         drawer_is_drawee: false,
     });
 
+    const [peer_id, setPeerId] = useState({});
+    // Set peer id
+    useEffect(() => {
+        fetch('http://localhost:8000/identity/peer_id/return')
+            .then((res) => res.json())
+            .then((data) => {
+                console.log(data);
+                setPeerId(data);
+            }).catch((err) => {
+            console.log(err.message);
+        });
+    }, []);
+
     const [identity, setIdentity] = useState({
         name: String,
         date_of_birth: String,
