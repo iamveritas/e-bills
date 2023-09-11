@@ -283,7 +283,7 @@ pub mod network {
                         let bill_bytes = self.get_bill(bill_id.to_string().clone()).await;
                         if !bill_bytes.is_empty() {
                             let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
-                            fs::write(path, bill_bytes).expect("Can't write file.");
+                            fs::write(path, bill_bytes.clone()).expect("Can't write file.");
                         }
 
                         let key_bytes = self.get_key(bill_id.to_string().clone()).await;
@@ -297,12 +297,14 @@ pub mod network {
                             fs::write(path, key_bytes_decrypted).expect("Can't write file.");
                         }
 
-                        self.sender
-                            .send(Command::SubscribeToTopic {
-                                topic: bill_id.to_string().clone(),
-                            })
-                            .await
-                            .expect("Command receiver not to be dropped.");
+                        if !bill_bytes.is_empty() {
+                            self.sender
+                                .send(Command::SubscribeToTopic {
+                                    topic: bill_id.to_string().clone(),
+                                })
+                                .await
+                                .expect("Command receiver not to be dropped.");
+                        }
                     }
                 }
             }
@@ -499,13 +501,19 @@ pub mod network {
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
-                let file_content = futures::future::select_ok(requests)
-                    .await
-                    .map_err(|_| "None of the providers returned file.")
-                    .expect("Can not get file content.")
-                    .0;
+                let file_content = futures::future::select_ok(requests);
 
-                file_content
+                let file_content_await = file_content.await;
+
+                if file_content_await.is_err() {
+                    println!("None of the providers returned file.");
+                    Vec::new()
+                } else {
+                    file_content_await
+                        .map_err(|_| "None of the providers returned file.")
+                        .expect("Can not get file content.")
+                        .0
+                }
             }
         }
 
@@ -525,13 +533,19 @@ pub mod network {
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
-                let file_content = futures::future::select_ok(requests)
-                    .await
-                    .map_err(|_| "None of the providers returned file.")
-                    .expect("Can not get file content.")
-                    .0;
+                let file_content = futures::future::select_ok(requests);
 
-                file_content
+                let file_content_await = file_content.await;
+
+                if file_content_await.is_err() {
+                    println!("None of the providers returned file.");
+                    Vec::new()
+                } else {
+                    file_content_await
+                        .map_err(|_| "None of the providers returned file.")
+                        .expect("Can not get file content.")
+                        .0
+                }
             }
         }
 
