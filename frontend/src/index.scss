@@ -295,7 +295,9 @@ select:focus {
           height: calcView(22);
           margin-bottom: calcView(5);
         }
-
+        .arrowDown {
+          transform: rotate(180deg);
+        }
         span {
           font-size: calcView(32);
           font-weight: 700;
@@ -469,6 +471,7 @@ select:focus {
     }
 
     &-payments {
+      margin-bottom: calcView(40);
       &-details {
         display: flex;
         flex-direction: column;
