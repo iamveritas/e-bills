@@ -75,6 +75,12 @@ pub async fn get_identity() -> Template {
     }
 }
 
+#[get("/chain/return/<id>")]
+pub async fn return_chain_of_blocks(id: String) -> Json<Chain> {
+    let chain = Chain::read_chain_from_file(&id);
+    Json(chain)
+}
+
 #[get("/return")]
 pub async fn return_identity() -> Json<Identity> {
     let identity: IdentityWithAll = get_whole_identity();

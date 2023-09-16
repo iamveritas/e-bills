@@ -111,6 +111,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::get_bill_chain,
                 web::get_block,
                 web::return_bill,
+                web::return_chain_of_blocks,
             ],
         )
         .mount("/bills", routes![web::return_bills_list,])
