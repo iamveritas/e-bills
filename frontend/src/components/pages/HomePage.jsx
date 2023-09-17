@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import HomeHeader from "../sections/HomeHeader";
 import Amount from "../elements/Amount";
 import SubHeading from "../elements/SubHeading";
@@ -6,23 +6,35 @@ import SubTotal from "../elements/SubTotal";
 import BillDetails from "../elements/BillDetails";
 import Payments from "../elements/Payments";
 import bills from "../../assests/bills.svg";
+import { MainContext } from "../../context/MainContext";
 
-export default function HomePage({ bills_list }) {
+export default function HomePage() {
+  const { amount, currency, bills_list } = useContext(MainContext);
   return (
     <div className="home">
       <HomeHeader />
       <div className="home-container">
         <div className="home-container-amount">
-          <Amount color="38A665" currency="BTC" amount="1.021" degree="0" />
+          <Amount
+            color="38A665"
+            currency={currency}
+            amount={amount?.bill}
+            degree="0"
+          />
           <hr className="home-container-amount-line" />
-          <Amount color="C30000" currency="BTC" amount="1.011" degree="180" />
+          <Amount
+            color="C30000"
+            currency={currency}
+            amount={amount?.iou}
+            degree="180"
+          />
         </div>
         <div className="home-container-heading">
           <SubHeading rotate="0" route="issue" color="38A665" currency="Bill" />
           <SubHeading rotate="180" route="dont" color="C30000" currency="IOU" />
         </div>
         <div className="home-container-total">
-          <SubTotal color="a3a3a3" currency="BTC" amount="7.01" />
+          <SubTotal color="a3a3a3" currency="BTC" amount={amount?.endors} />
         </div>
         <div className="line"></div>
         <div className="home-container-bills">

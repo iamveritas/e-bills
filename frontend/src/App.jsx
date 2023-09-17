@@ -76,20 +76,6 @@ export default function App() {
       });
   }, []);
 
-  const [bills_list, setBillsList] = useState([]);
-  // Set bills
-  useEffect(() => {
-    fetch("http://localhost:8000/bills/return")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data);
-        setBillsList(data);
-      })
-      .catch((err) => {
-        console.log(err.message);
-      });
-  }, []);
-
   const changeHandle = (e) => {
     let value = e.target.value;
     let name = e.target.name;
@@ -108,9 +94,9 @@ export default function App() {
   const activePage = () => {
     switch (current) {
       case "home":
-        return <HomePage bills_list={bills_list} />;
+        return <HomePage />;
       case "activity":
-        return <ActivityPage bills_list={bills_list} />;
+        return <ActivityPage />;
       case "reqaccept":
         return <ReqAcceptPage />;
       case "reqpayment":
@@ -137,7 +123,7 @@ export default function App() {
       case "bill":
         return <Bill identity={identity} data={data} />;
       case "dont":
-        return <HomePage bills_list={bills_list} />;
+        return <HomePage />;
     }
   };
 
