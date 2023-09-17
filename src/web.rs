@@ -21,8 +21,9 @@ use crate::{
     issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee,
     read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
     request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
-    Contact, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
-    NewContactForm, NodeId, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    BitcreditBillToReturn, Contact, EndorseBitcreditBillForm, Identity, IdentityForm,
+    IdentityPublicData, IdentityWithAll, NewContactForm, NodeId, RequestToAcceptBitcreditBillForm,
+    RequestToPayBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -86,12 +87,6 @@ pub async fn return_peer_id() -> Json<NodeId> {
     let peer_id: PeerId = read_peer_id_from_file();
     let node_id = NodeId::new(peer_id.to_string());
     Json(node_id)
-}
-
-#[get("/return/<id>")]
-pub async fn return_bill(id: String) -> Json<BitcreditBill> {
-    let bill: BitcreditBill = read_bill_from_file(&id);
-    Json(bill)
 }
 
 #[get("/return")]
@@ -252,6 +247,101 @@ pub async fn get_block(id: String, block_id: u64) -> Template {
             },
         )
     }
+}
+
+#[get("/return/basic/<id>")]
+pub async fn return_basic_bill(id: String) -> Json<BitcreditBill> {
+    let bill: BitcreditBill = read_bill_from_file(&id);
+    Json(bill)
+}
+
+#[get("/chain/return/<id>")]
+pub async fn return_chain_of_blocks(id: String) -> Json<Chain> {
+    let chain = Chain::read_chain_from_file(&id);
+    Json(chain)
+}
+
+#[get("/return/<id>")]
+pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
+    let identity: IdentityWithAll = get_whole_identity();
+    let bill: BitcreditBill = read_bill_from_file(&id);
+    let chain = Chain::read_chain_from_file(&bill.name);
+    let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
+    let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+    let mut requested_to_pay =
+        chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
+    let mut requested_to_accept =
+        chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToAccept);
+    let address_to_pay = get_address_to_pay(bill.clone());
+    let check_if_already_paid =
+        check_if_paid(address_to_pay.clone(), bill.amount_numbers.clone()).await;
+    let payed = check_if_already_paid.0;
+    let mut number_of_confirmations: u64 = 0;
+    let mut pending = false;
+    if payed && check_if_already_paid.1.eq(&0) {
+        pending = true;
+    } else if payed && !check_if_already_paid.1.eq(&0) {
+        let transaction = api::get_transactions_testet(address_to_pay.clone()).await;
+        let txid = api::Txid::get_first_transaction(transaction.clone()).await;
+        let height = api::get_testnet_last_block_height().await;
+        number_of_confirmations = height - txid.status.block_height;
+    }
+    let address_to_pay = get_address_to_pay(bill.clone());
+    let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
+    let link_to_pay =
+        generate_link_to_pay(address_to_pay.clone(), bill.amount_numbers.clone(), message).await;
+    let mut pr_key_bill = String::new();
+    if !endorsed.clone()
+        && bill
+            .payee
+            .bitcoin_public_key
+            .clone()
+            .eq(&identity.identity.bitcoin_public_key)
+    {
+        pr_key_bill = get_current_payee_private_key(identity.identity.clone(), bill.clone());
+    } else if endorsed
+        && bill
+            .endorsee
+            .bitcoin_public_key
+            .eq(&identity.identity.bitcoin_public_key)
+    {
+        pr_key_bill = get_current_payee_private_key(identity.identity.clone(), bill.clone());
+    }
+
+    let full_bill = BitcreditBillToReturn {
+        name: bill.name,
+        to_payee: bill.to_payee,
+        bill_jurisdiction: bill.bill_jurisdiction,
+        timestamp_at_drawing: bill.timestamp_at_drawing,
+        drawee: bill.drawee,
+        drawer: bill.drawer,
+        payee: bill.payee,
+        endorsee: bill.endorsee,
+        place_of_drawing: bill.place_of_drawing,
+        currency_code: bill.currency_code,
+        amount_numbers: bill.amount_numbers,
+        amounts_letters: bill.amounts_letters,
+        maturity_date: bill.maturity_date,
+        date_of_issue: bill.date_of_issue,
+        compounding_interest_rate: bill.compounding_interest_rate,
+        type_of_interest_calculation: bill.type_of_interest_calculation,
+        place_of_payment: bill.place_of_payment,
+        public_key: bill.public_key,
+        private_key: bill.private_key,
+        language: bill.language,
+        accepted,
+        endorsed,
+        requested_to_pay,
+        requested_to_accept,
+        payed,
+        link_to_pay,
+        address_to_pay,
+        pr_key_bill,
+        number_of_confirmations,
+        pending,
+        chain_of_blocks: chain,
+    };
+    Json(full_bill)
 }
 
 #[get("/<id>")]

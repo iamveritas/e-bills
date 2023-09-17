@@ -435,6 +435,7 @@ pub mod network {
             }
         }
 
+        //TODO: if node is not in dht - not to continue
         pub async fn get_identity_public_data_from_dht(
             &mut self,
             peer_id: String,
