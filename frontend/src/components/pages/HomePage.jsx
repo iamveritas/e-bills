@@ -34,7 +34,11 @@ export default function HomePage() {
           <SubHeading rotate="180" route="dont" color="C30000" currency="IOU" />
         </div>
         <div className="home-container-total">
-          <SubTotal color="a3a3a3" currency="BTC" amount={amount?.endors} />
+          <SubTotal
+            color="a3a3a3"
+            currency={currency}
+            amount={amount?.endors}
+          />
         </div>
         <div className="line"></div>
         <div className="home-container-bills">

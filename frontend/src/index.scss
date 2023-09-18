@@ -295,7 +295,6 @@ select:focus {
           height: calcView(22);
           margin-bottom: calcView(5);
         }
-
         .arrowDown {
           transform: rotate(180deg);
         }
@@ -445,10 +444,10 @@ select:focus {
           .amount {
             color: #00923a;
             font-family: Poppins;
-            font-size: calcView(20);
+            font-size: calcView(18);
             font-style: normal;
             font-weight: 500;
-            line-height: calcView(20);
+            line-height: calcView(18);
           }
 
           .red {
@@ -462,11 +461,11 @@ select:focus {
           .currency {
             color: #151515;
             font-family: Poppins;
-            font-size: calcView(20);
-
+            font-size: calcView(18);
+            text-transform: uppercase;
             font-style: normal;
             font-weight: 500;
-            line-height: calcView(20);
+            line-height: calcView(18);
           }
         }
       }

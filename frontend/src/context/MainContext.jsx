@@ -19,7 +19,10 @@ function MainProvider({ children }) {
       .then((res) => res.json())
       .then((data) => {
         console.log(data);
-        setBillsList(data);
+        let newData = data.sort(
+          (a, b) => new Date(b.date_of_issue) - new Date(a.date_of_issue)
+        );
+        setBillsList(newData);
       })
       .catch((err) => {
         console.log(err.message);
@@ -63,6 +66,7 @@ function MainProvider({ children }) {
         bill: prev.bill + items.amount_numbers,
       }));
     }
+    setCurrency(items.currency_code);
   };
   useEffect(() => {
     if (peer_id && bills_list.length > 0) {
