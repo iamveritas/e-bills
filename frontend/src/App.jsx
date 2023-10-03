@@ -76,6 +76,20 @@ export default function App() {
             });
     }, []);
 
+    const [operation_codes, setOperationCodes] = useState([]);
+    // Set operation codes
+    useEffect(() => {
+        fetch("http://localhost:8000/opcodes/return")
+            .then((res) => res.json())
+            .then((data) => {
+                console.log(data);
+                setOperationCodes(data);
+            })
+            .catch((err) => {
+                console.log(err.message);
+            });
+    }, []);
+
     const changeHandle = (e) => {
         let value = e.target.value;
         let name = e.target.name;

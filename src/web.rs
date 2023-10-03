@@ -12,7 +12,7 @@ use rocket::serde::json::Json;
 use rocket::{Request, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::blockchain::{Chain, GossipsubEvent, GossipsubEventId};
+use crate::blockchain::{Chain, ChainToReturn, GossipsubEvent, GossipsubEventId, OperationCode};
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
 use crate::{
@@ -261,11 +261,17 @@ pub async fn return_chain_of_blocks(id: String) -> Json<Chain> {
     Json(chain)
 }
 
+#[get("/return")]
+pub async fn return_operation_codes() -> Json<Vec<OperationCode>> {
+    Json(OperationCode::get_all_operation_codes())
+}
+
 #[get("/return/<id>")]
 pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let identity: IdentityWithAll = get_whole_identity();
     let bill: BitcreditBill = read_bill_from_file(&id);
     let chain = Chain::read_chain_from_file(&bill.name);
+    let chain_to_return = ChainToReturn::new(chain.clone());
     let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
     let mut requested_to_pay =
@@ -339,7 +345,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         pr_key_bill,
         number_of_confirmations,
         pending,
-        chain_of_blocks: chain,
+        chain_of_blocks: chain_to_return,
     };
     Json(full_bill)
 }
