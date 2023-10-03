@@ -21,7 +21,9 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
-use crate::blockchain::{start_blockchain_for_new_bill, Block, Chain, OperationCode};
+use crate::blockchain::{
+    start_blockchain_for_new_bill, Block, Chain, ChainToReturn, OperationCode,
+};
 use crate::constants::{
     BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH,
     COMPOUNDING_INTEREST_RATE_ZERO, CONTACT_MAP_FILE_PATH, CONTACT_MAP_FOLDER_PATH,
@@ -68,6 +70,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/css", FileServer::from(CSS_FOLDER_PATH))
         .mount("/", routes![web::start])
         .mount("/exit", routes![web::exit])
+        .mount("/opcodes", routes![web::return_operation_codes])
         .mount(
             "/identity",
             routes![
@@ -698,7 +701,7 @@ pub struct BitcreditBillToReturn {
     number_of_confirmations: u64,
     pending: bool,
     address_to_pay: String,
-    chain_of_blocks: Chain,
+    chain_of_blocks: ChainToReturn,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
@@ -791,7 +794,7 @@ impl BitcreditBillToReturn {
             pr_key_bill: "".to_string(),
             number_of_confirmations: 0,
             pending: false,
-            chain_of_blocks: Chain { blocks: vec![] },
+            chain_of_blocks: ChainToReturn { blocks: vec![] },
         }
     }
 }
@@ -934,7 +937,7 @@ pub fn issue_new_bill_drawer_is_payee(
 
     let new_bill = BitcreditBill {
         name: bill_name.clone(),
-        to_payee: false,
+        to_payee: true,
         bill_jurisdiction,
         timestamp_at_drawing: timestamp.clone(),
         place_of_drawing,

@@ -17,6 +17,22 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChainToReturn {
+    pub blocks: Vec<BlockToReturn>,
+}
+
+impl ChainToReturn {
+    pub fn new(chain: Chain) -> Self {
+        let mut blocks: Vec<BlockToReturn> = Vec::new();
+        let bill = chain.get_first_version_bill();
+        for block in chain.blocks {
+            blocks.push(BlockToReturn::new(block, bill.clone()));
+        }
+        Self { blocks }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Chain {
     pub blocks: Vec<Block>,
 }
@@ -218,147 +234,8 @@ impl Chain {
         let mut history: Vec<BlockForHistory> = Vec::new();
 
         for block in &self.blocks {
-            let mut line = String::new();
-            match block.operation_code {
-                OperationCode::Issue => {
-                    //todo: fix for 2 party bills
-                    let bill = self.get_first_version_bill();
-                    let time_of_issue = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-                    line = format!(
-                        "Bill issued by {} at {} in {}",
-                        bill.drawer.name, time_of_issue, bill.place_of_drawing
-                    );
-                }
-                OperationCode::Endorse => {
-                    let block = self.get_block_by_id(block.id.clone());
-                    let time_of_endorse = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-
-                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
-                    let key: Rsa<Private> =
-                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
-                    let bytes = hex::decode(block.data.clone()).unwrap();
-                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
-                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
-
-                    let mut part_with_endorsee = block_data_decrypted
-                        .split("Endorsed to ")
-                        .collect::<Vec<&str>>()
-                        .get(1)
-                        .unwrap()
-                        .to_string();
-
-                    let part_with_endorsed_by = part_with_endorsee
-                        .clone()
-                        .split(" endorsed by ")
-                        .collect::<Vec<&str>>()
-                        .get(1)
-                        .unwrap()
-                        .to_string();
-
-                    part_with_endorsee = part_with_endorsee
-                        .split(" endorsed by ")
-                        .collect::<Vec<&str>>()
-                        .get(0)
-                        .unwrap()
-                        .to_string();
-
-                    let endorsee_bill_u8 = hex::decode(part_with_endorsee).unwrap();
-                    let endorsee_bill: IdentityPublicData =
-                        serde_json::from_slice(&endorsee_bill_u8).unwrap();
-
-                    let endorser_bill_u8 = hex::decode(part_with_endorsed_by).unwrap();
-                    let endorser_bill: IdentityPublicData =
-                        serde_json::from_slice(&endorser_bill_u8).unwrap();
-                    line = format!(
-                        "Bill endorsed to {} at {} by {} in {}",
-                        endorsee_bill.name,
-                        time_of_endorse,
-                        endorser_bill.name,
-                        endorser_bill.postal_address
-                    );
-                }
-                OperationCode::RequestToAccept => {
-                    let block = self.get_block_by_id(block.id.clone());
-                    let time_of_request_to_accept =
-                        Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-
-                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
-                    let key: Rsa<Private> =
-                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
-                    let bytes = hex::decode(block.data.clone()).unwrap();
-                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
-                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
-
-                    let part_with_identity = block_data_decrypted
-                        .split("Requested to accept by ")
-                        .collect::<Vec<&str>>()
-                        .get(1)
-                        .unwrap()
-                        .to_string();
-                    let requester_to_accept_bill_u8 = hex::decode(part_with_identity).unwrap();
-                    let requester_to_accept_bill: IdentityPublicData =
-                        serde_json::from_slice(&requester_to_accept_bill_u8).unwrap();
-                    line = format!(
-                        "Bill requested to accept by {} at {} in {}",
-                        requester_to_accept_bill.name,
-                        time_of_request_to_accept,
-                        requester_to_accept_bill.postal_address
-                    );
-                }
-                OperationCode::Accept => {
-                    let block = self.get_block_by_id(block.id.clone());
-                    let time_of_accept = Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-
-                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
-                    let key: Rsa<Private> =
-                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
-                    let bytes = hex::decode(block.data.clone()).unwrap();
-                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
-                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
-
-                    let part_with_identity = block_data_decrypted
-                        .split("Accepted by ")
-                        .collect::<Vec<&str>>()
-                        .get(1)
-                        .unwrap()
-                        .to_string();
-                    let accepter_bill_u8 = hex::decode(part_with_identity).unwrap();
-                    let accepter_bill: IdentityPublicData =
-                        serde_json::from_slice(&accepter_bill_u8).unwrap();
-                    line = format!(
-                        "Bill accepted by {} at {} in {}",
-                        accepter_bill.name, time_of_accept, accepter_bill.postal_address
-                    );
-                }
-                OperationCode::RequestToPay => {
-                    let block = self.get_block_by_id(block.id.clone());
-                    let time_of_request_to_pay =
-                        Utc.timestamp_opt(block.timestamp.clone(), 0).unwrap();
-
-                    let bill_keys = read_keys_from_bill_file(&block.bill_name);
-                    let key: Rsa<Private> =
-                        Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
-                    let bytes = hex::decode(block.data.clone()).unwrap();
-                    let decrypted_bytes = decrypt_bytes(&bytes, &key);
-                    let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
-
-                    let part_with_identity = block_data_decrypted
-                        .split("Requested to pay by ")
-                        .collect::<Vec<&str>>()
-                        .get(1)
-                        .unwrap()
-                        .to_string();
-                    let requester_to_pay_bill_u8 = hex::decode(part_with_identity).unwrap();
-                    let requester_to_pay_bill: IdentityPublicData =
-                        serde_json::from_slice(&requester_to_pay_bill_u8).unwrap();
-                    line = format!(
-                        "Bill requested to pay by {} at {} in {}",
-                        requester_to_pay_bill.name,
-                        time_of_request_to_pay,
-                        requester_to_pay_bill.postal_address
-                    );
-                }
-            }
+            let bill = self.get_first_version_bill();
+            let mut line = block.get_history_label(bill);
             history.push(BlockForHistory {
                 id: block.id.clone(),
                 text: line,
@@ -370,7 +247,6 @@ impl Chain {
 
     pub fn bill_contain_node(&self, request_node_id: String) -> bool {
         for block in &self.blocks {
-            let mut line = String::new();
             match block.operation_code {
                 OperationCode::Issue => {
                     let bill = self.get_first_version_bill();
@@ -538,6 +414,39 @@ impl OperationCode {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BlockToReturn {
+    pub id: u64,
+    pub bill_name: String,
+    pub hash: String,
+    pub timestamp: i64,
+    pub data: String,
+    pub previous_hash: String,
+    pub signature: String,
+    pub public_key: String,
+    pub operation_code: OperationCode,
+    pub label: String,
+}
+
+impl BlockToReturn {
+    pub fn new(block: Block, bill: BitcreditBill) -> Self {
+        let label = block.get_history_label(bill);
+
+        Self {
+            id: block.id,
+            bill_name: block.bill_name,
+            hash: block.hash,
+            timestamp: block.timestamp,
+            data: block.data,
+            previous_hash: block.previous_hash,
+            signature: block.signature,
+            public_key: block.public_key,
+            operation_code: block.operation_code,
+            label,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Block {
     pub id: u64,
     pub bill_name: String,
@@ -583,6 +492,156 @@ impl Block {
             public_key,
             operation_code,
         }
+    }
+
+    pub fn get_history_label(&self, bill: BitcreditBill) -> String {
+        let mut line = String::new();
+        match self.operation_code {
+            OperationCode::Issue => {
+                let time_of_issue = Utc.timestamp_opt(self.timestamp.clone(), 0).unwrap();
+                if !bill.drawer.name.is_empty() {
+                    line = format!(
+                        "Bill issued by {} at {} in {}",
+                        bill.drawer.name, time_of_issue, bill.place_of_drawing
+                    );
+                } else if bill.to_payee {
+                    line = format!(
+                        "Bill issued by {} at {} in {}",
+                        bill.payee.name, time_of_issue, bill.place_of_drawing
+                    );
+                } else {
+                    line = format!(
+                        "Bill issued by {} at {} in {}",
+                        bill.drawee.name, time_of_issue, bill.place_of_drawing
+                    );
+                }
+            }
+            OperationCode::Endorse => {
+                let time_of_endorse = Utc.timestamp_opt(self.timestamp.clone(), 0).unwrap();
+
+                let bill_keys = read_keys_from_bill_file(&self.bill_name);
+                let key: Rsa<Private> =
+                    Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                let bytes = hex::decode(self.data.clone()).unwrap();
+                let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                let mut part_with_endorsee = block_data_decrypted
+                    .split("Endorsed to ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+
+                let part_with_endorsed_by = part_with_endorsee
+                    .clone()
+                    .split(" endorsed by ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+
+                part_with_endorsee = part_with_endorsee
+                    .split(" endorsed by ")
+                    .collect::<Vec<&str>>()
+                    .get(0)
+                    .unwrap()
+                    .to_string();
+
+                let endorsee_bill_u8 = hex::decode(part_with_endorsee).unwrap();
+                let endorsee_bill: IdentityPublicData =
+                    serde_json::from_slice(&endorsee_bill_u8).unwrap();
+
+                let endorser_bill_u8 = hex::decode(part_with_endorsed_by).unwrap();
+                let endorser_bill: IdentityPublicData =
+                    serde_json::from_slice(&endorser_bill_u8).unwrap();
+                line = format!(
+                    "Bill endorsed to {} at {} by {} in {}",
+                    endorsee_bill.name,
+                    time_of_endorse,
+                    endorser_bill.name,
+                    endorser_bill.postal_address
+                );
+            }
+            OperationCode::RequestToAccept => {
+                let time_of_request_to_accept =
+                    Utc.timestamp_opt(self.timestamp.clone(), 0).unwrap();
+
+                let bill_keys = read_keys_from_bill_file(&self.bill_name);
+                let key: Rsa<Private> =
+                    Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                let bytes = hex::decode(self.data.clone()).unwrap();
+                let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                let part_with_identity = block_data_decrypted
+                    .split("Requested to accept by ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+                let requester_to_accept_bill_u8 = hex::decode(part_with_identity).unwrap();
+                let requester_to_accept_bill: IdentityPublicData =
+                    serde_json::from_slice(&requester_to_accept_bill_u8).unwrap();
+                line = format!(
+                    "Bill requested to accept by {} at {} in {}",
+                    requester_to_accept_bill.name,
+                    time_of_request_to_accept,
+                    requester_to_accept_bill.postal_address
+                );
+            }
+            OperationCode::Accept => {
+                let time_of_accept = Utc.timestamp_opt(self.timestamp.clone(), 0).unwrap();
+
+                let bill_keys = read_keys_from_bill_file(&self.bill_name);
+                let key: Rsa<Private> =
+                    Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                let bytes = hex::decode(self.data.clone()).unwrap();
+                let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                let part_with_identity = block_data_decrypted
+                    .split("Accepted by ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+                let accepter_bill_u8 = hex::decode(part_with_identity).unwrap();
+                let accepter_bill: IdentityPublicData =
+                    serde_json::from_slice(&accepter_bill_u8).unwrap();
+                line = format!(
+                    "Bill accepted by {} at {} in {}",
+                    accepter_bill.name, time_of_accept, accepter_bill.postal_address
+                );
+            }
+            OperationCode::RequestToPay => {
+                let time_of_request_to_pay = Utc.timestamp_opt(self.timestamp.clone(), 0).unwrap();
+
+                let bill_keys = read_keys_from_bill_file(&self.bill_name);
+                let key: Rsa<Private> =
+                    Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+                let bytes = hex::decode(self.data.clone()).unwrap();
+                let decrypted_bytes = decrypt_bytes(&bytes, &key);
+                let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+                let part_with_identity = block_data_decrypted
+                    .split("Requested to pay by ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+                let requester_to_pay_bill_u8 = hex::decode(part_with_identity).unwrap();
+                let requester_to_pay_bill: IdentityPublicData =
+                    serde_json::from_slice(&requester_to_pay_bill_u8).unwrap();
+                line = format!(
+                    "Bill requested to pay by {} at {} in {}",
+                    requester_to_pay_bill.name,
+                    time_of_request_to_pay,
+                    requester_to_pay_bill.postal_address
+                );
+            }
+        }
+        line
     }
 
     pub fn verifier(&self) -> bool {
