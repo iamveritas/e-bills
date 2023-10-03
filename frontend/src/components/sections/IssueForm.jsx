@@ -1,27 +1,34 @@
 import React from "react";
 
-export default function IssueForm({contacts, data, identity, changeHandle, handleChangeDrawerIsDrawee, handleChangeDrawerIsPayee, handlePage}) {
-
-    const handleSubmition = e => {
+export default function IssueForm({
+                                      contacts,
+                                      data,
+                                      identity,
+                                      changeHandle,
+                                      handlePage,
+                                      handleChangeDrawerIsDrawee,
+                                      handleChangeDrawerIsPayee,
+                                  }) {
+    const handleSubmition = (e) => {
         e.preventDefault();
 
         const form_data = new FormData(e.target);
 
-        fetch('http://localhost:8000/bill/issue', {
-            method: 'POST',
+        fetch("http://localhost:8000/bill/issue", {
+            method: "POST",
             body: form_data,
-            mode: 'no-cors',
-        }).then(response => {
-            console.log(response);
-            handlePage("bill");
-        }).catch(err => err);
+            mode: "no-cors",
+        })
+            .then((response) => {
+                console.log(response);
+                handlePage("bill");
+            })
+            .catch((err) => err);
     };
 
-    let listContacts = contacts.map(contact => {
-        return (
-            <option key={contact.name}>{contact.name}</option>
-        )
-    })
+    let listContacts = contacts.map((contact) => {
+        return <option key={contact.name}>{contact.name}</option>;
+    });
 
     return (
         <form className="form" onSubmit={handleSubmition}>
@@ -44,6 +51,7 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                 <label htmlFor="drawee_name">to the order of</label>
                 <div className="form-input-row">
                     <select
+                        style={{appereance: "none"}}
                         id="payee_name"
                         name="payee_name"
                         value={data.payee_name}
@@ -73,11 +81,16 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                 <div className="form-input-row">
                     <span className="select-opt">
                         <select
+                            style={{
+                                appereance: "none",
+                                MozAppearance: "none",
+                                WebkitAppearance: "none",
+                            }}
                             className="form-select"
                             id="currency_code"
                             name="currency_code"
                             onChange={changeHandle}
-                            placeholder="EUR"
+                            placeholder="SATS"
                             required
                         >
                             <option value={data.currency_code}>sats</option>
@@ -98,6 +111,7 @@ export default function IssueForm({contacts, data, identity, changeHandle, handl
                 <label htmlFor="drawee_name">Drawee</label>
                 <div className="form-input-row">
                     <select
+                        style={{appereance: "none"}}
                         id="drawee_name"
                         name="drawee_name"
                         placeholder="Drawee Company, Vienna"

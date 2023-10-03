@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function TopDownHeading({ upper, lower }) {
+export default function TopDownHeading({upper, lower}) {
     return (
         <span className="head-title">
             <span className="head-title-top">{upper}</span>
