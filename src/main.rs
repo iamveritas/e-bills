@@ -523,6 +523,23 @@ pub struct Identity {
     bitcoin_private_key: String,
 }
 
+impl Identity {
+    pub fn new_empty() -> Self {
+        Self {
+            name: "".to_string(),
+            date_of_birth: "".to_string(),
+            city_of_birth: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            public_key_pem: "".to_string(),
+            email: "".to_string(),
+            country_of_birth: "".to_string(),
+            private_key_pem: "".to_string(),
+            bitcoin_private_key: "".to_string(),
+        }
+    }
+}
+
 pub fn get_whole_identity() -> IdentityWithAll {
     let identity: Identity = read_identity_from_file();
     let ed25519_keys: Keypair = read_ed25519_keypair_from_file();
