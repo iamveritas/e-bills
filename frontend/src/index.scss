@@ -39,7 +39,18 @@ $White: #fff;
   font-family: "Poppins", sans-serif;
   line-height: calcView(30);
 }
+*::-webkit-scrollbar {
+  display: block;
+  width: calcView(5);
+  position: absolute;
+  border-radius: calcView(5);
+  background-color: #ffffff90;
+}
 
+*::-webkit-scrollbar-thumb {
+  background-color: #181730;
+  border: calcView(1) solid #ffffff90;
+}
 body {
   background-color: #f5f5f9;
 }
@@ -83,7 +94,40 @@ select {
 select:focus {
   border: calcView(2) solid $PrimaryColor;
 }
+.accept-heading {
+  font-size: calcView(22);
+  font-weight: 600;
+}
 
+.detail {
+  font-size: calcView(22);
+  color: $PrimaryColor;
+  li {
+    list-style: decimal;
+  }
+}
+
+.block {
+  display: block;
+}
+.mt {
+  margin-top: calcView(32);
+}
+
+.mtt {
+  margin-top: calcView(53);
+}
+
+.mttt {
+  margin-top: calcView(75);
+}
+
+.btn {
+  align-self: center;
+  width: calcView(150);
+  padding: calcView(13) calcView(52);
+  border-radius: calcView(6);
+}
 .btn {
   align-self: center;
   width: calcView(150);
@@ -98,7 +142,7 @@ select:focus {
   align-items: center;
 
   &-text {
-    font-size: calcView(23);
+    font-size: calcView(22);
     margin-top: calcView(24);
     font-weight: 600;
   }
@@ -257,7 +301,6 @@ select:focus {
 }
 
 .home {
-  margin-top: calcView(86);
   width: 90%;
   margin: 0 auto;
 
@@ -557,43 +600,10 @@ select:focus {
     height: calcView(583);
     border-radius: calcView(32) calcView(32) 0 0;
 
-    .accept-heading {
-      font-size: calcView(22);
-      font-weight: 600;
-    }
-
-    .detail {
-      font-size: calcView(22);
-      color: $PrimaryColor;
-    }
-
-    .block {
-      display: block;
-    }
-
     &-content {
       padding: calcView(50) calcView(23);
       display: flex;
       flex-direction: column;
-
-      .mt {
-        margin-top: calcView(32);
-      }
-
-      .mtt {
-        margin-top: calcView(53);
-      }
-
-      .mttt {
-        margin-top: calcView(75);
-      }
-
-      .btn {
-        align-self: center;
-        width: calcView(150);
-        padding: calcView(13) calcView(52);
-        border-radius: calcView(6);
-      }
     }
   }
 }
@@ -1033,5 +1043,220 @@ select:focus {
     align-items: flex-start;
     gap: calcView(10);
     align-self: stretch;
+  }
+}
+.flex {
+  display: flex;
+  align-items: center;
+}
+.justify-space {
+  justify-content: space-between !important;
+}
+.close-btn {
+  width: calcView(46);
+  height: calcView(46);
+}
+.create {
+  margin-top: calcView(45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  &-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calcView(382);
+    height: calcView(48);
+    &-title {
+      margin-top: calcView(2);
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: calcView(23);
+      line-height: calcView(23);
+    }
+  }
+  &-body {
+    margin: calcView(40) auto;
+    &-avatar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      input {
+        display: none;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: calcView(12);
+        width: calcView(164);
+        img {
+          width: calcView(164);
+          height: calcView(164);
+          object-fit: contain;
+          object-position: center;
+          border-radius: 50%;
+        }
+        span {
+          font-size: calcView(12);
+          font-weight: medium;
+        }
+      }
+    }
+    &-form {
+      width: calcView(382);
+      display: flex;
+      flex-direction: column;
+      gap: calcView(40);
+      &-input {
+        display: flex;
+        flex-direction: column;
+        gap: calcView(10);
+        &-in {
+          display: flex;
+          flex-direction: column;
+          label {
+            font-size: calcView(12);
+            font-weight: 600;
+          }
+          input {
+            width: 100%;
+            height: calcView(50);
+            font-size: calcView(16);
+            padding: 0 calcView(10);
+            outline: none;
+            border: none;
+            border-radius: calcView(12);
+            background: #fff;
+          }
+          input:focus {
+            border: solid calcView(2) $PrimaryColor;
+          }
+        }
+      }
+    }
+    &-btn {
+      outline: none;
+      border: none;
+      display: block;
+      text-transform: uppercase;
+      font-size: calcView(16);
+      font-weight: 500;
+      background: #e1e1e6;
+      height: calcView(46);
+      padding: 0 calcView(14);
+      margin: calcView(20) auto;
+    }
+  }
+}
+
+.setting {
+  margin-top: calcView(45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  &-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: calcView(382);
+    height: calcView(48);
+    &-title {
+      margin-top: calcView(2);
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: calcView(23);
+      line-height: calcView(23);
+    }
+  }
+  &-body {
+    margin: calcView(40) auto;
+    width: calcView(382);
+    display: flex;
+    flex-direction: column;
+    gap: calcView(10);
+    &-instant {
+      padding: calcView(9.5) calcView(20);
+      width: 100%;
+      background: $White;
+      display: flex;
+      align-items: center;
+      gap: calcView(20);
+      text-transform: capitalize;
+      border-radius: calcView(8);
+      img {
+        width: calcView(24);
+        height: calcView(24);
+        object-fit: contain;
+        object-position: center;
+      }
+      span {
+        font-size: calcView(23);
+        flex: 1;
+      }
+      .arrow {
+        width: calcView(6);
+      }
+    }
+  }
+}
+.popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: $White;
+  padding-top: calcView(45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  &-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: calcView(382);
+    height: calcView(48);
+    &-title {
+      margin-top: calcView(2);
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: calcView(23);
+      line-height: calcView(23);
+    }
+  }
+  &-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: calcView(20) auto;
+    padding: calcView(40) auto;
+    width: calcView(382);
+    &-inner {
+      display: flex;
+      flex-direction: column;
+      gap: calcView(10);
+    }
+  }
+  &-btns {
+    margin-top: calcView(33);
+    display: flex;
+    flex-wrap: wrap;
+    gap: calcView(14);
+    &-btn {
+      padding: calcView(11) calcView(15);
+      border-radius: calcView(6);
+      display: flex;
+      align-items: center;
+      gap: calcView(10);
+      img {
+        width: calcView(24);
+        height: calcView(24);
+      }
+      span {
+        font-size: calcView(16);
+        font-weight: 600;
+      }
+    }
   }
 }
