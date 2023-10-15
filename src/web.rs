@@ -78,8 +78,15 @@ pub async fn get_identity() -> Template {
 
 #[get("/return")]
 pub async fn return_identity() -> Json<Identity> {
-    let identity: IdentityWithAll = get_whole_identity();
-    Json(identity.identity)
+    let my_identity;
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        let identity = Identity::new_empty();
+        my_identity = identity;
+    } else {
+        let identity: IdentityWithAll = get_whole_identity();
+        my_identity = identity.identity;
+    }
+    Json(my_identity)
 }
 
 #[get("/peer_id/return")]
