@@ -332,11 +332,10 @@ select:focus {
       &-single {
         display: flex;
         align-items: center;
-        gap: calcView(10);
+        gap: calcView(5);
 
         #arrow {
           height: calcView(22);
-          margin-bottom: calcView(5);
         }
 
         .arrowDown {
@@ -344,7 +343,7 @@ select:focus {
         }
 
         span {
-          font-size: calcView(32);
+          font-size: calcView(26);
           font-weight: 700;
         }
       }
@@ -1130,6 +1129,9 @@ select:focus {
             border-radius: calcView(12);
             background: #fff;
           }
+          input:disabled {
+            background: transparent;
+          }
           input:focus {
             border: solid calcView(2) $PrimaryColor;
           }
@@ -1139,7 +1141,9 @@ select:focus {
     &-btn {
       outline: none;
       border: none;
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-transform: uppercase;
       font-size: calcView(16);
       font-weight: 500;
@@ -1147,6 +1151,7 @@ select:focus {
       height: calcView(46);
       padding: 0 calcView(14);
       margin: calcView(20) auto;
+      border-radius: calcView(6);
     }
   }
 }

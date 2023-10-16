@@ -8,9 +8,9 @@ export default function IdentityPage({ identity }) {
   const { handlePage } = useContext(MainContext);
   const [userData, setuserData] = useState({
     name: identity.name || "",
-    phone_number: identity.phone_number || "",
     email: identity.email || "",
-    date_of_birth: identity.date_of_birth || "",
+    date_of_birth:
+      new Date(identity.date_of_birth).toLocaleDateString("en-CA") || "",
     country_of_birth: identity.country_of_birth || "",
     city_of_birth: identity.city_of_birth || "",
     postal_address: identity.postal_address || "",
@@ -39,6 +39,20 @@ export default function IdentityPage({ identity }) {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const form_data = new FormData(e.target);
+    // const form_data = JSON.stringify(userData);
+    await fetch("http://localhost:8000/identity/create", {
+      method: "POST",
+      body: form_data,
+      mode: "no-cors",
+    })
+      .then((response) => {
+        console.log(response);
+      })
+      .catch((err) => err);
+  };
   useEffect(() => {
     if (identity.name && identity.email) {
       setContent({
@@ -55,10 +69,10 @@ export default function IdentityPage({ identity }) {
     <div className="create">
       <div className={"create-head" + content.justify}>
         {content.sign ? (
-          <span className="create-head-title">Create Idenity</span>
+          <span className="create-head-title">Create Identity</span>
         ) : (
           <span className="create-head-title">
-            {!uneditable ? "Edit Idenity" : "Idenity"}
+            {!uneditable ? "Edit Identity" : "Identity"}
           </span>
         )}
         {content.close && (
@@ -69,14 +83,14 @@ export default function IdentityPage({ identity }) {
           />
         )}
       </div>
-      <div className="create-body">
+      <form onSubmit={handleSubmit} className="create-body">
         <div className="create-body-avatar">
-          <input
+          {/* <input
             disabled={uneditable}
             onChange={handleFileChange}
             type="file"
             id="avatar"
-          />
+          /> */}
           <label htmlFor="avatar">
             <img src={image ? image : avatar} />
             <span>{image ? "Change Photo" : "Add Photo"}</span>
@@ -88,15 +102,15 @@ export default function IdentityPage({ identity }) {
               <label htmlFor="name">Full Name</label>
               <input
                 id="name"
+                name="name"
                 value={userData.name}
                 disabled={uneditable}
-                name="name"
                 onChange={onChangeHandler}
                 placeholder="Full Name"
                 type="text"
               />
             </div>
-            <div className="create-body-form-input-in">
+            {/* <div className="create-body-form-input-in">
               <label htmlFor="phonenumber">Phone Number</label>
               <input
                 id="phonenumber"
@@ -107,26 +121,26 @@ export default function IdentityPage({ identity }) {
                 placeholder="Phone Number"
                 type="text"
               />
-            </div>
+            </div> */}
             <div className="create-body-form-input-in">
-              <label htmlFor="emailaddress">Email Address</label>
+              <label htmlFor="email">Email Address</label>
               <input
-                id="emailaddress"
+                id="email"
+                name="email"
                 value={userData.email}
                 disabled={uneditable}
-                name="email"
                 onChange={onChangeHandler}
                 placeholder="Email Address"
                 type="text"
               />
             </div>
             <div className="create-body-form-input-in">
-              <label htmlFor="dob">Date Of Birth</label>
+              <label htmlFor="date_of_birth">Date Of Birth</label>
               <input
-                id="dob"
+                id="date_of_birth"
+                name="date_of_birth"
                 value={userData.date_of_birth}
                 disabled={uneditable}
-                name="date_of_birth"
                 onChange={onChangeHandler}
                 placeholder=""
                 type="date"
@@ -135,36 +149,36 @@ export default function IdentityPage({ identity }) {
           </div>
           <div className="create-body-form-input">
             <div className="create-body-form-input-in">
-              <label htmlFor="countryofbirth">Country Of Birth</label>
+              <label htmlFor="country_of_birth">Country Of Birth</label>
               <input
-                id="countryofbirth"
+                id="country_of_birth"
+                name="country_of_birth"
                 value={userData.country_of_birth}
                 disabled={uneditable}
-                name="country_of_birth"
                 onChange={onChangeHandler}
                 placeholder="Country Of Birth"
                 type="text"
               />
             </div>
             <div className="create-body-form-input-in">
-              <label htmlFor="cityofbirth">City Of Birth</label>
+              <label htmlFor="city_of_birth">City Of Birth</label>
               <input
-                id="cityofbirth"
+                id="city_of_birth"
+                name="city_of_birth"
                 value={userData.city_of_birth}
                 disabled={uneditable}
-                name="city_of_birth"
                 onChange={onChangeHandler}
                 placeholder="Country Of Birth"
                 type="text"
               />
             </div>
             <div className="create-body-form-input-in">
-              <label htmlFor="postal">Postal Address</label>
+              <label htmlFor="postal_address">Postal Address</label>
               <input
-                id="postal"
+                id="postal_address"
+                name="postal_address"
                 value={userData.postal_address}
                 disabled={uneditable}
-                name="postal_address"
                 onChange={onChangeHandler}
                 placeholder="Postal Address"
                 type="text"
@@ -172,17 +186,15 @@ export default function IdentityPage({ identity }) {
             </div>
           </div>
         </div>
-        {content.sign ? (
-          <input className="create-body-btn" type="submit" value="SIGN" />
-        ) : (
+        {content.sign && (
           <div className="flex justify-space">
-            <button
+            <div
               onClick={() => setunEditable(!uneditable)}
               className="create-body-btn"
             >
-              {!uneditable ? "CANCEL" : "PREVIEW"}
-            </button>
-            {!uneditable && (
+              {uneditable ? "CANCEL" : "PREVIEW"}
+            </div>
+            {uneditable && (
               <input
                 className="create-body-btn"
                 type="submit"
@@ -191,7 +203,7 @@ export default function IdentityPage({ identity }) {
             )}
           </div>
         )}
-      </div>
+      </form>
     </div>
   );
 }

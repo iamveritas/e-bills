@@ -4,6 +4,7 @@ import displayIcon from "../../assests/display-icon.svg";
 import recovIcon from "../../assests/recovery-icon.svg";
 import acessIcon from "../../assests/acess-icon.svg";
 import privacyIcon from "../../assests/privacy-icon.svg";
+import exitIcon from "../../assests/exitIcon.svg";
 import closeIcon from "../../assests/close-btn.svg";
 import arrow from "../../assests/arrowLeft.svg";
 import { MainContext } from "../../context/MainContext";
@@ -30,6 +31,10 @@ export default function SettingPage() {
     {
       name: "privacy",
       icon: privacyIcon,
+    },
+    {
+      name: "exit",
+      icon: exitIcon,
     },
   ];
   return (
