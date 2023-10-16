@@ -195,11 +195,7 @@ export default function IdentityPage({ identity }) {
               {uneditable ? "CANCEL" : "PREVIEW"}
             </div>
             {uneditable && (
-              <input
-                className="create-body-btn"
-                type="submit"
-                value="SIGN CHANGES"
-              />
+              <input className="create-body-btn" type="submit" value="SIGN" />
             )}
           </div>
         )}
