@@ -44,15 +44,19 @@ export default function App() {
     bitcoin_public_key: "",
     bitcoin_private_key: "",
   });
+  const [identityRefresh, setIdentityRefresh] = useState(false);
+  const handleRefresh = () => {
+    setIdentityRefresh(!identityRefresh);
+  };
   // Set identity
-  console.log("/identity/return: ", identity);
+
   useEffect(() => {
     fetch("http://localhost:8000/identity/return")
       .then((res) => res.json())
-      .then((data) => {
-        if (data.name !== "" && data.email !== "") {
-          setIdentity(data);
-          handlePage(current);
+      .then((response) => {
+        if (response.name !== "" && response.email !== "") {
+          setIdentity(response);
+          handlePage("home");
         } else {
           handlePage("identity");
         }
@@ -61,7 +65,7 @@ export default function App() {
         console.log(err.message);
         handlePage("identity");
       });
-  }, []);
+  }, [identityRefresh]);
 
   const [contacts, setContacts] = useState([]);
   // Set contacts
@@ -110,7 +114,7 @@ export default function App() {
   const activePage = () => {
     switch (current) {
       case "identity":
-        return <IdentityPage identity={identity} />;
+        return <IdentityPage refresh={handleRefresh} identity={identity} />;
       case "home":
         return <HomePage />;
       case "activity":

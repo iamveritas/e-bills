@@ -4,7 +4,7 @@ import avatar from "../../assests/avatar.svg";
 import closebtn from "../../assests/close-btn.svg";
 import { MainContext } from "../../context/MainContext";
 
-export default function IdentityPage({ identity }) {
+export default function IdentityPage({ identity, refresh }) {
   const { handlePage } = useContext(MainContext);
   const [userData, setuserData] = useState({
     name: identity.name || "",
@@ -42,7 +42,9 @@ export default function IdentityPage({ identity }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form_data = new FormData(e.target);
-    // const form_data = JSON.stringify(userData);
+    for (const [key, value] of Object.entries(userData)) {
+      form_data.append(key, value);
+    }
     await fetch("http://localhost:8000/identity/create", {
       method: "POST",
       body: form_data,
@@ -50,6 +52,7 @@ export default function IdentityPage({ identity }) {
     })
       .then((response) => {
         console.log(response);
+        refresh();
       })
       .catch((err) => err);
   };

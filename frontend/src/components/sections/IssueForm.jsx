@@ -13,7 +13,6 @@ export default function IssueForm({
     e.preventDefault();
 
     const form_data = new FormData(e.target);
-    console.log(form_data);
     fetch("http://localhost:8000/bill/issue", {
       method: "POST",
       body: form_data,

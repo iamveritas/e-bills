@@ -12,7 +12,7 @@ import iconRTA from "../../assests/reqToPay.svg";
 import iconRTP from "../../assests/reqToAccept.svg";
 
 export default function SingleBillDetail({ item }) {
-  const { showPopUp } = useContext(MainContext);
+  const { peer_id, showPopUp } = useContext(MainContext);
   const [singleBill, setSingleBill] = useState();
   const [singleBillChain, setSingleBillChain] = useState([]);
   useEffect(() => {
@@ -37,21 +37,99 @@ export default function SingleBillDetail({ item }) {
         console.log(err.message);
       });
   }, []);
+
+  let payed = false;
+  let accepted = false;
+  let endorse = false;
+  let req_to_pay = false;
+  let req_to_acpt = false;
+  let notEndorsed = peer_id == singleBill?.payee?.peer_id;
+  let isAccepted = peer_id == singleBill?.payee?.peer_id;
+  let isEndorsed = peer_id == singleBill?.endorsee?.peer_id;
+  let isPayed = peer_id == singleBill?.drawee?.peer_id;
+
+  if (
+    !singleBill?.payed &&
+    !singleBill?.accepted &&
+    !singleBill?.pending &&
+    isAccepted
+  ) {
+    accepted = true;
+  }
+  if (
+    !singleBill?.payed &&
+    !singleBill?.accepted &&
+    !singleBill?.pending &&
+    !singleBill?.endorse &&
+    notEndorsed &&
+    isEndorsed
+  ) {
+    endorse = true;
+  }
+  if (
+    !singleBill?.payed &&
+    !singleBill?.accepted &&
+    !singleBill?.pending &&
+    !singleBill?.requested_to_accept &&
+    notEndorsed &&
+    isEndorsed
+  ) {
+    req_to_acpt = true;
+  }
+  if (
+    !singleBill?.payed &&
+    !singleBill?.accepted &&
+    !singleBill?.pending &&
+    !singleBill?.requested_to_pay &&
+    notEndorsed &&
+    isEndorsed
+  ) {
+    req_to_pay = true;
+  }
+  if (!singleBill?.payed && !singleBill?.pending && isPayed) {
+    payed = true;
+  }
+
   const buttons = [
-    { isVisible: singleBill?.payed, name: "PAY", icon: iconPay },
-    { isVisible: singleBill?.accepted, name: "ACCEPT", icon: iconAccept },
-    { isVisible: singleBill?.endorsed, name: "ENDORSE", icon: iconEndorse },
+    { isVisible: payed, name: "PAY", icon: iconPay },
+    { isVisible: accepted, name: "ACCEPT", icon: iconAccept },
+    { isVisible: endorse, name: "ENDORSE", icon: iconEndorse },
     {
-      isVisible: singleBill?.requested_to_accept,
+      isVisible: req_to_acpt,
       name: "REQUEST TO ACCEPT",
       icon: iconRTA,
     },
     {
-      isVisible: singleBill?.requested_to_pay,
+      isVisible: req_to_pay,
       name: "REQUEST TO Pay",
       icon: iconRTP,
     },
   ];
+
+  const handleApiCalling = async (name) => {
+    switch (name) {
+      case "PAY":
+        await fetch("", {})
+          .then((res) => console.log(res))
+          .catch((err) => console.log(err));
+      case "ACCEPT":
+        await fetch("", {})
+          .then((res) => console.log(res))
+          .catch((err) => console.log(err));
+      case "ENDORSE":
+        await fetch("", {})
+          .then((res) => console.log(res))
+          .catch((err) => console.log(err));
+      case "REQUEST TO ACCEPT":
+        await fetch("", {})
+          .then((res) => console.log(res))
+          .catch((err) => console.log(err));
+      case "REQUEST TO Pay":
+        await fetch("", {})
+          .then((res) => console.log(res))
+          .catch((err) => console.log(err));
+    }
+  };
 
   return (
     <div className="popup">
@@ -104,7 +182,11 @@ export default function SingleBillDetail({ item }) {
           {buttons.map(({ isVisible, name, icon }, index) => {
             if (isVisible) {
               return (
-                <button key={index} className="popup-btns-btn">
+                <button
+                  key={index}
+                  onClick={() => handleApiCalling(name)}
+                  className="popup-btns-btn"
+                >
                   <img src={icon} /> <span>{name}</span>
                 </button>
               );
