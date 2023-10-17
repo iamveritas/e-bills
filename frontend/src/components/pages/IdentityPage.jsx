@@ -6,7 +6,7 @@ import { MainContext } from "../../context/MainContext";
 
 export default function IdentityPage({ identity, refresh }) {
   const { handlePage, handleRefresh } = useContext(MainContext);
-  const [userData, setuserData] = useState({
+  const [userData, setUserData] = useState({
     name: identity.name || "",
     email: identity.email || "",
     date_of_birth:
@@ -23,9 +23,9 @@ export default function IdentityPage({ identity, refresh }) {
     sign: true,
   });
   const onChangeHandler = (e) => {
-    let values = e.target.value;
+    let value = e.target.value;
     let name = e.target.name;
-    setuserData({ ...userData, [name]: values });
+    setUserData({ ...userData, [name]: value });
   };
   const handleFileChange = (e) => {
     const file = e.target.files[0];

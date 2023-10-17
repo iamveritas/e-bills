@@ -10,17 +10,17 @@ import profile from "../../assests/profile.svg";
 import { MainContext } from "../../context/MainContext";
 
 export default function HomeHeader() {
-  const { handlePage } = useContext(MainContext);
-  return (
-    <div className="home-header">
-      <div className="home-header-left">
-        <IconHolder handleClick={() => handlePage("setting")} icon={setting} />
-        <IconHolder handleClick={() => handlePage("dont")} icon={hamburger} />
-      </div>
-      <div className="home-header-right">
-        <SecondaryIcon routing="dont" iconImage={payment_channel} />
-        <IconHolder handleClick={() => handlePage("identity")} icon={profile} />
-      </div>
-    </div>
-  );
+    const { handlePage } = useContext(MainContext);
+    return (
+        <div className="home-header">
+            <div className="home-header-left">
+                <IconHolder handleClick={() => handlePage("setting")} icon={setting} />
+                <IconHolder handleClick={() => handlePage("dont")} icon={hamburger} />
+            </div>
+            <div className="home-header-right">
+                <SecondaryIcon routing="dont" iconImage={payment_channel} />
+                <IconHolder handleClick={() => handlePage("identity")} icon={profile} />
+            </div>
+        </div>
+    );
 }

@@ -109,7 +109,8 @@ pub async fn return_bills_list() -> Json<Vec<BitcreditBill>> {
 }
 
 #[post("/create", data = "<identity_form>")]
-pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Client>) -> Template {
+pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Client>) -> Status {
+    println!("Create identity");
     let identity: IdentityForm = identity_form.into_inner();
     create_whole_identity(
         identity.name,
@@ -125,13 +126,7 @@ pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Cl
     let bills = get_bills();
     client.put_identity_public_data_in_dht().await;
 
-    Template::render(
-        "hbs/home",
-        context! {
-            identity: Some(identity.identity),
-            bills: bills,
-        },
-    )
+    Status::Ok
 }
 
 #[get("/")]
