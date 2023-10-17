@@ -23,7 +23,13 @@ function MainProvider({ children }) {
   const [peer_id, setPeerId] = useState({
     id: String,
   });
+
+  const [refresh, setRefresh] = useState(false);
+  const handleRefresh = () => {
+    setRefresh(!refresh);
+  };
   // Set bills
+
   useEffect(() => {
     fetch("http://localhost:8000/bills/return")
       .then((res) => res.json())
@@ -91,6 +97,8 @@ function MainProvider({ children }) {
       value={{
         amount,
         bills_list,
+        refresh,
+        handleRefresh,
         currency,
         peer_id,
         current,

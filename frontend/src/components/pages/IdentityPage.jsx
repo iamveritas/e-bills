@@ -5,7 +5,7 @@ import closebtn from "../../assests/close-btn.svg";
 import { MainContext } from "../../context/MainContext";
 
 export default function IdentityPage({ identity, refresh }) {
-  const { handlePage } = useContext(MainContext);
+  const { handlePage, handleRefresh } = useContext(MainContext);
   const [userData, setuserData] = useState({
     name: identity.name || "",
     email: identity.email || "",
@@ -52,7 +52,7 @@ export default function IdentityPage({ identity, refresh }) {
     })
       .then((response) => {
         console.log(response);
-        refresh();
+        handleRefresh();
       })
       .catch((err) => err);
   };

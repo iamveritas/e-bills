@@ -14,7 +14,7 @@ import IdentityPage from "./components/pages/IdentityPage";
 import SettingPage from "./components/pages/SettingPage";
 
 export default function App() {
-  const { current, handlePage } = useContext(MainContext);
+  const { current, refresh, handlePage } = useContext(MainContext);
   // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
@@ -44,10 +44,7 @@ export default function App() {
     bitcoin_public_key: "",
     bitcoin_private_key: "",
   });
-  const [identityRefresh, setIdentityRefresh] = useState(false);
-  const handleRefresh = () => {
-    setIdentityRefresh(!identityRefresh);
-  };
+
   // Set identity
 
   useEffect(() => {
@@ -65,7 +62,7 @@ export default function App() {
         console.log(err.message);
         handlePage("identity");
       });
-  }, [identityRefresh]);
+  }, [refresh]);
 
   const [contacts, setContacts] = useState([]);
   // Set contacts
@@ -114,7 +111,7 @@ export default function App() {
   const activePage = () => {
     switch (current) {
       case "identity":
-        return <IdentityPage refresh={handleRefresh} identity={identity} />;
+        return <IdentityPage identity={identity} />;
       case "home":
         return <HomePage />;
       case "activity":
