@@ -24,7 +24,6 @@ function BillDetails({ data, icon }) {
 
   return (
     <>
-      {popUp.show && <>{popUp.content}</>}
       {data.map((items, i) => {
         let sign = signCalculation(peer_id, items);
         return (

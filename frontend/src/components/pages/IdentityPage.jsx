@@ -4,8 +4,8 @@ import avatar from "../../assests/avatar.svg";
 import closebtn from "../../assests/close-btn.svg";
 import { MainContext } from "../../context/MainContext";
 
-export default function IdentityPage({ identity, refresh }) {
-  const { handlePage, handleRefresh } = useContext(MainContext);
+export default function IdentityPage() {
+  const { handlePage, identity, handleRefresh } = useContext(MainContext);
   const [userData, setUserData] = useState({
     name: identity.name || "",
     email: identity.email || "",
