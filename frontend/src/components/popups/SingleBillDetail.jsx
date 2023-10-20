@@ -128,6 +128,16 @@ export default function SingleBillDetail({ item }) {
         break;
     }
   };
+  const [seeMore, setSeeMore] = useState(false);
+  let chain = singleBill?.chain_of_blocks?.blocks?.filter(
+    (d) => d.operation_code === "Endorse"
+  );
+
+  if (seeMore) {
+    chain = chain?.slice(0, chain?.length);
+  } else {
+    chain = chain?.slice(0, 3);
+  }
 
   return (
     <>
@@ -166,14 +176,24 @@ export default function SingleBillDetail({ item }) {
               <span className="accept-heading">Payer: </span>
               <span className="block detail">{singleBill?.drawee.name}</span>
             </span>
-            <span className="block mt">
-              <span className="accept-heading">Endorsed by: </span>
-              <span className="block detail">
-                {singleBill?.chain_of_blocks?.blocks?.map((d, i) => (
-                  <li key={i}>{d.label.slice(0, 32)}...</li>
-                ))}
+            {chain?.length > 0 && (
+              <span className="block mt">
+                <span className="accept-heading">Endorsed by: </span>
+                <span className="block detail fs-small">
+                  {chain?.map((d, i) => (
+                    <li key={i}>{d.label}</li>
+                  ))}
+                  {chain?.length > 3 && (
+                    <span
+                      className="see-more-btn"
+                      onClick={() => setSeeMore(!seeMore)}
+                    >
+                      {!seeMore ? "see more" : "see less"}
+                    </span>
+                  )}
+                </span>
               </span>
-            </span>
+            )}
           </div>
         </div>
         <div className="popup-btns">

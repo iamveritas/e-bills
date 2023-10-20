@@ -18,7 +18,7 @@ export default function Header({ route, backHeader, title }) {
           iconImage={back}
         />
         <span className="header-text">{title}</span>
-        <IconHolder icon={profile} />
+        <IconHolder handleClick={() => handlePage("identity")} icon={profile} />
       </div>
     );
   } else {

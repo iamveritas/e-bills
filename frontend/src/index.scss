@@ -1310,3 +1310,15 @@ select:focus {
     }
   }
 }
+
+.fs-small {
+  li {
+    margin-top: calcView(9);
+    font-size: calcView(19);
+    line-height: calcView(20) !important;
+  }
+}
+.see-more-btn {
+  color: $Black;
+  font-size: calcView(20);
+}
