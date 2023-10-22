@@ -60,7 +60,7 @@ function MainProvider({ children }) {
       .then((response) => {
         if (response.name !== "" && response.email !== "") {
           setIdentity(response);
-          handlePage(current);
+          handlePage("home");
         } else {
           handlePage("identity");
         }
