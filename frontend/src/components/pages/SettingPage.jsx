@@ -37,6 +37,18 @@ export default function SettingPage() {
       icon: exitIcon,
     },
   ];
+  const handleSettingClick = async (name) => {
+    switch (name) {
+      case "exit":
+        window.close();
+        await fetch("http://localhost:8000/exit")
+          .then((res) => {
+            console.log(res);
+          })
+          .catch((err) => console.log(err));
+        break;
+    }
+  };
   return (
     <div className="setting">
       <div className="setting-head">
@@ -50,7 +62,11 @@ export default function SettingPage() {
       <div className="setting-body">
         {setting.map(({ name, icon }, index) => {
           return (
-            <div key={index} className="setting-body-instant">
+            <div
+              onClick={() => handleSettingClick(name)}
+              key={index}
+              className="setting-body-instant"
+            >
               <img src={icon} />
               <span>{name}</span>
               <img className="arrow" src={arrow} />

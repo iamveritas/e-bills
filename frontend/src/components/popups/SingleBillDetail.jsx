@@ -132,7 +132,9 @@ export default function SingleBillDetail({ item }) {
   let chain = singleBill?.chain_of_blocks?.blocks?.filter(
     (d) => d.operation_code === "Endorse"
   );
-
+  let chainLength = singleBill?.chain_of_blocks?.blocks?.filter(
+    (d) => d.operation_code === "Endorse"
+  )?.length;
   if (seeMore) {
     chain = chain?.slice(0, chain?.length);
   } else {
@@ -183,7 +185,7 @@ export default function SingleBillDetail({ item }) {
                   {chain?.map((d, i) => (
                     <li key={i}>{d.label}</li>
                   ))}
-                  {chain?.length > 3 && (
+                  {chainLength > 3 && (
                     <span
                       className="see-more-btn"
                       onClick={() => setSeeMore(!seeMore)}
