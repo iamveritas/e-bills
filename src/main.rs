@@ -1393,7 +1393,6 @@ pub struct RequestToPayBitcreditBillForm {
 #[serde(crate = "rocket::serde")]
 pub struct AcceptBitcreditBillForm {
     pub bill_name: String,
-    pub operation_code: String,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]

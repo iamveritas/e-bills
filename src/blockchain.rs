@@ -162,6 +162,11 @@ impl Chain {
             last_endorsee = serde_json::from_slice(&endorsee).unwrap();
         }
 
+        let mut payee = bill_first_version.payee.clone();
+        if !last_endorsee.peer_id.is_empty() {
+            payee = last_endorsee.clone();
+        }
+
         let bill = BitcreditBill {
             name: bill_first_version.name,
             to_payee: bill_first_version.to_payee,
@@ -169,7 +174,7 @@ impl Chain {
             timestamp_at_drawing: bill_first_version.timestamp_at_drawing,
             drawee: bill_first_version.drawee,
             drawer: bill_first_version.drawer,
-            payee: bill_first_version.payee,
+            payee: payee.clone(),
             endorsee: last_endorsee.clone(),
             place_of_drawing: bill_first_version.place_of_drawing,
             currency_code: bill_first_version.currency_code,
