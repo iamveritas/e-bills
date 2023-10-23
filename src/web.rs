@@ -17,12 +17,13 @@ use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PA
 use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity,
-    endorse_bitcredit_bill, get_bills, get_contact_from_map, get_contacts_vec, get_whole_identity,
-    issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    request_acceptance, request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
-    BitcreditBillToReturn, Contact, EndorseBitcreditBillForm, Identity, IdentityForm,
-    IdentityPublicData, IdentityWithAll, NewContactForm, NodeId, RequestToAcceptBitcreditBillForm,
+    delete_from_contacts_map, endorse_bitcredit_bill, get_bills, get_contact_from_map,
+    get_contacts_vec, get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
+    issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
+    read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
+    AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm, BitcreditBillToReturn, Contact,
+    DeleteContactForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData,
+    IdentityWithAll, NewContactForm, NodeId, RequestToAcceptBitcreditBillForm,
     RequestToPayBitcreditBillForm,
 };
 
@@ -877,6 +878,24 @@ pub async fn add_contact() -> Template {
         Template::render("hbs/create_identity", context! {})
     } else {
         Template::render("hbs/new_contact", context! {})
+    }
+}
+
+#[post("/remove", data = "<remove_contact_form>")]
+pub async fn remove_contact(remove_contact_form: Form<DeleteContactForm>) -> Template {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Template::render("hbs/create_identity", context! {})
+    } else {
+        delete_from_contacts_map(remove_contact_form.name.clone());
+
+        let map = read_contacts_map();
+
+        Template::render(
+            "hbs/contacts",
+            context! {
+                contacts: map,
+            },
+        )
     }
 }
 
