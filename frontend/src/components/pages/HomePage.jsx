@@ -10,6 +10,9 @@ import {MainContext} from "../../context/MainContext";
 
 export default function HomePage() {
     const {amount, currency, bills_list} = useContext(MainContext);
+
+    // find all bills event
+
     return (
         <div className="home">
             <HomeHeader/>

@@ -560,13 +560,7 @@ impl Block {
                 let endorser_bill_u8 = hex::decode(part_with_endorsed_by).unwrap();
                 let endorser_bill: IdentityPublicData =
                     serde_json::from_slice(&endorser_bill_u8).unwrap();
-                line = format!(
-                    "Bill endorsed to {} at {} by {} in {}",
-                    endorsee_bill.name,
-                    time_of_endorse,
-                    endorser_bill.name,
-                    endorser_bill.postal_address
-                );
+                line = endorser_bill.name + ", " + &endorser_bill.postal_address;
             }
             OperationCode::RequestToAccept => {
                 let time_of_request_to_accept =

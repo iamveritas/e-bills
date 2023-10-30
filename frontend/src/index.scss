@@ -601,6 +601,7 @@ select:focus {
 .accept {
   width: 100%;
   overflow-y: auto;
+
   &-container {
     width: 100%;
     height: calcView(583);
@@ -612,6 +613,7 @@ select:focus {
       flex-direction: column;
     }
   }
+
   .endorse-select {
     max-width: 100%;
     width: 100%;
@@ -620,6 +622,7 @@ select:focus {
 
 .Repay {
   display: block;
+
   .select-opt {
     width: calcView(300);
   }
@@ -1262,6 +1265,7 @@ select:focus {
     width: calcView(382);
     height: calcView(48);
     margin-top: calcView(45);
+
     &-title {
       margin-top: calcView(2);
       text-transform: uppercase;
@@ -1318,6 +1322,7 @@ select:focus {
     line-height: calcView(20) !important;
   }
 }
+
 .see-more-btn {
   color: $Black;
   font-size: calcView(20);
