@@ -18,14 +18,24 @@ const signCalculation = (peer_id, items) => {
     return "+";
   }
 };
+const namehandling = (peer_id, items) => {
+  if (peer_id == items?.payer?.peer_id) {
+    return items?.payee?.name;
+  } else if (peer_id == items?.payee?.peer_id) {
+    return items?.payer?.name;
+  } else {
+    return items?.payer?.name;
+  }
+};
 
 function BillDetails({ data, icon }) {
   const { peer_id, popUp, showPopUp } = useContext(MainContext);
-
+  console.log(peer_id, data);
   return (
     <>
       {data.map((items, i) => {
         let sign = signCalculation(peer_id, items);
+        let name = namehandling(peer_id, items);
         return (
           <div
             key={i}
@@ -34,7 +44,7 @@ function BillDetails({ data, icon }) {
           >
             <IconHolder icon={icon} />
             <div className="details">
-              <span className="name">{items.name}</span>
+              <span className="name">{name}</span>
               <span className="date">{items.date_of_issue}</span>
             </div>
             <div className="currency-details">
@@ -46,7 +56,7 @@ function BillDetails({ data, icon }) {
                     ? "amount grey"
                     : sign === "-"
                     ? "amount red"
-                    : ""
+                    : "amount grey"
                 }
               >
                 <span>{sign === "x" ? "" : sign}</span>

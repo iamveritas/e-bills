@@ -24,10 +24,13 @@ export default function Header({ route, backHeader, title }) {
   } else {
     return (
       <div className="header">
-        <IconHolder icon={ham} />
         <span className="header-text">{title}</span>
         <SecondaryIcon
-          routing={() => showPopUp(false, "")}
+          routing={
+            title === "Issue"
+              ? () => handlePage("home")
+              : () => showPopUp(false, "")
+          }
           margin
           iconImage={cross}
         />

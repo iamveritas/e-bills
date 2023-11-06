@@ -38,6 +38,9 @@ $White: #fff;
   -moz-osx-font-smoothing: grayscale;
   font-family: "Poppins", sans-serif;
   line-height: calcView(30);
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Standard syntax */
 }
 
 *::-webkit-scrollbar {
@@ -89,10 +92,12 @@ select {
   -moz-appearance: none !important;
   appearance: none !important;
   background: url("./assests/dropdown.svg") no-repeat;
-  background-size: calcView(20);
-  background-position: 90%;
+  background-size: calcView(25);
+  background-position: 95%;
 }
-
+select:disabled {
+  filter: grayscale(1);
+}
 select:focus {
   border: calcView(2) solid $PrimaryColor;
 }
@@ -149,7 +154,7 @@ select:focus {
 
   &-text {
     font-size: calcView(22);
-    margin-top: calcView(24);
+    // margin-top: calcView(24);
     font-weight: 600;
   }
 }
@@ -259,18 +264,56 @@ select:focus {
     background-image: url("./assests/calender.svg");
     background-size: cover;
   }
+  input[type="checkbox"] {
+    width: calcView(50);
+    height: calcView(50);
+    appearance: none;
+    display: none;
+  }
 
   .form-select {
     width: calcView(150);
   }
-
+  .check-boxes {
+    width: calcView(50);
+    height: calcView(50);
+    object-fit: contain;
+  }
+  #checkbox {
+    width: calcView(43);
+    height: calcView(43);
+  }
+  input[type="checkbox"]:disabled ~ .check-boxes {
+    path {
+      fill: #d3d3d3;
+    }
+    rect {
+      stroke: #d3d3d3;
+    }
+  }
   &-input {
     &-row {
       display: flex;
       gap: calcView(14);
     }
   }
-
+  .flex-grow {
+    flex-grow: 1;
+  }
+  .flex-row {
+    display: flex;
+    gap: calcView(14);
+  }
+  .flex-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .align-center {
+    align-items: center;
+  }
+  .justify-center {
+    justify-items: center;
+  }
   .btn {
     background-color: $DarkGray;
     color: $PrimaryColor;
@@ -1057,6 +1100,7 @@ select:focus {
 .flex {
   display: flex;
   align-items: center;
+  gap: calcView(30);
 }
 
 .justify-space {
@@ -1164,10 +1208,17 @@ select:focus {
             border: solid calcView(2) $PrimaryColor;
           }
         }
+        .invalid {
+          input {
+            border: calcView(3) solid red !important;
+          }
+        }
       }
     }
 
     &-btn {
+      width: 100%;
+      height: calcView(56);
       outline: none;
       border: none;
       display: flex;
@@ -1177,14 +1228,22 @@ select:focus {
       font-size: calcView(16);
       font-weight: 500;
       background: #e1e1e6;
-      height: calcView(46);
       padding: 0 calcView(14);
       margin: calcView(20) auto;
       border-radius: calcView(6);
     }
   }
 }
-
+.toast {
+  position: fixed;
+  bottom: calcView(10);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00000066;
+  padding: calcView(6) calcView(16);
+  white-space: pre;
+  border-radius: calcView(6);
+}
 .setting {
   margin-top: calcView(45);
   display: flex;

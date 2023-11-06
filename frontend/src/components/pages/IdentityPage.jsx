@@ -17,6 +17,7 @@ export default function IdentityPage() {
   });
   const [image, setImage] = useState();
   const [uneditable, setunEditable] = useState(true);
+  const [toast, setToast] = useState("");
   const [content, setContent] = useState({
     justify: "",
     close: false,
@@ -67,9 +68,26 @@ export default function IdentityPage() {
       setunEditable(false);
     }
   }, []);
-
+  console.log(userData);
+  const checkPreview = () => {
+    if (
+      userData.name != "" &&
+      userData.email != "" &&
+      userData.date_of_birth != "Invalid Date"
+    ) {
+      setunEditable(!uneditable);
+    } else {
+      setToast("Please fill Required field");
+    }
+  };
+  useEffect(() => {
+    setTimeout(() => {
+      setToast("");
+    }, 5000);
+  }, [toast]);
   return (
     <div className="create">
+      {toast && <span className="toast">{toast}</span>}
       <div className={"create-head" + content.justify}>
         {content.sign ? (
           <span className="create-head-title">Create Identity</span>
@@ -89,6 +107,7 @@ export default function IdentityPage() {
       <form onSubmit={handleSubmit} className="create-body">
         <div className="create-body-avatar">
           {/* <input
+
             disabled={uneditable}
             onChange={handleFileChange}
             type="file"
@@ -101,7 +120,13 @@ export default function IdentityPage() {
         </div>
         <div className="create-body-form">
           <div className="create-body-form-input">
-            <div className="create-body-form-input-in">
+            <div
+              className={
+                toast !== "" && userData?.name === ""
+                  ? "create-body-form-input-in invalid"
+                  : "create-body-form-input-in"
+              }
+            >
               <label htmlFor="name">Full Name</label>
               <input
                 id="name"
@@ -116,6 +141,7 @@ export default function IdentityPage() {
             {/* <div className="create-body-form-input-in">
               <label htmlFor="phonenumber">Phone Number</label>
               <input
+
                 id="phonenumber"
                 value={userData.phone_number}
                 disabled={uneditable}
@@ -125,7 +151,13 @@ export default function IdentityPage() {
                 type="text"
               />
             </div> */}
-            <div className="create-body-form-input-in">
+            <div
+              className={
+                toast != "" && userData?.email === ""
+                  ? "create-body-form-input-in invalid"
+                  : "create-body-form-input-in"
+              }
+            >
               <label htmlFor="email">Email Address</label>
               <input
                 id="email"
@@ -137,7 +169,13 @@ export default function IdentityPage() {
                 type="text"
               />
             </div>
-            <div className="create-body-form-input-in">
+            <div
+              className={
+                toast != "" && userData?.date_of_birth === "Invalid Date"
+                  ? "create-body-form-input-in invalid"
+                  : "create-body-form-input-in"
+              }
+            >
               <label htmlFor="date_of_birth">Date Of Birth</label>
               <input
                 id="date_of_birth"
@@ -191,10 +229,7 @@ export default function IdentityPage() {
         </div>
         {content.sign && (
           <div className="flex justify-space">
-            <div
-              onClick={() => setunEditable(!uneditable)}
-              className="create-body-btn"
-            >
+            <div onClick={checkPreview} className="create-body-btn">
               {uneditable ? "CANCEL" : "PREVIEW"}
             </div>
             {uneditable && (

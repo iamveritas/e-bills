@@ -46,33 +46,55 @@ export default function IssueForm({
           />
         </div>
       </div>
-      <div className="form-input">
-        <label htmlFor="drawee_name">to the order of</label>
-        <div className="form-input-row">
-          <select
-            style={{ appereance: "none" }}
-            id="payee_name"
-            name="payee_name"
-            value={data.payee_name}
-            onChange={changeHandle}
-            placeholder="Payee Company, Zurich"
-          >
-            <option value=""></option>
-            {listContacts}
-          </select>
+      <div className="flex-row">
+        <div className="form-input flex-grow">
+          <label htmlFor="drawee_name">to the order of</label>
+          <div className="form-input-row">
+            <select
+              className="select-class"
+              disabled={data.drawer_is_payee || data.drawee_name}
+              style={{ appereance: "none" }}
+              id="payee_name"
+              name="payee_name"
+              value={data.payee_name}
+              onChange={changeHandle}
+              placeholder="Payee Company, Zurich"
+            >
+              <option value=""></option>
+              {listContacts}
+            </select>
+          </div>
         </div>
-      </div>
-      <div className="form-input">
-        <label htmlFor="drawer_is_payee">
-          Payee is me
+        <label className="flex-col align-center" htmlFor="drawer_is_payee">
+          <span>ME</span>
           <div className="form-input-row">
             <input
+              disabled={data.drawer_is_drawee || data.payee_name}
               type="checkbox"
               id="drawer_is_payee"
               name="drawer_is_payee"
               checked={data.drawer_is_payee}
               onChange={handleChangeDrawerIsPayee}
             />
+            <svg
+              className="check-boxes"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                id="checkbox"
+                d="M31.6757 19.7629C32.0828 20.136 32.1103 20.7686 31.7372 21.1757L23.4872 30.1757C23.2977 30.3824 23.0303 30.5 22.75 30.5C22.4697 30.5 22.2023 30.3824 22.0128 30.1757L18.2628 26.0848C17.8897 25.6777 17.9172 25.0451 18.3243 24.6719C18.7314 24.2988 19.364 24.3263 19.7372 24.7334L22.75 28.0201L30.2628 19.8243C30.636 19.4172 31.2686 19.3897 31.6757 19.7629Z"
+                fill={`#${data.drawer_is_payee ? "F7931A" : "545454"}`}
+              />
+              <rect
+                x="1vw"
+                y="1vw"
+                id="checkbox"
+                rx="1vw"
+                stroke={`#${data.drawer_is_payee ? "F7931A" : "545454"}`}
+                stroke-width="1vw"
+              />
+            </svg>
           </div>
         </label>
       </div>
@@ -108,33 +130,58 @@ export default function IssueForm({
           />
         </div>
       </div>
-      <div className="form-input">
-        <label htmlFor="drawee_name">Drawee</label>
-        <div className="form-input-row">
-          <select
-            style={{ appereance: "none" }}
-            id="drawee_name"
-            name="drawee_name"
-            placeholder="Drawee Company, Vienna"
-            value={data.drawee_name}
-            onChange={changeHandle}
-          >
-            <option value=""></option>
-            {listContacts}
-          </select>
+      <div className="flex-row">
+        <div className="form-input flex-grow">
+          <label htmlFor="drawee_name">Drawee</label>
+          <div className="form-input-row">
+            <select
+              disabled={data.drawer_is_drawee || data.payee_name}
+              style={{
+                appereance: "none",
+                MozAppearance: "none",
+                WebkitAppearance: "none",
+              }}
+              id="drawee_name"
+              name="drawee_name"
+              placeholder="Drawee Company, Vienna"
+              value={data.drawee_name}
+              onChange={changeHandle}
+            >
+              <option value=""></option>
+              {listContacts}
+            </select>
+          </div>
         </div>
-      </div>
-      <div className="form-input">
-        <label htmlFor="drawer_is_drawee">
-          Drawee is me
+        <label className="flex-col align-center" htmlFor="drawer_is_drawee">
+          <span>ME</span>
           <div className="form-input-row">
             <input
+              disabled={data.drawer_is_payee || data.drawee_name}
               type="checkbox"
               id="drawer_is_drawee"
               name="drawer_is_drawee"
               onChange={handleChangeDrawerIsDrawee}
               checked={data.drawer_is_drawee}
             />
+            <svg
+              className="check-boxes"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                id="checkbox"
+                d="M31.6757 19.7629C32.0828 20.136 32.1103 20.7686 31.7372 21.1757L23.4872 30.1757C23.2977 30.3824 23.0303 30.5 22.75 30.5C22.4697 30.5 22.2023 30.3824 22.0128 30.1757L18.2628 26.0848C17.8897 25.6777 17.9172 25.0451 18.3243 24.6719C18.7314 24.2988 19.364 24.3263 19.7372 24.7334L22.75 28.0201L30.2628 19.8243C30.636 19.4172 31.2686 19.3897 31.6757 19.7629Z"
+                fill={`#${data.drawer_is_drawee ? "F7931A" : "545454"}`}
+              />
+              <rect
+                x="1vw"
+                y="1vw"
+                id="checkbox"
+                rx="1vw"
+                stroke={`#${data.drawer_is_drawee ? "F7931A" : "545454"}`}
+                stroke-width="1vw"
+              />
+            </svg>
           </div>
         </label>
       </div>

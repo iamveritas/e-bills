@@ -82,9 +82,9 @@ export default function App() {
       case "issue":
         return (
           <IssuePage
-            handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
             data={data}
             changeHandle={changeHandle}
+            handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
             handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}
           />
         );
