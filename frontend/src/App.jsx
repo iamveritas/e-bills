@@ -12,9 +12,11 @@ import ReqPaymentPage from "./components/pages/ReqPaymentPage";
 import ReqAcceptPage from "./components/pages/ReqAcceptPage";
 import IdentityPage from "./components/pages/IdentityPage";
 import SettingPage from "./components/pages/SettingPage";
+import ErrrorPage from "./components/pages/ErrrorPage";
+import Contact from "./components/pages/Contact";
 
 export default function App() {
-  const { current, popUp } = useContext(MainContext);
+  const { loading, current, popUp } = useContext(MainContext);
   // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
@@ -79,6 +81,8 @@ export default function App() {
         return <EndorsePage />;
       case "repay":
         return <RepayPage data={data} />;
+      case "contact":
+        return <Contact />;
       case "issue":
         return (
           <IssuePage
@@ -93,14 +97,26 @@ export default function App() {
       case "setting":
         return <SettingPage />;
       default:
-        return <HomePage />;
+        return <ErrrorPage />;
     }
   };
   //identity if this empty
-  return (
-    <>
-      {popUp.show && <div className="popup">{popUp.content}</div>}
-      {activePage()}
-    </>
-  );
+  if (loading) {
+    return (
+      <div className="loading-main">
+        <div className="loading">
+          <div className="loading-sub">
+            <div></div>
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <>
+        {popUp.show && <div className="popup">{popUp.content}</div>}
+        {activePage()}
+      </>
+    );
+  }
 }

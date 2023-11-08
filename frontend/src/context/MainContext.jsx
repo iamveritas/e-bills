@@ -4,6 +4,7 @@ const MainContext = createContext();
 
 function MainProvider({ children }) {
   const [current, setCurrent] = useState("");
+  const [loading, setLoading] = useState(true);
   const [popUp, setPopUp] = useState({
     show: false,
     content: "",
@@ -55,19 +56,23 @@ function MainProvider({ children }) {
 
   // Set identity
   useEffect(() => {
+    setLoading(true);
     fetch("http://localhost:8000/identity/return")
       .then((res) => res.json())
       .then((response) => {
         if (response.name !== "" && response.email !== "") {
           setIdentity(response);
           handlePage("home");
+          setLoading(false);
         } else {
           handlePage("identity");
+          setLoading(false);
         }
       })
       .catch((err) => {
         console.log(err.message);
         handlePage("identity");
+        setLoading(false);
       });
   }, [refresh]);
 
@@ -87,12 +92,15 @@ function MainProvider({ children }) {
   }, []);
   // Set peer id
   useEffect(() => {
+    setLoading(true);
     fetch("http://localhost:8000/identity/peer_id/return")
       .then((res) => res.json())
       .then((data) => {
+        setLoading(false);
         setPeerId(data.id);
       })
       .catch((err) => {
+        setLoading(false);
         console.log(err.message);
       });
   }, []);
@@ -137,6 +145,7 @@ function MainProvider({ children }) {
     <MainContext.Provider
       value={{
         identity,
+        loading,
         amount,
         bills_list,
         refresh,

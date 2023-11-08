@@ -15,11 +15,14 @@ import RepayPage from "../pages/RepayPage";
 import EndorsePage from "../pages/EndorsePage";
 import ReqAcceptPage from "../pages/ReqAcceptPage";
 import ReqPaymentPage from "../pages/ReqPaymentPage";
+import Key from "../Key";
 
 export default function SingleBillDetail({ item }) {
   const { peer_id, showPopUp } = useContext(MainContext);
   const [singleBill, setSingleBill] = useState();
+
   //   const [singleBillChain, setSingleBillChain] = useState([]);
+
   useEffect(() => {
     fetch(`http://localhost:8000/bill/return/${item.name}`)
       .then((res) => res.json())
@@ -31,6 +34,7 @@ export default function SingleBillDetail({ item }) {
         console.log(err.message);
       });
   }, []);
+
   //   useEffect(() => {
   //     fetch(`http://localhost:8000/bill/chain/return/${item.name}`)
   //       .then((res) => res.json())
@@ -155,6 +159,10 @@ export default function SingleBillDetail({ item }) {
       </div>
       <div className="popup-body">
         <div className="popup-body-inner">
+          <Key
+            privatekey={item.private_key}
+            paymentRequest={item.requested_to_pay}
+          />
           <div className="head">
             <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
             <IconHolder icon={attachment} />
