@@ -159,9 +159,25 @@ export default function SingleBillDetail({ item }) {
       </div>
       <div className="popup-body">
         <div className="popup-body-inner">
+          <span className="download">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 18"
+              fill="none"
+            >
+              <path
+                d="M9.5 2.375C9.5 1.54657 8.82843 0.875 8 0.875C7.17157 0.875 6.5 1.54657 6.5 2.375L6.5 9.57474L4.182 7.25674C3.59621 6.67095 2.64646 6.67095 2.06068 7.25674C1.47489 7.84252 1.47489 8.79227 2.06068 9.37806L6.5 13.8174V14.125H1.5C0.671573 14.125 0 14.7966 0 15.625C0 16.4534 0.671573 17.125 1.5 17.125H14.5C15.3284 17.125 16 16.4534 16 15.625C16 14.7966 15.3284 14.125 14.5 14.125H9.5V13.9387L14.1317 9.30699C14.7175 8.7212 14.7175 7.77145 14.1317 7.18567C13.5459 6.59988 12.5962 6.59988 12.0104 7.18567L9.5 9.69608L9.5 2.375Z"
+                fill="white"
+              />
+            </svg>
+            download bill
+          </span>
           <Key
-            privatekey={item.private_key}
-            paymentRequest={item.requested_to_pay}
+            peerId={peer_id}
+            payee={singleBill?.payee}
+            privatekey={singleBill?.private_key}
+            pending={singleBill?.pending}
+            confirmations={singleBill?.number_of_confirmations}
           />
           <div className="head">
             <TopDownHeading upper="Against this" lower="Bill Of Exchange" />

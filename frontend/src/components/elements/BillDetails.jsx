@@ -19,21 +19,28 @@ const signCalculation = (peer_id, items) => {
   }
 };
 const namehandling = (peer_id, items) => {
-  if (peer_id == items?.payer?.peer_id) {
+  if (peer_id == items?.drawee?.peer_id) {
     return items?.payee?.name;
-  } else if (peer_id == items?.payee?.peer_id) {
-    return items?.payer?.name;
+  } else if (peer_id == items?.drawee?.peer_id) {
+    return items?.drawee?.name;
   } else {
-    return items?.payer?.name;
+    return items?.drawee?.name;
   }
 };
 
-function BillDetails({ data, icon }) {
-  const { peer_id, popUp, showPopUp } = useContext(MainContext);
-  console.log(peer_id, data);
+function BillDetails({ data, icon, filter }) {
+  const { peer_id, showPopUp } = useContext(MainContext);
+  var filteredData = data;
+  if (filter?.imPayee) {
+    filteredData = data.filter((d) => d.payee.peer_id === peer_id);
+  } else if (filter?.imDrawee) {
+    filteredData = data.filter((d) => d.drawee.peer_id === peer_id);
+  } else if (filter?.imDrawer) {
+    filteredData = data.filter((d) => d.drawer.peer_id === peer_id);
+  }
   return (
     <>
-      {data.map((items, i) => {
+      {filteredData.map((items, i) => {
         let sign = signCalculation(peer_id, items);
         let name = namehandling(peer_id, items);
         return (

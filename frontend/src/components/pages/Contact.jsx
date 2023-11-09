@@ -32,6 +32,7 @@ export default function Contact() {
       <div className="contact-head">
         <span className="contact-head-title">CONTACTS</span>
         <img
+          className="close-btn"
           onClick={() => {
             handlePage("home");
           }}

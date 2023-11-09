@@ -277,19 +277,19 @@ select:focus {
   .check-boxes {
     width: calcView(50);
     height: calcView(50);
-    object-fit: contain;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-width: calcView(4);
+    border-style: solid;
+    border-radius: calcView(10);
   }
   #checkbox {
     width: calcView(43);
     height: calcView(43);
   }
   input[type="checkbox"]:disabled ~ .check-boxes {
-    path {
-      fill: #d3d3d3;
-    }
-    rect {
-      stroke: #d3d3d3;
-    }
+    opacity: 0.4 !important;
   }
   &-input {
     &-row {
@@ -405,6 +405,7 @@ select:focus {
   &-text {
     font-size: calcView(16);
     font-weight: 600;
+    text-transform: uppercase;
   }
   &-confirmation {
     font-size: calcView(16);
@@ -1150,19 +1151,60 @@ select:focus {
 }
 
 .activity {
+  position: relative;
+  .poped-up {
+    position: absolute;
+    right: calcView(23);
+    top: calcView(150);
+    width: calcView(200);
+    border-radius: calcView(12);
+    background: #e8e8e8;
+    box-shadow: calcView(12) calcView(12) calcView(21) 0 #00000033;
+    border: calcView(2) solid #c0c0c0;
+    display: flex;
+    flex-direction: column;
+    hr {
+      border: calcView(0.5) inset;
+    }
+    .filter-box {
+      margin: calcView(10);
+      &-input {
+        display: flex;
+        gap: calcView(10);
+        input {
+          display: none;
+        }
+        .check-boxes {
+          @include flexCenter();
+          width: calcView(32);
+          height: calcView(32);
+          border-width: calcView(2);
+          border-style: solid;
+          border-radius: calcView(4);
+          svg {
+            width: calcView(15);
+            height: calcView(12);
+          }
+        }
+        &-text {
+          font-size: calcView(16);
+        }
+      }
+    }
+  }
   .head {
     display: flex;
     width: calcView(382);
     justify-content: space-between;
     align-items: center;
   }
-
   .bills {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: calcView(10);
     align-self: stretch;
+    margin: 0 calcView(23);
   }
 }
 
@@ -1396,13 +1438,17 @@ select:focus {
       line-height: calcView(23);
     }
     .close-btn {
-      path {
-        fill: white;
-        z-index: 2;
-      }
-      rect {
-        z-index: 1;
-        fill: black;
+      @include flexCenter();
+      border: calcView(2) solid white;
+      border-radius: calcView(99);
+      svg {
+        width: calcView(16);
+        height: calcView(16);
+        viewport-fit: contain;
+        path {
+          fill: white;
+          z-index: 2;
+        }
       }
     }
   }
@@ -1569,16 +1615,34 @@ select:focus {
     overflow-y: auto;
     overflow-x: hidden;
     margin: calcView(20) auto;
-    padding: calcView(40) auto;
-    width: calcView(382);
-
+    padding: calcView(40) calcView(21);
+    width: 100%;
     &-inner {
       display: flex;
       flex-direction: column;
       gap: calcView(10);
+      position: relative;
     }
   }
-
+  .download {
+    position: absolute;
+    top: calcView(-40);
+    right: 0;
+    z-index: 11;
+    background: #151515;
+    color: white;
+    font-size: calcView(14);
+    text-transform: uppercase;
+    padding: calcView(5) calcView(10);
+    border-radius: calcView(6);
+    svg {
+      width: calcView(16);
+      height: calcView(18);
+      margin-right: calcView(7);
+      margin-bottom: calcView(2);
+      vertical-align: middle;
+    }
+  }
   &-btns {
     margin-top: calcView(33);
     display: flex;

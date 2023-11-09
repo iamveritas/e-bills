@@ -76,25 +76,27 @@ export default function IssueForm({
               checked={data.drawer_is_payee}
               onChange={handleChangeDrawerIsPayee}
             />
-            <svg
+            <span
               className="check-boxes"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                borderColor: `#${data.drawer_is_payee ? "F7931A" : "545454"}`,
+              }}
             >
-              <path
-                id="checkbox"
-                d="M31.6757 19.7629C32.0828 20.136 32.1103 20.7686 31.7372 21.1757L23.4872 30.1757C23.2977 30.3824 23.0303 30.5 22.75 30.5C22.4697 30.5 22.2023 30.3824 22.0128 30.1757L18.2628 26.0848C17.8897 25.6777 17.9172 25.0451 18.3243 24.6719C18.7314 24.2988 19.364 24.3263 19.7372 24.7334L22.75 28.0201L30.2628 19.8243C30.636 19.4172 31.2686 19.3897 31.6757 19.7629Z"
-                fill={`#${data.drawer_is_payee ? "F7931A" : "545454"}`}
-              />
-              <rect
-                x="1vw"
-                y="1vw"
-                id="checkbox"
-                rx="1vw"
-                stroke={`#${data.drawer_is_payee ? "F7931A" : "545454"}`}
-                stroke-width="1vw"
-              />
-            </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="12"
+                viewBox="0 0 15 12"
+                fill="none"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M14.1757 0.762852C14.5828 1.13604 14.6104 1.76861 14.2372 2.17573L5.98716 11.1757C5.79775 11.3824 5.53031 11.5 5.25001 11.5C4.9697 11.5 4.70226 11.3824 4.51285 11.1757L0.762852 7.08482C0.389659 6.6777 0.417162 6.04514 0.824281 5.67194C1.2314 5.29875 1.86397 5.32625 2.23716 5.73337L5.25001 9.02011L12.7629 0.824281C13.136 0.417162 13.7686 0.389659 14.1757 0.762852Z"
+                  fill={`#${data.drawer_is_payee ? "F7931A" : "545454"}`}
+                />
+              </svg>
+            </span>
           </div>
         </label>
       </div>
@@ -163,25 +165,27 @@ export default function IssueForm({
               onChange={handleChangeDrawerIsDrawee}
               checked={data.drawer_is_drawee}
             />
-            <svg
+            <span
               className="check-boxes"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                borderColor: `#${data.drawer_is_drawee ? "F7931A" : "545454"}`,
+              }}
             >
-              <path
-                id="checkbox"
-                d="M31.6757 19.7629C32.0828 20.136 32.1103 20.7686 31.7372 21.1757L23.4872 30.1757C23.2977 30.3824 23.0303 30.5 22.75 30.5C22.4697 30.5 22.2023 30.3824 22.0128 30.1757L18.2628 26.0848C17.8897 25.6777 17.9172 25.0451 18.3243 24.6719C18.7314 24.2988 19.364 24.3263 19.7372 24.7334L22.75 28.0201L30.2628 19.8243C30.636 19.4172 31.2686 19.3897 31.6757 19.7629Z"
-                fill={`#${data.drawer_is_drawee ? "F7931A" : "545454"}`}
-              />
-              <rect
-                x="1vw"
-                y="1vw"
-                id="checkbox"
-                rx="1vw"
-                stroke={`#${data.drawer_is_drawee ? "F7931A" : "545454"}`}
-                stroke-width="1vw"
-              />
-            </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="12"
+                viewBox="0 0 15 12"
+                fill="none"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M14.1757 0.762852C14.5828 1.13604 14.6104 1.76861 14.2372 2.17573L5.98716 11.1757C5.79775 11.3824 5.53031 11.5 5.25001 11.5C4.9697 11.5 4.70226 11.3824 4.51285 11.1757L0.762852 7.08482C0.389659 6.6777 0.417162 6.04514 0.824281 5.67194C1.2314 5.29875 1.86397 5.32625 2.23716 5.73337L5.25001 9.02011L12.7629 0.824281C13.136 0.417162 13.7686 0.389659 14.1757 0.762852Z"
+                  fill={`#${data.drawer_is_drawee ? "F7931A" : "545454"}`}
+                />
+              </svg>
+            </span>
           </div>
         </label>
       </div>

@@ -75,7 +75,7 @@ function MainProvider({ children }) {
         setLoading(false);
       });
   }, [refresh]);
-
+  console.log(identity);
   // Set bills
   useEffect(() => {
     fetch("http://localhost:8000/bills/return")
