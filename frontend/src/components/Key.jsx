@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
 import copyIcon from "../assests/copy.svg";
+import { MainContext } from "../context/MainContext";
 
 export default function Key({
   pending,
@@ -8,6 +9,7 @@ export default function Key({
   peerId,
   payee,
 }) {
+  const { copytoClip } = useContext(MainContext);
   let iconState;
   let status;
   let privateBillKey;
@@ -42,7 +44,10 @@ export default function Key({
       </div>
       <div className="key-text">{status}</div>
       {privateBillKey && (
-        <div className="key-confirmations">
+        <div
+          className="key-confirmations"
+          onClick={() => copytoClip(privateBillKey)}
+        >
           {confirmations} confirmations <img src={copyIcon} />
         </div>
       )}

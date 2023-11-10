@@ -4,33 +4,22 @@ import deleteBtn from "../../assests/delete.svg";
 import { MainContext } from "../../context/MainContext";
 import AddContact from "../popups/AddContact";
 export default function Contact() {
-  const { showPopUp, handlePage } = useContext(MainContext);
-  let contactRay = [
-    {
-      name: "Mehfooz Salik",
-      nodeId: "12D3KooWK9GBFBtuJMmF5RkEKznhggw17mJqMtA2nMfxbY1fME",
-    },
-    {
-      name: "Mykyta Timko",
-      nodeId: "12D3KooWK9GBFBtuJMmW2RkEKznhggw17mJqMtA2nMfxbY1fME",
-    },
-    {
-      name: "Hubertus",
-      nodeId: "12KooWK9GBFBtuJMmF5W2RkEKznhggw17mJqMtA2nMfxbY1fME",
-    },
-  ];
-  const [contacts, setContacts] = useState(contactRay);
-  const handleDelete = (id) => {
-    let filtered = contacts.filter((d) => d.nodeId != id);
-    setContacts(filtered);
-  };
-  const handleAddContact = (newContact) => {
-    setContacts((prev) => [...prev, newContact]);
+  const { showPopUp, handlePage, handleDelete, contact } =
+    useContext(MainContext);
+  const [search, setSearch] = useState("");
+  let newContact;
+  if (search) {
+    newContact = contact.filter((d) => d.name.includes(search));
+  } else {
+    newContact = contact;
+  }
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value);
   };
   return (
     <div className="contact">
       <div className="contact-head">
-        <span className="contact-head-title">CONTACTS</span>
+        <span className="contact-head-title">CONTACT</span>
         <img
           className="close-btn"
           onClick={() => {
@@ -39,22 +28,23 @@ export default function Contact() {
           src={closeIcon}
         />
       </div>
+      <input
+        type="text"
+        className="input-contact"
+        placeholder="Search Contact"
+        onChange={handleSearchChange}
+      />
       <div className="contact-body">
-        {contacts.map((d, i) => {
+        {newContact.map((d, i) => {
           return (
             <div key={i} className="contact-body-user">
               <span>{d.name}</span>
-              <img onClick={() => handleDelete(d.nodeId)} src={deleteBtn} />
+              <img onClick={() => handleDelete(d.name)} src={deleteBtn} />
             </div>
           );
         })}
       </div>
-      <button
-        onClick={() =>
-          showPopUp(true, <AddContact handleAddContact={handleAddContact} />)
-        }
-        className="btn"
-      >
+      <button onClick={() => showPopUp(true, <AddContact />)} className="btn">
         ADD CONTACT
       </button>
     </div>

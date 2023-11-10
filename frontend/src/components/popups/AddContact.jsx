@@ -4,15 +4,14 @@ import closeIcon from "../../assests/close-btn.svg";
 import addIcon from "../../assests/add.svg";
 import { MainContext } from "../../context/MainContext";
 
-export default function AddContact({ handleAddContact }) {
-  const { showPopUp } = useContext(MainContext);
-  const [contact, setContact] = useState({ name: "", nodeId: "" });
+export default function AddContact() {
+  const { showPopUp, handleAddContact } = useContext(MainContext);
+  const [contact, setContact] = useState({ name: "", peer_id: "" });
   const handleChange = (e) => {
     setContact({ ...contact, [e.target.name]: e.target.value });
   };
   const handleSubmit = () => {
-    handleAddContact(contact);
-    showPopUp(false, "");
+    handleAddContact(contact, showPopUp);
   };
   return (
     <div className="contact add-contact">
@@ -25,13 +24,15 @@ export default function AddContact({ handleAddContact }) {
           type="text"
           name="name"
           id="name"
+          value={contact.name}
           placeholder="Full Name"
           onChange={handleChange}
         />
         <input
           type="text"
-          name="nodeId"
-          id="nodeId"
+          name="peer_id"
+          id="peer_id"
+          value={contact.peer_id}
           placeholder="Node Identity"
           onChange={handleChange}
         />

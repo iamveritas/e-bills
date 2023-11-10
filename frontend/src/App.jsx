@@ -16,7 +16,7 @@ import ErrrorPage from "./components/pages/ErrrorPage";
 import Contact from "./components/pages/Contact";
 
 export default function App() {
-  const { loading, current, popUp } = useContext(MainContext);
+  const { toast, loading, current, popUp } = useContext(MainContext);
   // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
@@ -114,6 +114,7 @@ export default function App() {
   } else {
     return (
       <>
+        {toast && <span className="toast">{toast}</span>}
         {popUp.show && <div className="popup">{popUp.content}</div>}
         {activePage()}
       </>

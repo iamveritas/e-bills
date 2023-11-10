@@ -1350,10 +1350,12 @@ select:focus {
   bottom: calcView(10);
   left: 50%;
   transform: translateX(-50%);
-  background: #00000066;
+  background: #00000096;
   padding: calcView(6) calcView(16);
+  font-size: calcView(16);
   white-space: pre;
   border-radius: calcView(6);
+  z-index: 99999;
 }
 .setting {
   margin-top: calcView(45);
@@ -1412,7 +1414,16 @@ select:focus {
     }
   }
 }
-
+.identity-peerid {
+  font-size: calcView(14);
+  img {
+    vertical-align: middle;
+    width: calcView(16);
+    height: calcView(16);
+    margin-left: calcView(7);
+    margin-bottom: calcView(3);
+  }
+}
 .error {
   width: 100%;
   height: 100vh;
@@ -1522,6 +1533,17 @@ select:focus {
       }
     }
   }
+  .input-contact {
+    width: 100%;
+    height: calcView(54);
+    padding-left: calcView(10);
+    outline: none;
+    border-radius: calcView(12);
+    border: calcView(2) solid #515151;
+    &:focus {
+      border: calcView(2) solid #d77300;
+    }
+  }
   &-body {
     flex-grow: 1;
     width: 100%;
@@ -1531,16 +1553,22 @@ select:focus {
     justify-items: start;
     align-content: start;
     gap: calcView(10);
-
     &-user {
       width: 100%;
       background: #fff;
-      padding: calcView(30) calcView(20);
+      padding: calcView(30) calcView(10);
       height: calcView(54);
       display: flex;
+      gap: calcView(10);
       align-items: center;
       justify-content: space-between;
       border-radius: calcView(8);
+      span {
+        flex-grow: 1;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: pre;
+      }
     }
   }
 }
