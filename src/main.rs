@@ -96,6 +96,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             routes![
                 web::add_contact,
                 web::new_contact,
+                web::remove_contact,
                 web::contacts,
                 web::return_contacts
             ],
@@ -183,6 +184,14 @@ fn read_contacts_map() -> HashMap<String, String> {
     let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
     let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
     contacts
+}
+
+fn delete_from_contacts_map(name: String) {
+    if Path::new(CONTACT_MAP_FILE_PATH).exists() {
+        let mut contacts: HashMap<String, String> = read_contacts_map();
+        contacts.remove(&name);
+        write_contacts_map(contacts);
+    }
 }
 
 fn add_in_contacts_map(name: String, peer_id: String) {
@@ -1411,5 +1420,11 @@ pub struct IdentityForm {
 pub struct NewContactForm {
     pub name: String,
     pub node_id: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct DeleteContactForm {
+    pub name: String,
 }
 //-------------------------------------------------------------
