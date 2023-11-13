@@ -12,6 +12,7 @@ export default function HomePage() {
     const {amount, currency, bills_list} = useContext(MainContext);
 
     // find all bills event
+    fetch("http://localhost:8000/bill/dht");
 
     return (
         <div className="home">

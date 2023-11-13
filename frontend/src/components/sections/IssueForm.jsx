@@ -20,9 +20,10 @@ export default function IssueForm({
         })
             .then((response) => {
                 console.log(response);
-                handlePage("bill");
             })
             .catch((err) => err);
+
+        handlePage("home");
     };
 
     let listContacts = contacts.map((contact) => {

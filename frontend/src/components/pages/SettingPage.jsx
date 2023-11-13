@@ -40,12 +40,12 @@ export default function SettingPage() {
     const handleSettingClick = async (name) => {
         switch (name) {
             case "exit":
-                window.close();
                 await fetch("http://localhost:8000/exit")
                     .then((res) => {
                         console.log(res);
                     })
                     .catch((err) => console.log(err));
+                window.close();
                 break;
         }
     };

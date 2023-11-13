@@ -510,24 +510,15 @@ fn get_current_payee_private_key(identity: Identity, bill: BitcreditBill) -> Str
 }
 
 #[get("/dht")]
-pub async fn search_bill(state: &State<Client>) -> Template {
+pub async fn search_bill(state: &State<Client>) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         let mut client = state.inner().clone();
         let local_peer_id = read_peer_id_from_file();
         client.check_new_bills(local_peer_id.to_string()).await;
 
-        let bills = get_bills();
-        let identity: IdentityWithAll = get_whole_identity();
-
-        Template::render(
-            "hbs/home",
-            context! {
-                identity: Some(identity.identity),
-                bills: bills,
-            },
-        )
+        Status::Ok
     }
 }
 
@@ -882,41 +873,27 @@ pub async fn add_contact() -> Template {
 }
 
 #[post("/remove", data = "<remove_contact_form>")]
-pub async fn remove_contact(remove_contact_form: Form<DeleteContactForm>) -> Template {
+pub async fn remove_contact(remove_contact_form: Form<DeleteContactForm>) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         delete_from_contacts_map(remove_contact_form.name.clone());
 
-        let map = read_contacts_map();
-
-        Template::render(
-            "hbs/contacts",
-            context! {
-                contacts: map,
-            },
-        )
+        Status::Ok
     }
 }
 
 #[post("/new", data = "<new_contact_form>")]
-pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Template {
+pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         add_in_contacts_map(
             new_contact_form.name.clone(),
             new_contact_form.node_id.clone(),
         );
 
-        let map = read_contacts_map();
-
-        Template::render(
-            "hbs/contacts",
-            context! {
-                contacts: map,
-            },
-        )
+        Status::Ok
     }
 }
 
