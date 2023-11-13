@@ -18,7 +18,7 @@ import ReqPaymentPage from "../pages/ReqPaymentPage";
 import Key from "../Key";
 
 export default function SingleBillDetail({ item }) {
-  const { peer_id, showPopUp } = useContext(MainContext);
+  const { peer_id, showPopUp, handlePage } = useContext(MainContext);
   const [singleBill, setSingleBill] = useState();
 
   //   const [singleBillChain, setSingleBillChain] = useState([]);
@@ -159,7 +159,13 @@ export default function SingleBillDetail({ item }) {
       </div>
       <div className="popup-body">
         <div className="popup-body-inner">
-          <span className="download">
+          <span
+            onClick={() => {
+              handlePage("bill");
+              showPopUp(false, "");
+            }}
+            className="download"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 16 18"

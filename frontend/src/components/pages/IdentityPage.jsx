@@ -125,7 +125,7 @@ export default function IdentityPage() {
               className="identity-peerid"
             >
               {peer_id?.slice(0, 5)}...
-              {peer_id?.slice(peer_id.length - 5, peer_id.length)}
+              {peer_id?.slice(peer_id?.length - 5, peer_id?.length)}
               <img src={copyIcon} />
             </span>
           )}
