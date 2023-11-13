@@ -68,7 +68,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .manage(dht)
         .mount("/image", FileServer::from(IMAGE_FOLDER_PATH))
         .mount("/css", FileServer::from(CSS_FOLDER_PATH))
-        .mount("/", routes![web::start])
+        // .mount("/", routes![web::start])
         .mount("/exit", routes![web::exit])
         .mount("/opcodes", routes![web::return_operation_codes])
         .mount(
@@ -123,7 +123,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             web::customize(&mut engines.handlebars);
         }));
 
-    open::that("http://127.0.0.1:8000").expect("Can't open browser.");
+    open::that("http://127.0.0.1:8000/frontend/").expect("Can't open browser.");
 
     rocket
 }
