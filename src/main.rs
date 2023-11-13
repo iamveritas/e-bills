@@ -68,7 +68,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .manage(dht)
         .mount("/image", FileServer::from(IMAGE_FOLDER_PATH))
         .mount("/css", FileServer::from(CSS_FOLDER_PATH))
-        // .mount("/", routes![web::start])
+        .mount("/", routes![web::start])
         .mount("/exit", routes![web::exit])
         .mount("/opcodes", routes![web::return_operation_codes])
         .mount(

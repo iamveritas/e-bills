@@ -57,39 +57,45 @@ function MainProvider({ children }) {
   const handleDelete = async (id) => {
     const form_data = new FormData();
     form_data.append("name", id);
-    await fetch("http://localhost:8000/identity/remove", {
+    await fetch("http://localhost:8000/contacts/remove", {
       method: "POST",
       body: form_data,
       mode: "no-cors",
     })
       .then((response) => {
-        if (response.redirected) {
+        console.log(response);
+        //TODO: fix status
+
+        // if (response.redirected) {
           let filtered = contact.filter((d) => d.name != id);
           setContact(filtered);
           setToast("Contact Deleted");
-        } else {
-          setToast("Oops! there is an error please try again later");
-        }
+        // } else {
+        //   setToast("Oops! there is an error please try again later");
+        // }
       })
       .catch((err) => console.log(err));
   };
   const handleAddContact = async (newContact, hidePop) => {
     const form_data = new FormData();
     form_data.append("name", newContact.name);
-    form_data.append("peer_id", newContact.peer_id);
-    await fetch("http://localhost:8000/contacts/create", {
+    form_data.append("node_id", newContact.peer_id);
+    await fetch("http://localhost:8000/contacts/new", {
       method: "POST",
       body: form_data,
       mode: "no-cors",
     })
       .then((response) => {
-        if (response.redirected) {
+        console.log(response);
+        //TODO: fix status
+
+        // if (response.redirected) {
           setContact((prev) => [...prev, newContact]);
           hidePop(false, "");
           setToast("Your Contact is Added");
-        } else {
-          setToast("Oops! there is an error please try again later");
-        }
+        // } else {
+        //   setToast("Oops! there is an error please try again later");
+        // }
       })
       .catch((err) => {
         return false;
