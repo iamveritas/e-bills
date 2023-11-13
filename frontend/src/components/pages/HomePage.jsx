@@ -55,7 +55,7 @@ export default function HomePage() {
                 {bills_list?.length > 4 && (
                     <div className="home-container-payments">
                         <Payments
-                            payments="4 Recent Payments"
+                            payments= {bills_list?.length + " All Payments"}
                             history="Full Payment History"
                         />
                     </div>

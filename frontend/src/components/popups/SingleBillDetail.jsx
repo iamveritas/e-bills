@@ -8,8 +8,8 @@ import IconHolder from "../elements/IconHolder";
 import iconPay from "../../assests/pay.svg";
 import iconAccept from "../../assests/accept.svg";
 import iconEndorse from "../../assests/endorse.svg";
-import iconRTA from "../../assests/reqToPay.svg";
-import iconRTP from "../../assests/reqToAccept.svg";
+import iconRTA from "../../assests/reqToAccept.svg";
+import iconRTP from "../../assests/reqToPay.svg";
 import AcceptPage from "../pages/AcceptPage";
 import RepayPage from "../pages/RepayPage";
 import EndorsePage from "../pages/EndorsePage";
@@ -179,9 +179,10 @@ export default function SingleBillDetail({ item }) {
             download bill
           </span>
           <Key
+            payed={singleBill?.payed}
             peerId={peer_id}
             payee={singleBill?.payee}
-            privatekey={singleBill?.private_key}
+            privatekey={singleBill?.pr_key_bill}
             pending={singleBill?.pending}
             confirmations={singleBill?.number_of_confirmations}
           />

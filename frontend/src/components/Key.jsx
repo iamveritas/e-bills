@@ -3,6 +3,7 @@ import copyIcon from "../assests/copy.svg";
 import { MainContext } from "../context/MainContext";
 
 export default function Key({
+  payed,
   pending,
   privatekey,
   confirmations,
@@ -13,21 +14,24 @@ export default function Key({
   let iconState;
   let status;
   let privateBillKey;
-  if (confirmations == 0 && !pending) {
+  if (confirmations == 0 && payed) {
+    status = "Paid";
+    iconState = "lessthenthree";
+  } else if (confirmations == 0 && !pending) {
     iconState = "request";
     status = "Payment Requested";
   } else if (confirmations == 0 && pending) {
     iconState = "pending";
     status = "Payment Pending";
   } else if (confirmations > 0) {
-    if (peerId == payee?.peer_Id) {
-      privateBillKey = privatekey?.slice(0, 10);
+    status = "Paid" + " (" + confirmations + ")";
+    if (peerId == payee?.peer_id) {
+      privateBillKey = privatekey;
     }
     if (confirmations < 3) {
       iconState = "lessthenthree";
     } else if (confirmations >= 3) {
       iconState = "payed";
-      status = "Paid";
     }
   }
   return (

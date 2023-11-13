@@ -28,7 +28,7 @@ export default function RepayPage({ data }) {
         </span>
       </div>
       <div className="col mtt">
-        <label htmlFor="wallet">Send from wallet:</label>
+        <label htmlFor="wallet">Link to pay:</label>
         <span
           className="select-opt"
           onClick={() => {

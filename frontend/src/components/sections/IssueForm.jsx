@@ -12,7 +12,17 @@ export default function IssueForm({
   const handleSubmition = (e) => {
     e.preventDefault();
 
-    const form_data = new FormData(e.target);
+    const form_data = new FormData();
+    form_data.append("bill_jurisdiction", data.bill_jurisdiction);
+    form_data.append("place_of_drawing", data.place_of_drawing);
+    form_data.append("amount_numbers", data.amount_numbers);
+    form_data.append("language", data.language);
+    form_data.append("drawee_name", data.drawee_name);
+    form_data.append("payee_name", data.payee_name);
+    form_data.append("place_of_payment", data.place_of_payment);
+    form_data.append("maturity_date", data.maturity_date);
+    form_data.append("drawer_is_payee", data.drawer_is_payee);
+    form_data.append("drawer_is_drawee", data.drawer_is_drawee);
     fetch("http://localhost:8000/bill/issue", {
       method: "POST",
       body: form_data,
@@ -53,7 +63,7 @@ export default function IssueForm({
           <div className="form-input-row">
             <select
               className="select-class"
-              disabled={data.drawer_is_payee || data.drawee_name}
+              disabled={data.drawer_is_payee}
               style={{ appereance: "none" }}
               id="payee_name"
               name="payee_name"
@@ -138,7 +148,7 @@ export default function IssueForm({
           <label htmlFor="drawee_name">Drawee</label>
           <div className="form-input-row">
             <select
-              disabled={data.drawer_is_drawee || data.payee_name}
+              disabled={data.drawer_is_drawee}
               style={{
                 appereance: "none",
                 MozAppearance: "none",
@@ -189,21 +199,6 @@ export default function IssueForm({
             </span>
           </div>
         </label>
-      </div>
-      <div className="form-input" hidden={true}>
-        <label htmlFor="drawer_name">Drawer</label>
-        <div className="form-input-row">
-          <input
-            id="drawer_name"
-            name="drawer_name"
-            value={identity.name}
-            onChange={changeHandle}
-            type="text"
-            placeholder="Drawer Company, London"
-            readOnly={true}
-            required
-          />
-        </div>
       </div>
       <div className="form-input">
         <label htmlFor="place_of_drawing">Place of drawing</label>
@@ -261,21 +256,21 @@ export default function IssueForm({
           />
         </div>
       </div>
-      <div className="form-input">
-        <label htmlFor="maturity_date">Date of issue</label>
-        <div className="form-input-row">
-          <input
-            className="drop-shadow"
-            id="date_of_issue"
-            name="date_of_issue"
-            value={data.date_of_issue}
-            onChange={changeHandle}
-            type="date"
-            placeholder="16 May 2023"
-            required
-          />
-        </div>
-      </div>
+      {/*<div className="form-input">*/}
+      {/*  <label htmlFor="maturity_date">Date of issue</label>*/}
+      {/*  <div className="form-input-row">*/}
+      {/*    <input*/}
+      {/*      className="drop-shadow"*/}
+      {/*      id="date_of_issue"*/}
+      {/*      name="date_of_issue"*/}
+      {/*      value={data.date_of_issue}*/}
+      {/*      onChange={changeHandle}*/}
+      {/*      type="date"*/}
+      {/*      placeholder="16 May 2023"*/}
+      {/*      required*/}
+      {/*    />*/}
+      {/*  </div>*/}
+      {/*</div>*/}
       <input className="btn" type="submit" value="Issue bill" />
     </form>
   );
