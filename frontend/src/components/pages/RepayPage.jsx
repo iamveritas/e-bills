@@ -7,8 +7,6 @@ import { MainContext } from "../../context/MainContext";
 import copy from "../../assests/copy.svg";
 
 export default function RepayPage({ data }) {
-  const { handlePage } = useContext(MainContext);
-  console.log(data);
   return (
     <div className="Repay">
       <Header title="Pay" />

@@ -16,7 +16,8 @@ import ErrrorPage from "./components/pages/ErrrorPage";
 import Contact from "./components/pages/Contact";
 
 export default function App() {
-  const { toast, loading, current, popUp } = useContext(MainContext);
+  const { toast, loading, current, popUp, popUp2, contacts } =
+    useContext(MainContext);
   // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
@@ -51,6 +52,16 @@ export default function App() {
     let value = e.target.value;
     let name = e.target.name;
     setData({ ...data, [name]: value });
+  };
+  const checkHandleSearch = (e) => {
+    let value = e.target.value;
+    let name = e.target.name;
+    const isValidOption = contacts.some((d) => d.name == value);
+    if (isValidOption || value === "") {
+      setData({ ...data, [name]: value });
+    } else {
+      setData({ ...data, [name]: "" });
+    }
   };
   const handleChangeDrawerIsPayee = (e) => {
     let value = !data.drawer_is_payee;
@@ -88,6 +99,7 @@ export default function App() {
           <IssuePage
             data={data}
             changeHandle={changeHandle}
+            checkHandleSearch={checkHandleSearch}
             handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
             handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}
           />
@@ -97,7 +109,7 @@ export default function App() {
       case "setting":
         return <SettingPage />;
       default:
-        return <ErrrorPage />;
+        return <HomePage />;
     }
   };
   //identity if this empty
@@ -116,6 +128,7 @@ export default function App() {
       <>
         {toast && <span className="toast">{toast}</span>}
         {popUp.show && <div className="popup">{popUp.content}</div>}
+        {popUp2.show && <div className="popup">{popUp2.content}</div>}
         {activePage()}
       </>
     );

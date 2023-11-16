@@ -8,7 +8,7 @@ import Pdf from "react-to-pdf";
 import { MainContext } from "../../context/MainContext";
 
 function Bill({ identity, data }) {
-  const { handlePage } = useContext(MainContext);
+  const { showPopUpSecondary } = useContext(MainContext);
   const divRef = React.createRef();
   const [offSet, setOffSet] = useState({
     width: 0,
@@ -19,7 +19,7 @@ function Bill({ identity, data }) {
     unit: "px",
     format: [offSet.width, offSet.height],
   };
-  console.log(offSet);
+
   const handlePdfSize = () => {
     const divEle = document.getElementById("main-container");
     setOffSet({
@@ -41,7 +41,7 @@ function Bill({ identity, data }) {
     <div className="billing">
       <div className="top-buttons">
         <IconHolder
-          handleClick={() => handlePage("home")}
+          handleClick={() => showPopUpSecondary(false, "")}
           circuled="circule"
           icon={back}
         />

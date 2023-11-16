@@ -9,6 +9,10 @@ function MainProvider({ children }) {
     show: false,
     content: "",
   });
+  const [popUp2, setPopUp2] = useState({
+    show: false,
+    content: "",
+  });
   const [amount, setAmount] = useState({ bill: 0, iou: 0, endors: 0 });
   const [currency, setCurrency] = useState("BTC");
   const [bills_list, setBillsList] = useState([]);
@@ -23,6 +27,12 @@ function MainProvider({ children }) {
   };
   const showPopUp = (show, content) => {
     setPopUp({
+      show: show,
+      content: content,
+    });
+  };
+  const showPopUpSecondary = (show, content) => {
+    setPopUp2({
       show: show,
       content: content,
     });
@@ -47,12 +57,6 @@ function MainProvider({ children }) {
         console.log(err.message);
       });
   }, []);
-  const [contact, setContact] = useState(contacts);
-  useEffect(() => {
-    if (contacts.length > 0) {
-      setContact(contacts);
-    }
-  }, [contacts]);
 
   const handleDelete = async (id) => {
     const form_data = new FormData();
@@ -63,13 +67,10 @@ function MainProvider({ children }) {
       mode: "no-cors",
     })
       .then((response) => {
-        console.log(response);
-        //TODO: fix status
-
         // if (response.redirected) {
-          let filtered = contact.filter((d) => d.name != id);
-          setContact(filtered);
-          setToast("Contact Deleted");
+        let filtered = contacts.filter((d) => d.name != id);
+        setContacts(filtered);
+        setToast("Contact Deleted");
         // } else {
         //   setToast("Oops! there is an error please try again later");
         // }
@@ -86,13 +87,10 @@ function MainProvider({ children }) {
       mode: "no-cors",
     })
       .then((response) => {
-        console.log(response);
-        //TODO: fix status
-
         // if (response.redirected) {
-          setContact((prev) => [...prev, newContact]);
-          hidePop(false, "");
-          setToast("Your Contact is Added");
+        setContacts((prev) => [...prev, newContact]);
+        hidePop(false, "");
+        setToast("Your Contact is Added");
         // } else {
         //   setToast("Oops! there is an error please try again later");
         // }
@@ -135,7 +133,6 @@ function MainProvider({ children }) {
         setLoading(false);
       });
   }, [refresh]);
-  console.log(identity);
   // Set bills
   useEffect(() => {
     fetch("http://localhost:8000/bills/return")
@@ -201,9 +198,9 @@ function MainProvider({ children }) {
     }
     return () => {};
   }, [peer_id, bills_list]);
-  function copytoClip(copytext) {
+  function copytoClip(copytext, text) {
     navigator.clipboard.writeText(copytext);
-    setToast("Your Text is Copied");
+    setToast(text);
   }
 
   return (
@@ -219,14 +216,15 @@ function MainProvider({ children }) {
         handleAddContact,
         bills_list,
         refresh,
-        contact,
         contacts,
         handleRefresh,
         currency,
         peer_id,
         current,
         popUp,
+        popUp2,
         showPopUp,
+        showPopUpSecondary,
         handlePage,
       }}
     >

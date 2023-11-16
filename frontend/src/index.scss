@@ -98,6 +98,13 @@ select {
 select:disabled {
   filter: grayscale(1);
 }
+.select-class-main {
+  .select-class:disabled {
+    .select-class-main:after {
+      filter: grayscale(1);
+    }
+  }
+}
 select:focus {
   border: calcView(2) solid $PrimaryColor;
 }
@@ -219,7 +226,16 @@ select:focus {
     }
   }
 }
-
+input {
+  width: 100%;
+  height: calcView(50);
+  font-size: calcView(18);
+  padding: calcView(9) calcView(15);
+  outline: none;
+  border: none;
+  border-radius: calcView(5);
+  background: #fff;
+}
 .form {
   width: calcView(362);
   margin: calcView(30) auto;
@@ -230,16 +246,6 @@ select:focus {
   label {
     font-size: calcView(18);
     font-weight: 500;
-  }
-
-  input {
-    width: 100%;
-    height: calcView(50);
-    font-size: calcView(18);
-    padding: calcView(9) calcView(15);
-    outline: none;
-    border: none;
-    border-radius: calcView(5);
   }
 
   input::-webkit-outer-spin-button,
@@ -325,7 +331,31 @@ select:focus {
 .bold {
   font-weight: 700;
 }
+.search-select {
+  display: block;
+  width: 100%;
+  position: relative;
+  .select-class-main {
+    position: relative;
+  }
 
+  .select-class-main:after {
+    content: url(./assests/dropdown.svg);
+    width: calcView(24);
+    font-size: calcView(24);
+    height: calcView(24);
+    background: white;
+    border-radius: calcView(22);
+    z-index: 2;
+    position: absolute;
+    right: calcView(15);
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .select-class:disabled {
+    background: transparent;
+  }
+}
 .secondary-icon {
   display: flex;
   align-items: center;
@@ -407,9 +437,11 @@ select:focus {
     font-weight: 600;
     text-transform: uppercase;
   }
-  &-confirmation {
+  &-confirmations {
     font-size: calcView(16);
     vertical-align: middle;
+    line-height: calcView(20);
+    text-align: center;
     img {
       margin-left: calcView(5);
       width: calcView(16);

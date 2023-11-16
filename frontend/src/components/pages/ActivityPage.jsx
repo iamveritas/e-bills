@@ -23,11 +23,25 @@ function ActivityPage() {
   const toggleFilterPop = (e) => {
     setFilterPop(!filterPop);
   };
+  let titleOptions = [];
+  if (filter.imPayee) {
+    titleOptions.push("Payee");
+  }
+  if (filter.imDrawee) {
+    titleOptions.push("Payer");
+  }
+  if (filter.imDrawer) {
+    titleOptions.push("Drawer");
+  }
+  if (!filter.imPayee & !filter.imDrawee && !filter.imDrawer) {
+    titleOptions.push("Payee", "Payer", "Drawer");
+  }
+  let titleName = titleOptions.join(" | ");
   return (
     <div className="activity">
       <Header backHeader route="home" />
       <div className="head">
-        <TopDownHeading upper="Drawer | All Payer | Payee" />
+        <TopDownHeading upper={"All " + titleName} />
         <IconHolder handleClick={toggleFilterPop} icon={fitler} />
       </div>
       {filterPop && <PopedUp filter={filter} changleHandler={changleHandler} />}

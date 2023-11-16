@@ -4,14 +4,14 @@ import deleteBtn from "../../assests/delete.svg";
 import { MainContext } from "../../context/MainContext";
 import AddContact from "../popups/AddContact";
 export default function Contact() {
-  const { showPopUp, handlePage, handleDelete, contact } =
+  const { showPopUp, handlePage, handleDelete, contacts } =
     useContext(MainContext);
   const [search, setSearch] = useState("");
   let newContact;
   if (search) {
-    newContact = contact.filter((d) => d.name.includes(search));
+    newContact = contacts.filter((d) => d.name.includes(search));
   } else {
-    newContact = contact;
+    newContact = contacts;
   }
   const handleSearchChange = (e) => {
     setSearch(e.target.value);

@@ -50,9 +50,18 @@ export default function Key({
       {privateBillKey && (
         <div
           className="key-confirmations"
-          onClick={() => copytoClip(privateBillKey)}
+          onClick={() =>
+            copytoClip(privateBillKey, "You have copied your Private Key")
+          }
         >
-          {confirmations} confirmations <img src={copyIcon} />
+          {confirmations} confirmations <br />
+          {privateBillKey?.slice(0, 5) +
+            "..." +
+            privateBillKey?.slice(
+              privateBillKey?.length - 5,
+              privateBillKey?.length
+            )}{" "}
+          <img src={copyIcon} />
         </div>
       )}
     </div>

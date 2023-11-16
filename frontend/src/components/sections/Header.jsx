@@ -8,7 +8,7 @@ import SecondaryIcon from "../elements/SecondaryIcon";
 import { MainContext } from "../../context/MainContext";
 
 export default function Header({ route, backHeader, title }) {
-  const { showPopUp, handlePage } = useContext(MainContext);
+  const { showPopUpSecondary, handlePage } = useContext(MainContext);
   if (backHeader) {
     return (
       <div className="header">
@@ -29,7 +29,7 @@ export default function Header({ route, backHeader, title }) {
           routing={
             title === "Issue"
               ? () => handlePage("home")
-              : () => showPopUp(false, "")
+              : () => showPopUpSecondary(false, "")
           }
           margin
           iconImage={cross}

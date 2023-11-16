@@ -39,7 +39,6 @@ export default function IdentityPage() {
   };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-
     if (file) {
       if (file.type === "image/jpeg" || file.name.endsWith(".jpg")) {
         setImage(URL.createObjectURL(file));
@@ -49,6 +48,7 @@ export default function IdentityPage() {
     }
   };
 
+  const peerIdLength = peer_id?.length;
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form_data = new FormData(e.target);
@@ -119,13 +119,15 @@ export default function IdentityPage() {
             <img src={image ? image : avatar} />
             <span>{image ? "Change Photo" : "Add Photo"}</span>
           </label>
-          {peer_id && (
+          {identity?.name && (
             <span
-              onClick={() => copytoClip(peer_id)}
+              onClick={() =>
+                copytoClip(peer_id, "You Have Copied Node Identity")
+              }
               className="identity-peerid"
             >
               {peer_id?.slice(0, 5)}...
-              {peer_id?.slice(peer_id?.length - 5, peer_id?.length)}
+              {peer_id?.slice(peerIdLength - 5, peerIdLength)}
               <img src={copyIcon} />
             </span>
           )}

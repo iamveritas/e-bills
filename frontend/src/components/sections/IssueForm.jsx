@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
+import SelectSearchOption from "../elements/SelectSearchOption";
 
 export default function IssueForm({
   contacts,
   data,
   identity,
   changeHandle,
+  checkHandleSearch,
   handlePage,
   handleChangeDrawerIsDrawee,
   handleChangeDrawerIsPayee,
@@ -33,13 +35,9 @@ export default function IssueForm({
       })
       .catch((err) => err);
 
-      handlePage("home");
+    handlePage("home");
   };
-
-  let listContacts = contacts.map((contact) => {
-    return <option key={contact.name}>{contact.name}</option>;
-  });
-
+  console.log(data);
   return (
     <form className="form" onSubmit={handleSubmition}>
       <div className="form-input">
@@ -51,6 +49,7 @@ export default function IssueForm({
             name="maturity_date"
             value={data.maturity_date}
             onChange={changeHandle}
+            checkHandleSearch={checkHandleSearch}
             type="date"
             placeholder="16 May 2023"
             required
@@ -60,27 +59,23 @@ export default function IssueForm({
       <div className="flex-row">
         <div className="form-input flex-grow">
           <label htmlFor="drawee_name">to the order of</label>
-          <div className="form-input-row">
-            <select
-              className="select-class"
-              disabled={data.drawer_is_payee}
-              style={{ appereance: "none" }}
-              id="payee_name"
-              name="payee_name"
-              value={data.payee_name}
-              onChange={changeHandle}
-              placeholder="Payee Company, Zurich"
-            >
-              <option value=""></option>
-              {listContacts}
-            </select>
+          <div className="form-input-row search-select">
+            <SelectSearchOption
+              placingHolder="Payee Company, Zurich"
+              identity="payee_name"
+              checkCheck={data.drawer_is_payee || data.drawee_name}
+              valuee={data.payee_name}
+              changeHandle={changeHandle}
+              checkHandleSearch={checkHandleSearch}
+              options={contacts}
+            />
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_payee">
           <span>ME</span>
           <div className="form-input-row">
             <input
-              disabled={data.drawer_is_drawee || data.payee_name}
+              disabled={data?.drawer_is_drawee || data?.payee_name}
               type="checkbox"
               id="drawer_is_payee"
               name="drawer_is_payee"
@@ -146,23 +141,16 @@ export default function IssueForm({
       <div className="flex-row">
         <div className="form-input flex-grow">
           <label htmlFor="drawee_name">Drawee</label>
-          <div className="form-input-row">
-            <select
-              disabled={data.drawer_is_drawee}
-              style={{
-                appereance: "none",
-                MozAppearance: "none",
-                WebkitAppearance: "none",
-              }}
-              id="drawee_name"
-              name="drawee_name"
-              placeholder="Drawee Company, Vienna"
-              value={data.drawee_name}
-              onChange={changeHandle}
-            >
-              <option value=""></option>
-              {listContacts}
-            </select>
+          <div className="form-input-row search-select">
+            <SelectSearchOption
+              identity="drawee_name"
+              placingHolder="Drawee Company, Vienna"
+              checkCheck={data.drawer_is_drawee || data.payee_name}
+              valuee={data.drawee_name}
+              changeHandle={changeHandle}
+              checkHandleSearch={checkHandleSearch}
+              options={contacts}
+            />
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_drawee">

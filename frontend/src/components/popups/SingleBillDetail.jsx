@@ -16,9 +16,10 @@ import EndorsePage from "../pages/EndorsePage";
 import ReqAcceptPage from "../pages/ReqAcceptPage";
 import ReqPaymentPage from "../pages/ReqPaymentPage";
 import Key from "../Key";
+import Bill from "../pages/Bill";
 
 export default function SingleBillDetail({ item }) {
-  const { peer_id, showPopUp, handlePage } = useContext(MainContext);
+  const { peer_id, showPopUp, showPopUpSecondary } = useContext(MainContext);
   const [singleBill, setSingleBill] = useState();
 
   //   const [singleBillChain, setSingleBillChain] = useState([]);
@@ -27,7 +28,6 @@ export default function SingleBillDetail({ item }) {
     fetch(`http://localhost:8000/bill/return/${item.name}`)
       .then((res) => res.json())
       .then((data) => {
-        console.log(data);
         setSingleBill(data);
       })
       .catch((err) => {
@@ -113,22 +113,22 @@ export default function SingleBillDetail({ item }) {
     },
   ];
 
-  const handleApiCalling = async (name) => {
+  const handlePageCalling = async (name) => {
     switch (name) {
       case "PAY":
-        showPopUp(true, <RepayPage data={singleBill} />);
+        showPopUpSecondary(true, <RepayPage data={singleBill} />);
         break;
       case "ACCEPT":
-        showPopUp(true, <AcceptPage data={singleBill} />);
+        showPopUpSecondary(true, <AcceptPage data={singleBill} />);
         break;
       case "ENDORSE":
-        showPopUp(true, <EndorsePage data={singleBill} />);
+        showPopUpSecondary(true, <EndorsePage data={singleBill} />);
         break;
       case "REQUEST TO ACCEPT":
-        showPopUp(true, <ReqAcceptPage data={singleBill} />);
+        showPopUpSecondary(true, <ReqAcceptPage data={singleBill} />);
         break;
       case "REQUEST TO PAY":
-        showPopUp(true, <ReqPaymentPage data={singleBill} />);
+        showPopUpSecondary(true, <ReqPaymentPage data={singleBill} />);
         break;
     }
   };
@@ -161,8 +161,7 @@ export default function SingleBillDetail({ item }) {
         <div className="popup-body-inner">
           <span
             onClick={() => {
-              handlePage("bill");
-              showPopUp(false, "");
+              showPopUpSecondary(true, <Bill data={singleBill} />);
             }}
             className="download"
           >
@@ -235,7 +234,7 @@ export default function SingleBillDetail({ item }) {
               return (
                 <button
                   key={index}
-                  onClick={() => handleApiCalling(name)}
+                  onClick={() => handlePageCalling(name)}
                   className="popup-btns-btn"
                 >
                   <img src={icon} /> <span>{name}</span>

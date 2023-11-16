@@ -8,6 +8,7 @@ import { MainContext } from "../../context/MainContext";
 
 export default function IssuePage({
   changeHandle,
+  checkHandleSearch,
   data,
   handleChangeDrawerIsDrawee,
   handleChangeDrawerIsPayee,
@@ -25,6 +26,7 @@ export default function IssuePage({
         contacts={contacts}
         handlePage={handlePage}
         changeHandle={changeHandle}
+        checkHandleSearch={checkHandleSearch}
         data={data}
         identity={identity}
         handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}

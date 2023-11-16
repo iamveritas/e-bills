@@ -5,15 +5,15 @@ import IconHolder from "../elements/IconHolder";
 import attachment from "../../assests/attachment.svg";
 import UniqueNumber from "../sections/UniqueNumber";
 import { MainContext } from "../../context/MainContext";
+import SelectSearchOption from "../elements/SelectSearchOption";
 
 export default function EndorsePage({ data }) {
   const { handlePage, contacts, showPopUp } = useContext(MainContext);
 
-  const [billEndorse, setBillEndorse] = useState(contacts[0].name);
+  const [billEndorse, setBillEndorse] = useState("");
   const changeHandle = (e) => {
     setBillEndorse(e.target.value);
   };
-  console.log(data.name, billEndorse);
   const handleSubmit = async () => {
     const form_data = new FormData();
     form_data.append("bill_name", data.name);
@@ -29,6 +29,16 @@ export default function EndorsePage({ data }) {
         handlePage("bill");
       })
       .catch((err) => err);
+  };
+  const checkHandleSearch = (e) => {
+    let value = e.target.value;
+    let name = e.target.name;
+    const isValidOption = contacts.some((d) => d.name == value);
+    if (isValidOption || value === "") {
+      setBillEndorse(e.target.value);
+    } else {
+      setBillEndorse("");
+    }
   };
   return (
     <div className="accept">
@@ -53,20 +63,16 @@ export default function EndorsePage({ data }) {
             </span>
             <span className="block mt">
               <span className="accept-heading">to the order of </span>
-              <span className="block detail input-blank">
-                <select
-                  style={{ appereance: "none" }}
-                  id="drawee_name"
-                  className="endorse-select"
-                  name="drawee_name"
-                  placeholder="Drawee Company, Vienna"
-                  value={billEndorse}
-                  onChange={changeHandle}
-                >
-                  {contacts.map((d) => (
-                    <option value={d.name}>{d.name}</option>
-                  ))}
-                </select>
+              <span className="block detail input-blank search-select">
+                <SelectSearchOption
+                  identity="drawee_name"
+                  placingHolder="Select Your Endorse"
+                  classs="endorse-select"
+                  valuee={billEndorse}
+                  changeHandle={changeHandle}
+                  checkHandleSearch={checkHandleSearch}
+                  options={contacts}
+                />
               </span>
             </span>
             <span className="block mt">
