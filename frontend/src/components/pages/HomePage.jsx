@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import HomeHeader from "../sections/HomeHeader";
 import Amount from "../elements/Amount";
 import SubHeading from "../elements/SubHeading";
@@ -11,7 +11,9 @@ import { MainContext } from "../../context/MainContext";
 export default function HomePage() {
   const { amount, currency, bills_list } = useContext(MainContext);
   // find all bills event
-  // fetch("http://localhost:8000/bill/dht");
+  useEffect(() => {
+    fetch("http://localhost:8000/bill/dht");
+  }, []);
   return (
     <div className="home">
       <HomeHeader />

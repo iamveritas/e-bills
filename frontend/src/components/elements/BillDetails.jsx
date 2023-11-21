@@ -27,20 +27,29 @@ const namehandling = (peer_id, items) => {
     return items?.drawee?.name;
   }
 };
-
 function BillDetails({ data, icon, filter }) {
   const { peer_id, showPopUp } = useContext(MainContext);
-  var filteredData = data;
+  var allData = [];
+  var filteredData;
+  let allNotEqual = !filter?.imPayee && !filter?.imDrawee && !filter?.imDrawer;
   if (filter?.imPayee) {
     filteredData = data.filter((d) => d.payee.peer_id === peer_id);
-  } else if (filter?.imDrawee) {
+    allData.push(...filteredData);
+  }
+  if (filter?.imDrawee) {
     filteredData = data.filter((d) => d.drawee.peer_id === peer_id);
-  } else if (filter?.imDrawer) {
+    allData.push(...filteredData);
+  }
+  if (filter?.imDrawer) {
     filteredData = data.filter((d) => d.drawer.peer_id === peer_id);
+    allData.push(...filteredData);
+  }
+  if (allNotEqual) {
+    allData.push(...data);
   }
   return (
     <>
-      {filteredData.map((items, i) => {
+      {allData?.map((items, i) => {
         let sign = signCalculation(peer_id, items);
         let name = namehandling(peer_id, items);
         return (

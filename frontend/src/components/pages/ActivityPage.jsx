@@ -33,7 +33,7 @@ function ActivityPage() {
   if (filter.imDrawer) {
     titleOptions.push("Drawer");
   }
-  if (!filter.imPayee & !filter.imDrawee && !filter.imDrawer) {
+  if (!filter.imPayee && !filter.imDrawee && !filter.imDrawer) {
     titleOptions.push("Payee", "Payer", "Drawer");
   }
   let titleName = titleOptions.join(" | ");
