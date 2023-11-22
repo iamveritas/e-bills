@@ -19,7 +19,7 @@ export default function AcceptPage({ data }) {
         console.log(response);
 
         showPopUp(false, "");
-        handlePage("bill");
+        handlePage("home");
       })
       .catch((err) => err);
   };

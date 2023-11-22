@@ -26,7 +26,7 @@ export default function EndorsePage({ data }) {
       .then((response) => {
         console.log(response);
         showPopUp(false, "");
-        handlePage("bill");
+        handlePage("home");
       })
       .catch((err) => err);
   };

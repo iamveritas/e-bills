@@ -63,7 +63,7 @@ export default function IssueForm({
             <SelectSearchOption
               placingHolder="Payee Company, Zurich"
               identity="payee_name"
-              checkCheck={data.drawer_is_payee || data.drawee_name}
+              checkCheck={data.drawer_is_payee}
               valuee={data.payee_name}
               changeHandle={changeHandle}
               checkHandleSearch={checkHandleSearch}
@@ -145,7 +145,7 @@ export default function IssueForm({
             <SelectSearchOption
               identity="drawee_name"
               placingHolder="Drawee Company, Vienna"
-              checkCheck={data.drawer_is_drawee || data.payee_name}
+              checkCheck={data.drawer_is_drawee}
               valuee={data.drawee_name}
               changeHandle={changeHandle}
               checkHandleSearch={checkHandleSearch}

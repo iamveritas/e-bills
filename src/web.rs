@@ -747,9 +747,9 @@ pub async fn endorse_bill(
 pub async fn request_to_pay_bill(
     state: &State<Client>,
     request_to_pay_bill_form: Form<RequestToPayBitcreditBillForm>,
-) -> Template {
+) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         let mut client = state.inner().clone();
 
@@ -769,17 +769,7 @@ pub async fn request_to_pay_bill(
                 .add_message_to_topic(message, request_to_pay_bill_form.bill_name.clone())
                 .await;
         }
-
-        let bills = get_bills();
-        let identity: Identity = read_identity_from_file();
-
-        Template::render(
-            "hbs/home",
-            context! {
-                identity: Some(identity),
-                bills: bills,
-            },
-        )
+        Status::Ok
     }
 }
 
@@ -787,9 +777,9 @@ pub async fn request_to_pay_bill(
 pub async fn request_to_accept_bill(
     state: &State<Client>,
     request_to_accept_bill_form: Form<RequestToAcceptBitcreditBillForm>,
-) -> Template {
+) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         let mut client = state.inner().clone();
 
@@ -809,17 +799,7 @@ pub async fn request_to_accept_bill(
                 .add_message_to_topic(message, request_to_accept_bill_form.bill_name.clone())
                 .await;
         }
-
-        let bills = get_bills();
-        let identity: Identity = read_identity_from_file();
-
-        Template::render(
-            "hbs/home",
-            context! {
-                identity: Some(identity),
-                bills: bills,
-            },
-        )
+        Status::Ok
     }
 }
 
@@ -827,9 +807,9 @@ pub async fn request_to_accept_bill(
 pub async fn accept_bill_form(
     state: &State<Client>,
     accept_bill_form: Form<AcceptBitcreditBillForm>,
-) -> Template {
+) -> Status {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Template::render("hbs/create_identity", context! {})
+        Status::NotAcceptable
     } else {
         let mut client = state.inner().clone();
 
@@ -849,17 +829,7 @@ pub async fn accept_bill_form(
                 .add_message_to_topic(message, accept_bill_form.bill_name.clone())
                 .await;
         }
-
-        let bills = get_bills();
-        let identity: Identity = read_identity_from_file();
-
-        Template::render(
-            "hbs/home",
-            context! {
-                identity: Some(identity),
-                bills: bills,
-            },
-        )
+        Status::Ok
     }
 }
 
