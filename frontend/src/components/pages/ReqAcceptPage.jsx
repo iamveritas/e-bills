@@ -38,33 +38,33 @@ export default function ReqAcceptPage({data}) {
                     <div className="block mt">
                         <span className="accept-heading">please accept to</span>
                         <span className="block">
-                            <span className="accept-heading">pay on </span>
-                            <span className="detail">{data.date_of_issue}</span>
+              <span className="accept-heading">pay on </span>
+              <span className="detail">{data.date_of_issue}</span>
             </span>
                         <span className="block">
-                            <span className="accept-heading">the sum of </span>
-                            <span className="detail" style={{textTransform: "uppercase"}}>
-                                {data.currency_code}, {data.amount_numbers}
-                            </span>
-                        </span>
+              <span className="accept-heading">the sum of </span>
+              <span className="detail" style={{textTransform: "uppercase"}}>
+                {data.currency_code}, {data.amount_numbers}
+              </span>
+            </span>
                         <span className="block mt">
-                            <span className="accept-heading">to the order of </span>
-                            <span className="block detail">
-                                {data.payee.name}, {data.place_of_payment}
-                            </span>
-                        </span>
+              <span className="accept-heading">to the order of </span>
+              <span className="block detail">
+                {data.payee.name}, {data.place_of_payment}
+              </span>
+            </span>
                         <span className="block mt">
-                            <span className="accept-heading">Drawer: </span>
-                            <span className="block detail">
-                                {data.drawee.name}, {data.place_of_drawing}
-                            </span>
-                        </span>
+              <span className="accept-heading">Drawer: </span>
+              <span className="block detail">
+                {data.drawee.name}, {data.place_of_drawing}
+              </span>
+            </span>
                         <span className="block mt">
-                            <span className="accept-heading">Requested by: </span>
-                            <span className="block detail">
-                                {data.payee.name}, {data.place_of_payment}
-                            </span>
-                        </span>
+              <span className="accept-heading">Requested by: </span>
+              <span className="block detail">
+                {data.payee.name}, {data.place_of_payment}
+              </span>
+            </span>
                     </div>
                     <button className="btn mtt" onClick={handleSubmit}>
                         SIGN

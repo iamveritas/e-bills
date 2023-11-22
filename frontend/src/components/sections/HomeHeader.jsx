@@ -3,7 +3,7 @@ import IconHolder from "../elements/IconHolder";
 import SecondaryIcon from "../elements/SecondaryIcon";
 
 import setting from "../../assests/setting.svg";
-import hamburger from "../../assests/hamburger.svg";
+import contact from "../../assests/contact.svg";
 import payment_options from "../../assests/payment-options.svg";
 import payment_channel from "../../assests/payment-chanel.svg";
 import profile from "../../assests/profile.svg";
@@ -15,7 +15,7 @@ export default function HomeHeader() {
         <div className="home-header">
             <div className="home-header-left">
                 <IconHolder handleClick={() => handlePage("setting")} icon={setting}/>
-                <IconHolder handleClick={() => handlePage("dont")} icon={hamburger}/>
+                <IconHolder handleClick={() => handlePage("contact")} icon={contact}/>
             </div>
             <div className="home-header-right">
                 <SecondaryIcon

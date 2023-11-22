@@ -8,7 +8,7 @@ import Pdf from "react-to-pdf";
 import {MainContext} from "../../context/MainContext";
 
 function Bill({identity, data}) {
-    const {handlePage} = useContext(MainContext);
+    const {showPopUpSecondary} = useContext(MainContext);
     const divRef = React.createRef();
     const [offSet, setOffSet] = useState({
         width: 0,
@@ -19,7 +19,7 @@ function Bill({identity, data}) {
         unit: "px",
         format: [offSet.width, offSet.height],
     };
-    console.log(offSet);
+
     const handlePdfSize = () => {
         const divEle = document.getElementById("main-container");
         setOffSet({
@@ -41,7 +41,7 @@ function Bill({identity, data}) {
         <div className="billing">
             <div className="top-buttons">
                 <IconHolder
-                    handleClick={() => handlePage("home")}
+                    handleClick={() => showPopUpSecondary(false, "")}
                     circuled="circule"
                     icon={back}
                 />
@@ -103,111 +103,111 @@ function Bill({identity, data}) {
                         <div className="details-container-middle">
                             <div className="details-container-middle-date">
                 <span className="details-container-middle-date-left">
-                    Gegen diesen Wechsel - erste Ausfertigung - zahlen Sie am
+                  Gegen diesen Wechsel - erste Ausfertigung - zahlen Sie am
                 </span>
                                 <div className="details-container-middle-date-right">
-                                    <span className="details-container-middle-date-right-uper">
-                                        SOME NUM HERE
-                                    </span>
+                  <span className="details-container-middle-date-right-uper">
+                    SOME NUM HERE
+                  </span>
                                     <span className="details-container-middle-date-right-lower">
-                                        Monat in Buchstaben
-                                    </span>
+                    Monat in Buchstaben
+                  </span>
                                 </div>
                             </div>
                             <div className="details-container-middle-num">
-                                <span className="details-container-middle-num-text">
-                                    <span className="details-container-middle-num-text-an">
-                                        an
-                                    </span>
-                                    <span className="details-container-middle-num-text-further">
-                                        SOME TEXT HERE
-                                    </span>
-                                </span>
+                <span className="details-container-middle-num-text">
+                  <span className="details-container-middle-num-text-an">
+                    an
+                  </span>
+                  <span className="details-container-middle-num-text-further">
+                    SOME TEXT HERE
+                  </span>
+                </span>
                                 <span className="details-container-middle-num-amount">
-                                    <span className="details-container-middle-num-amount-currency">
-                                        €
-                                    </span>
-                                    <span className="details-container-middle-num-amount-figures">
-                                        SOME NUM HERE
-                                    </span>
-                                </span>
+                  <span className="details-container-middle-num-amount-currency">
+                    €
+                  </span>
+                  <span className="details-container-middle-num-amount-figures">
+                    SOME NUM HERE
+                  </span>
+                </span>
                             </div>
                             <div className="details-container-middle-letter">
-                                <span className="details-container-middle-letter-currency">
-                                    EURO
-                                </span>
+                <span className="details-container-middle-letter-currency">
+                  EURO
+                </span>
                                 <span className="details-container-middle-letter-amount">
-                                    <span className="details-container-middle-letter-amount-figures">
-                                        SOME TEXT HERE
-                                    </span>
-                                    <span className="details-container-middle-letter-amount-text">
-                                        Betrag in Buchstaben
-                                    </span>
-                                </span>
+                  <span className="details-container-middle-letter-amount-figures">
+                    SOME TEXT HERE
+                  </span>
+                  <span className="details-container-middle-letter-amount-text">
+                    Betrag in Buchstaben
+                  </span>
+                </span>
                             </div>
                         </div>
                         <div className="details-container-bottom">
                             <div className="details-container-bottom-left">
                                 <div className="details-container-bottom-left-bez">
-                                    <span className="details-container-bottom-left-bez-line">
-                                        <span className="details-container-bottom-left-bez-line-text">
-                                            Bezogenger
-                                        </span>
-                                        <span className="details-container-bottom-left-bez-line-ans">
-                                            SOME TEXT HERE
-                                        </span>
-                                    </span>
+                  <span className="details-container-bottom-left-bez-line">
+                    <span className="details-container-bottom-left-bez-line-text">
+                      Bezogenger
+                    </span>
+                    <span className="details-container-bottom-left-bez-line-ans">
+                      SOME TEXT HERE
+                    </span>
+                  </span>
                                     <span className="details-container-bottom-left-bez-next-line">
-                                        SOME TEXT HERE
-                                    </span>
+                    SOME TEXT HERE
+                  </span>
                                 </div>
                                 <div className="details-container-bottom-left-in">
-                                    <span className="details-container-bottom-left-in-text">
-                                        in
-                                    </span>
+                  <span className="details-container-bottom-left-in-text">
+                    in
+                  </span>
                                     <span className="details-container-bottom-left-in-further">
-                                        <span className="details-container-bottom-left-in-further-text">
-                                            SOME TEXT HERE
-                                        </span>
-                                        <span className="details-container-bottom-left-in-further-bottom">
-                                            Ort und Strabe (genaue Adressangebe)
-                                        </span>
-                                    </span>
+                    <span className="details-container-bottom-left-in-further-text">
+                      SOME TEXT HERE
+                    </span>
+                    <span className="details-container-bottom-left-in-further-bottom">
+                      Ort und Strabe (genaue Adressangebe)
+                    </span>
+                  </span>
                                 </div>
                                 <div className="details-container-bottom-left-detail">
                                     <div className="details-container-bottom-left-bez">
-                                        <span className="details-container-bottom-left-bez-line">
-                                            <span className="details-container-bottom-left-bez-line-text">
-                                                Zahlbar bei
-                                            </span>
-                                            <span className="details-container-bottom-left-bez-line-ans">
-                                                SOME TEXT HERE
-                                            </span>
-                                        </span>
+                    <span className="details-container-bottom-left-bez-line">
+                      <span className="details-container-bottom-left-bez-line-text">
+                        Zahlbar bei
+                      </span>
+                      <span className="details-container-bottom-left-bez-line-ans">
+                        SOME TEXT HERE
+                      </span>
+                    </span>
                                         <span className="details-container-bottom-left-bez-next-line">
-                                            SOME TEXT HERE
-                                        </span>
+                      SOME TEXT HERE
+                    </span>
                                     </div>
                                     <div className="details-container-bottom-left-in">
-                                        <span className="details-container-bottom-left-in-text">
-                                            in
-                                        </span>
+                    <span className="details-container-bottom-left-in-text">
+                      in
+                    </span>
                                         <span className="details-container-bottom-left-in-further">
-                                            <span className="details-container-bottom-left-in-further-text">
-                                                SOME TEXT HERE
-                                            </span>
-                                            <span className="details-container-bottom-left-in-further-bottom">
-                                                Diesen Raum nur fur Zahistellen - und Domizilvermerke
-                                                benutzenl
-                                            </span>
-                                        </span>
+                      <span className="details-container-bottom-left-in-further-text">
+                        SOME TEXT HERE
+                      </span>
+                      <span className="details-container-bottom-left-in-further-bottom">
+                        Diesen Raum nur fur Zahistellen - und Domizilvermerke
+                        benutzenl
+                      </span>
+                    </span>
                                     </div>
                                 </div>
                             </div>
                             <div className="details-container-bottom-signature">
-                                <span className="signature">
-                                    <img src={dumySig}/>
-                                </span>
+                <span className="signature">
+                  <img src={dumySig}/>
+                </span>
                                 <span>Unterschrift und Adresse des Ausstellers</span>
                             </div>
                         </div>

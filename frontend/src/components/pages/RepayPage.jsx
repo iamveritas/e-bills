@@ -7,8 +7,6 @@ import {MainContext} from "../../context/MainContext";
 import copy from "../../assests/copy.svg";
 
 export default function RepayPage({data}) {
-    const {handlePage} = useContext(MainContext);
-    console.log(data);
     return (
         <div className="Repay">
             <Header title="Pay"/>
@@ -24,18 +22,18 @@ export default function RepayPage({data}) {
             <div className="inline">
                 <span>the sum of </span>
                 <span className="colored" style={{textTransform: "uppercase"}}>
-                    {data.currency_code} {data.amount_numbers}
-                </span>
+          {data.currency_code} {data.amount_numbers}
+        </span>
             </div>
             <div className="col mtt">
-                <label htmlFor="wallet">Send from wallet:</label>
+                <label htmlFor="wallet">Link to pay:</label>
                 <span
                     className="select-opt"
                     onClick={() => {
                         navigator.clipboard.writeText(data.link_to_pay);
                     }}
                 >
-                    {data.link_to_pay?.slice(0, 20)}...{" "}
+          {data.link_to_pay?.slice(0, 20)}...{" "}
                     <img
                         style={{
                             width: "5vw",
@@ -45,7 +43,7 @@ export default function RepayPage({data}) {
                         }}
                         src={copy}
                     />
-                </span>
+        </span>
             </div>
         </div>
     );

@@ -12,9 +12,12 @@ import ReqPaymentPage from "./components/pages/ReqPaymentPage";
 import ReqAcceptPage from "./components/pages/ReqAcceptPage";
 import IdentityPage from "./components/pages/IdentityPage";
 import SettingPage from "./components/pages/SettingPage";
+import ErrrorPage from "./components/pages/ErrrorPage";
+import Contact from "./components/pages/Contact";
 
 export default function App() {
-    const {current, popUp} = useContext(MainContext);
+    const {toast, loading, current, popUp, popUp2, contacts} =
+        useContext(MainContext);
     // Set data for bill issue
     const [data, setData] = useState({
         maturity_date: "",
@@ -50,6 +53,16 @@ export default function App() {
         let name = e.target.name;
         setData({...data, [name]: value});
     };
+    const checkHandleSearch = (e) => {
+        let value = e.target.value;
+        let name = e.target.name;
+        const isValidOption = contacts.some((d) => d.name == value);
+        if (isValidOption || value === "") {
+            setData({...data, [name]: value});
+        } else {
+            setData({...data, [name]: ""});
+        }
+    };
     const handleChangeDrawerIsPayee = (e) => {
         let value = !data.drawer_is_payee;
         let name = e.target.name;
@@ -79,12 +92,15 @@ export default function App() {
                 return <EndorsePage/>;
             case "repay":
                 return <RepayPage data={data}/>;
+            case "contact":
+                return <Contact/>;
             case "issue":
                 return (
                     <IssuePage
-                        handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
                         data={data}
                         changeHandle={changeHandle}
+                        checkHandleSearch={checkHandleSearch}
+                        handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
                         handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}
                     />
                 );
@@ -97,10 +113,24 @@ export default function App() {
         }
     };
     //identity if this empty
-    return (
-        <>
-            {popUp.show && <div className="popup">{popUp.content}</div>}
-            {activePage()}
-        </>
-    );
+    if (loading) {
+        return (
+            <div className="loading-main">
+                <div className="loading">
+                    <div className="loading-sub">
+                        <div></div>
+                    </div>
+                </div>
+            </div>
+        );
+    } else {
+        return (
+            <>
+                {toast && <span className="toast">{toast}</span>}
+                {popUp.show && <div className="popup">{popUp.content}</div>}
+                {popUp2.show && <div className="popup">{popUp2.content}</div>}
+                {activePage()}
+            </>
+        );
+    }
 }

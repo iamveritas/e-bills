@@ -1,4 +1,4 @@
-import React, {useContext} from "react";
+import React, {useContext, useEffect} from "react";
 import HomeHeader from "../sections/HomeHeader";
 import Amount from "../elements/Amount";
 import SubHeading from "../elements/SubHeading";
@@ -10,10 +10,10 @@ import {MainContext} from "../../context/MainContext";
 
 export default function HomePage() {
     const {amount, currency, bills_list} = useContext(MainContext);
-
     // find all bills event
-    fetch("http://localhost:8000/bill/dht");
-
+    useEffect(() => {
+        fetch("http://localhost:8000/bill/dht");
+    }, []);
     return (
         <div className="home">
             <HomeHeader/>
@@ -55,7 +55,7 @@ export default function HomePage() {
                 {bills_list?.length > 4 && (
                     <div className="home-container-payments">
                         <Payments
-                            payments="4 Recent Payments"
+                            payments={bills_list?.length + " All Payments"}
                             history="Full Payment History"
                         />
                     </div>

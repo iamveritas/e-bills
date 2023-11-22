@@ -34,24 +34,24 @@ export default function ReqPaymentPage({data}) {
             <div className="accept-container">
                 <div className="accept-container-content">
                     <div className="block mt">
+            <span className="block mt">
+              <span className="accept-heading">send to </span>
+              <span className="block detail input-blank">
+                {data.drawee.name}, {data.place_of_drawing}
+              </span>
+            </span>
                         <span className="block mt">
-                            <span className="accept-heading">send to </span>
-                            <span className="block detail input-blank">
-                                {data.drawee.name}, {data.place_of_drawing}
-                            </span>
-                        </span>
-                        <span className="block mt">
-                            <span className="accept-heading">the sum of </span>
-                            <span className="detail" style={{textTransform: "uppercase"}}>
-                                {data.currency_code}, {data.amount_numbers}
-                            </span>
-                        </span>
+              <span className="accept-heading">the sum of </span>
+              <span className="detail" style={{textTransform: "uppercase"}}>
+                {data.currency_code}, {data.amount_numbers}
+              </span>
+            </span>
                         <span className="block mtt">
-                            <span className="accept-heading">Requested by: </span>
-                            <span className="block detail">
-                                {data.payee.name}, {data.place_of_payment}
-                            </span>
-                        </span>
+              <span className="accept-heading">Requested by: </span>
+              <span className="block detail">
+                {data.payee.name}, {data.place_of_payment}
+              </span>
+            </span>
                     </div>
                     <button className="btn mtt" onClick={handleSubmit}>
                         SIGN

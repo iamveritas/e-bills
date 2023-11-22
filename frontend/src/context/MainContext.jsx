@@ -4,18 +4,35 @@ const MainContext = createContext();
 
 function MainProvider({children}) {
     const [current, setCurrent] = useState("");
+    const [loading, setLoading] = useState(true);
     const [popUp, setPopUp] = useState({
+        show: false,
+        content: "",
+    });
+    const [popUp2, setPopUp2] = useState({
         show: false,
         content: "",
     });
     const [amount, setAmount] = useState({bill: 0, iou: 0, endors: 0});
     const [currency, setCurrency] = useState("BTC");
     const [bills_list, setBillsList] = useState([]);
+    const [toast, setToast] = useState("");
+    useEffect(() => {
+        setTimeout(() => {
+            setToast("");
+        }, 5000);
+    }, [toast]);
     const handlePage = (page) => {
         setCurrent(page);
     };
     const showPopUp = (show, content) => {
         setPopUp({
+            show: show,
+            content: content,
+        });
+    };
+    const showPopUpSecondary = (show, content) => {
+        setPopUp2({
             show: show,
             content: content,
         });
@@ -40,6 +57,48 @@ function MainProvider({children}) {
                 console.log(err.message);
             });
     }, []);
+
+    const handleDelete = async (id) => {
+        const form_data = new FormData();
+        form_data.append("name", id);
+        await fetch("http://localhost:8000/contacts/remove", {
+            method: "POST",
+            body: form_data,
+            mode: "no-cors",
+        })
+            .then((response) => {
+                // if (response.redirected) {
+                let filtered = contacts.filter((d) => d.name != id);
+                setContacts(filtered);
+                setToast("Contact Deleted");
+                // } else {
+                //   setToast("Oops! there is an error please try again later");
+                // }
+            })
+            .catch((err) => console.log(err));
+    };
+    const handleAddContact = async (newContact, hidePop) => {
+        const form_data = new FormData();
+        form_data.append("name", newContact.name);
+        form_data.append("node_id", newContact.peer_id);
+        await fetch("http://localhost:8000/contacts/new", {
+            method: "POST",
+            body: form_data,
+            mode: "no-cors",
+        })
+            .then((response) => {
+                // if (response.redirected) {
+                setContacts((prev) => [...prev, newContact]);
+                hidePop(false, "");
+                setToast("Your Contact is Added");
+                // } else {
+                //   setToast("Oops! there is an error please try again later");
+                // }
+            })
+            .catch((err) => {
+                return false;
+            });
+    };
     const [identity, setIdentity] = useState({
         name: "",
         date_of_birth: "",
@@ -55,22 +114,25 @@ function MainProvider({children}) {
 
     // Set identity
     useEffect(() => {
+        setLoading(true);
         fetch("http://localhost:8000/identity/return")
             .then((res) => res.json())
             .then((response) => {
                 if (response.name !== "" && response.email !== "") {
                     setIdentity(response);
                     handlePage("home");
+                    setLoading(false);
                 } else {
                     handlePage("identity");
+                    setLoading(false);
                 }
             })
             .catch((err) => {
                 console.log(err.message);
                 handlePage("identity");
+                setLoading(false);
             });
     }, [refresh]);
-
     // Set bills
     useEffect(() => {
         fetch("http://localhost:8000/bills/return")
@@ -87,12 +149,15 @@ function MainProvider({children}) {
     }, []);
     // Set peer id
     useEffect(() => {
+        setLoading(true);
         fetch("http://localhost:8000/identity/peer_id/return")
             .then((res) => res.json())
             .then((data) => {
+                setLoading(false);
                 setPeerId(data.id);
             })
             .catch((err) => {
+                setLoading(false);
                 console.log(err.message);
             });
     }, []);
@@ -134,11 +199,23 @@ function MainProvider({children}) {
         return () => {
         };
     }, [peer_id, bills_list]);
+
+    function copytoClip(copytext, text) {
+        navigator.clipboard.writeText(copytext);
+        setToast(text);
+    }
+
     return (
         <MainContext.Provider
             value={{
                 identity,
+                loading,
                 amount,
+                toast,
+                copytoClip,
+                setToast,
+                handleDelete,
+                handleAddContact,
                 bills_list,
                 refresh,
                 contacts,
@@ -147,7 +224,9 @@ function MainProvider({children}) {
                 peer_id,
                 current,
                 popUp,
+                popUp2,
                 showPopUp,
+                showPopUpSecondary,
                 handlePage,
             }}
         >

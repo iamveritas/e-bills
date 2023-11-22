@@ -3,9 +3,18 @@ import React, {useContext, useEffect, useState} from "react";
 import avatar from "../../assests/avatar.svg";
 import closebtn from "../../assests/close-btn.svg";
 import {MainContext} from "../../context/MainContext";
+import copyIcon from "../../assests/copy.svg";
 
 export default function IdentityPage() {
-    const {handlePage, identity, handleRefresh} = useContext(MainContext);
+    const {
+        toast,
+        handlePage,
+        peer_id,
+        identity,
+        handleRefresh,
+        setToast,
+        copytoClip,
+    } = useContext(MainContext);
     const [userData, setUserData] = useState({
         name: identity.name || "",
         email: identity.email || "",
@@ -17,6 +26,7 @@ export default function IdentityPage() {
     });
     const [image, setImage] = useState();
     const [uneditable, setunEditable] = useState(true);
+
     const [content, setContent] = useState({
         justify: "",
         close: false,
@@ -29,7 +39,6 @@ export default function IdentityPage() {
     };
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-
         if (file) {
             if (file.type === "image/jpeg" || file.name.endsWith(".jpg")) {
                 setImage(URL.createObjectURL(file));
@@ -39,6 +48,7 @@ export default function IdentityPage() {
         }
     };
 
+    const peerIdLength = peer_id?.length;
     const handleSubmit = async (e) => {
         e.preventDefault();
         const form_data = new FormData(e.target);
@@ -54,7 +64,7 @@ export default function IdentityPage() {
                 console.log(response);
                 handleRefresh();
             })
-            .catch((err) => err);
+            .catch((err) => console.log(err));
     };
     useEffect(() => {
         if (identity.name && identity.email) {
@@ -67,6 +77,17 @@ export default function IdentityPage() {
             setunEditable(false);
         }
     }, []);
+    const checkPreview = () => {
+        if (
+            userData.name != "" &&
+            userData.email != "" &&
+            userData.date_of_birth != "Invalid Date"
+        ) {
+            setunEditable(!uneditable);
+        } else {
+            setToast("Please fill Required field");
+        }
+    };
 
     return (
         <div className="create">
@@ -76,7 +97,7 @@ export default function IdentityPage() {
                 ) : (
                     <span className="create-head-title">
             {!uneditable ? "Edit Identity" : "Identity"}
-                    </span>
+          </span>
                 )}
                 {content.close && (
                     <img
@@ -93,15 +114,33 @@ export default function IdentityPage() {
             onChange={handleFileChange}
             type="file"
             id="avatar"
-            /> */}
+          /> */}
                     <label htmlFor="avatar">
                         <img src={image ? image : avatar}/>
                         <span>{image ? "Change Photo" : "Add Photo"}</span>
                     </label>
+                    {identity?.name && (
+                        <span
+                            onClick={() =>
+                                copytoClip(peer_id, "You Have Copied Node Identity")
+                            }
+                            className="identity-peerid"
+                        >
+              {peer_id?.slice(0, 5)}...
+                            {peer_id?.slice(peerIdLength - 5, peerIdLength)}
+                            <img src={copyIcon}/>
+            </span>
+                    )}
                 </div>
                 <div className="create-body-form">
                     <div className="create-body-form-input">
-                        <div className="create-body-form-input-in">
+                        <div
+                            className={
+                                toast !== "" && userData?.name === ""
+                                    ? "create-body-form-input-in invalid"
+                                    : "create-body-form-input-in"
+                            }
+                        >
                             <label htmlFor="name">Full Name</label>
                             <input
                                 id="name"
@@ -116,6 +155,7 @@ export default function IdentityPage() {
                         {/* <div className="create-body-form-input-in">
               <label htmlFor="phonenumber">Phone Number</label>
               <input
+
                 id="phonenumber"
                 value={userData.phone_number}
                 disabled={uneditable}
@@ -125,7 +165,13 @@ export default function IdentityPage() {
                 type="text"
               />
             </div> */}
-                        <div className="create-body-form-input-in">
+                        <div
+                            className={
+                                toast != "" && userData?.email === ""
+                                    ? "create-body-form-input-in invalid"
+                                    : "create-body-form-input-in"
+                            }
+                        >
                             <label htmlFor="email">Email Address</label>
                             <input
                                 id="email"
@@ -137,7 +183,13 @@ export default function IdentityPage() {
                                 type="text"
                             />
                         </div>
-                        <div className="create-body-form-input-in">
+                        <div
+                            className={
+                                toast != "" && userData?.date_of_birth === "Invalid Date"
+                                    ? "create-body-form-input-in invalid"
+                                    : "create-body-form-input-in"
+                            }
+                        >
                             <label htmlFor="date_of_birth">Date Of Birth</label>
                             <input
                                 id="date_of_birth"
@@ -191,10 +243,7 @@ export default function IdentityPage() {
                 </div>
                 {content.sign && (
                     <div className="flex justify-space">
-                        <div
-                            onClick={() => setunEditable(!uneditable)}
-                            className="create-body-btn"
-                        >
+                        <div onClick={checkPreview} className="create-body-btn">
                             {uneditable ? "CANCEL" : "PREVIEW"}
                         </div>
                         {uneditable && (
