@@ -54,7 +54,7 @@ export default function ReqAcceptPage({data}) {
               </span>
             </span>
                         <span className="block mt">
-              <span className="accept-heading">Drawer: </span>
+              <span className="accept-heading">Drawee: </span>
               <span className="block detail">
                 {data.drawee.name}, {data.place_of_drawing}
               </span>
