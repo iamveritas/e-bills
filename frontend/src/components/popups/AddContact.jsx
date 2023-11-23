@@ -16,7 +16,7 @@ export default function AddContact() {
     return (
         <div className="contact add-contact">
             <div className="contact-head">
-                <span className="contact-head-title">CONTACTS</span>
+                <span className="contact-head-title">CONTACT</span>
                 <img onClick={() => showPopUp(false, "")} src={closeIcon}/>
             </div>
             <div className="contact-body">

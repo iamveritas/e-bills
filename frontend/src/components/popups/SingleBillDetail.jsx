@@ -68,9 +68,7 @@ export default function SingleBillDetail({item}) {
     }
     if (
         !singleBill?.payed &&
-        !singleBill?.accepted &&
         !singleBill?.pending &&
-        !singleBill?.endorse &&
         canMyPeerIdEndorse
     ) {
         endorse = true;
@@ -86,7 +84,6 @@ export default function SingleBillDetail({item}) {
     }
     if (
         !singleBill?.payed &&
-        !singleBill?.accepted &&
         !singleBill?.pending &&
         !singleBill?.requested_to_pay &&
         canMyPeerIdReqToPay

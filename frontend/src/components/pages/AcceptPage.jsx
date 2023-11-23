@@ -33,13 +33,13 @@ export default function AcceptPage({data}) {
             </div>
             <div className="accept-container">
                 <div className="accept-container-content">
-                    <div className="block">
-                        <span className="accept-heading">Drawer:</span>
-                        <span className="detail block">{identity.name}</span>
-                    </div>
+                    {/*<div className="block">*/}
+                    {/*    <span className="accept-heading">Drawer:</span>*/}
+                    {/*    <span className="detail block">{identity.name}</span>*/}
+                    {/*</div>*/}
                     <div className="block">
                         <span className="accept-heading">Drawee:</span>
-                        <span className="detail block">{data.drawee_name}</span>
+                        <span className="detail block">{data.drawee.name}</span>
                     </div>
                     <div className="block mt">
             <span className="block">
@@ -52,7 +52,7 @@ export default function AcceptPage({data}) {
             </span>
                         <span className="block">
               <span className="accept-heading">to the order of </span>
-              <span className="detail">{data.payee_name} </span>
+              <span className="detail">{data.payee.name} </span>
             </span>
                         <span className="block">
               <span className="accept-heading">the sum of </span>

@@ -20,7 +20,7 @@ export default function Contact() {
     return (
         <div className="contact">
             <div className="contact-head">
-                <span className="contact-head-title">CONTACT</span>
+                <span className="contact-head-title">CONTACTS</span>
                 <img
                     className="close-btn"
                     onClick={() => {

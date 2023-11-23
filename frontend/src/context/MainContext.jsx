@@ -169,7 +169,7 @@ function MainProvider({children}) {
                 ...prev,
                 iou: prev.iou + items.amount_numbers,
             }));
-        } else if (peer_id == items.drawer.peer_id) {
+        } else if (peer_id == items.drawer.peer_id && peer_id != items.endorsee.peer_id) {
             //   name = `${items.drawee.name} ${items.payee.name}`;
             setAmount((prev) => ({
                 ...prev,
@@ -186,6 +186,12 @@ function MainProvider({children}) {
             setAmount((prev) => ({
                 ...prev,
                 bill: prev.bill + items.amount_numbers,
+            }));
+        } else {
+            //   name = `${items.drawee.name} ${items.payee.name}`;
+            setAmount((prev) => ({
+                ...prev,
+                endors: prev.endors + items.amount_numbers,
             }));
         }
         setCurrency(items.currency_code);
