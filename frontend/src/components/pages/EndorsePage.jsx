@@ -8,8 +8,7 @@ import {MainContext} from "../../context/MainContext";
 import SelectSearchOption from "../elements/SelectSearchOption";
 
 export default function EndorsePage({data}) {
-    const {handlePage, contacts, showPopUp} = useContext(MainContext);
-
+    const {handlePage, contacts, showPopUpSecondary, showPopUp} = useContext(MainContext);
     const [billEndorse, setBillEndorse] = useState("");
     const changeHandle = (e) => {
         setBillEndorse(e.target.value);
@@ -22,14 +21,19 @@ export default function EndorsePage({data}) {
             method: "POST",
             body: form_data,
             mode: "no-cors",
-        })
-            .then((response) => {
-                console.log(response);
-                showPopUp(false, "");
-                handlePage("home");
-            })
-            .catch((err) => err);
+        }).then((response) => {
+            console.log(response);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        }).catch((err) => {
+            console.log(err);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        });
     };
+
     const checkHandleSearch = (e) => {
         let value = e.target.value;
         let name = e.target.name;

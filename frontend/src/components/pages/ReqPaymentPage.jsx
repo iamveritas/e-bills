@@ -7,7 +7,7 @@ import UniqueNumber from "../sections/UniqueNumber";
 import {MainContext} from "../../context/MainContext";
 
 export default function ReqPaymentPage({data}) {
-    const {handlePage, showPopUp} = useContext(MainContext);
+    const {handlePage, showPopUpSecondary, showPopUp} = useContext(MainContext);
     const handleSubmit = async () => {
         const form_data = new FormData();
         form_data.append("bill_name", data.name);
@@ -15,14 +15,19 @@ export default function ReqPaymentPage({data}) {
             method: "POST",
             body: form_data,
             mode: "no-cors",
-        })
-            .then((response) => {
-                console.log(response);
-                showPopUp(false, "");
-                handlePage("home");
-            })
-            .catch((err) => err);
+        }).then((response) => {
+            console.log(response);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        }).catch((err) => {
+            console.log(err);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        });
     };
+
     return (
         <div className="accept">
             <Header title="Request Payment"/>

@@ -6,7 +6,7 @@ import attachment from "../../assests/attachment.svg";
 import {MainContext} from "../../context/MainContext";
 
 export default function AcceptPage({data}) {
-    const {identity, handlePage, showPopUp} = useContext(MainContext);
+    const {identity, handlePage, showPopUpSecondary, showPopUp} = useContext(MainContext);
     const handleSubmit = async () => {
         const form_data = new FormData();
         form_data.append("bill_name", data.name);
@@ -14,15 +14,19 @@ export default function AcceptPage({data}) {
             method: "POST",
             body: form_data,
             mode: "no-cors",
-        })
-            .then((response) => {
-                console.log(response);
-
-                showPopUp(false, "");
-                handlePage("home");
-            })
-            .catch((err) => err);
+        }).then((response) => {
+            console.log(response);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        }).catch((err) => {
+            console.log(err);
+            showPopUpSecondary(false, "");
+            showPopUp(false, "");
+            handlePage("home");
+        });
     };
+
     return (
         <div className="accept">
             <Header title="Accept"/>
