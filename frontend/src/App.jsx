@@ -10,8 +10,7 @@ import ErrrorPage from "./components/pages/ErrrorPage";
 import Contact from "./components/pages/Contact";
 
 export default function App() {
-  const { toast, loading, current, popUp, popUp2, contacts } =
-    useContext(MainContext);
+  const { toast, loading, current, popUp, popUp2 } = useContext(MainContext);
   // Set data for bill issue
   const [operation_codes, setOperationCodes] = useState([]);
   // Set operation codes

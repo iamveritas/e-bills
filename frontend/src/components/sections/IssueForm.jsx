@@ -5,11 +5,12 @@ import { MainContext } from "../../context/MainContext";
 export default function IssueForm() {
   const { contacts, handlePage, handleRefresh, setToast } =
     useContext(MainContext);
-  const [click, setClick] = useState(true);
+
+  // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
     payee_name: "",
-    currency_code: "sats",
+    currency_code: "sat",
     amount_numbers: "",
     drawee_name: "",
     drawer_name: "",
@@ -21,6 +22,8 @@ export default function IssueForm() {
     drawer_is_payee: false,
     drawer_is_drawee: false,
   });
+  const [click, setClick] = useState(true);
+
   const changeHandle = (e) => {
     let value = e.target.value;
     let name = e.target.name;
@@ -46,7 +49,7 @@ export default function IssueForm() {
     let name = e.target.name;
     setData({ ...data, [name]: value });
   };
-  const handleSubmition = async (e) => {
+  const handleSubmition = (e) => {
     e.preventDefault();
     if (click) {
       setClick(false);
@@ -61,22 +64,25 @@ export default function IssueForm() {
       form_data.append("maturity_date", data.maturity_date);
       form_data.append("drawer_is_payee", data.drawer_is_payee);
       form_data.append("drawer_is_drawee", data.drawer_is_drawee);
-      setToast("please wait...");
-      await fetch("http://localhost:8000/bill/issue", {
+      setToast("Please Wait...");
+      fetch("http://localhost:8000/bill/issue", {
         method: "POST",
         body: form_data,
         mode: "no-cors",
       })
         .then((response) => {
           console.log(response);
-          setToast("Your Bill is Added.");
           handleRefresh();
           handlePage("home");
+          setToast("You Bill is Added.");
           setClick(true);
         })
-        .catch((err) => err);
+        .catch((err) => {
+          setClick(true);
+          console.log(err);
+        });
     } else {
-      setToast("please wait...");
+      setToast("Please Wait...");
     }
   };
   return (
@@ -104,7 +110,7 @@ export default function IssueForm() {
             <SelectSearchOption
               placingHolder="Payee Company, Zurich"
               identity="payee_name"
-              checkCheck={data.drawer_is_payee || data.drawee_name}
+              checkCheck={data.drawer_is_payee}
               valuee={data.payee_name}
               changeHandle={changeHandle}
               checkHandleSearch={checkHandleSearch}
@@ -113,7 +119,7 @@ export default function IssueForm() {
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_payee">
-          <span>ME</span>
+          <span className="me-text"> ME</span>
           <div className="form-input-row">
             <input
               disabled={data?.drawer_is_drawee || data?.payee_name}
@@ -131,8 +137,8 @@ export default function IssueForm() {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="12"
+                width="5vw"
+                height="4vw"
                 viewBox="0 0 15 12"
                 fill="none"
               >
@@ -162,10 +168,10 @@ export default function IssueForm() {
               id="currency_code"
               name="currency_code"
               onChange={changeHandle}
-              placeholder="SATS"
+              placeholder="sat"
               required
             >
-              <option value={data.currency_code}>sats</option>
+              <option value={data.currency_code}>sat</option>
             </select>
           </span>
           <input
@@ -186,7 +192,7 @@ export default function IssueForm() {
             <SelectSearchOption
               identity="drawee_name"
               placingHolder="Drawee Company, Vienna"
-              checkCheck={data.drawer_is_drawee || data.payee_name}
+              checkCheck={data.drawer_is_drawee}
               valuee={data.drawee_name}
               changeHandle={changeHandle}
               checkHandleSearch={checkHandleSearch}
@@ -195,7 +201,7 @@ export default function IssueForm() {
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_drawee">
-          <span>ME</span>
+          <span className="me-text"> ME</span>
           <div className="form-input-row">
             <input
               disabled={data.drawer_is_payee || data.drawee_name}
@@ -213,8 +219,8 @@ export default function IssueForm() {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="12"
+                width="5vw"
+                height="4vw"
                 viewBox="0 0 15 12"
                 fill="none"
               >
@@ -301,7 +307,7 @@ export default function IssueForm() {
       {/*  </div>*/}
       {/*</div>*/}
       <input
-        disabled={!click}
+        disabled={click}
         className="btn"
         type="submit"
         value="Issue bill"
