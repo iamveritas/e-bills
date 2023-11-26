@@ -45,7 +45,7 @@ function Bill({ identity, data }) {
           circuled="circule"
           icon={back}
         />
-        <Pdf targetRef={divRef} options={options} filename="code-example.pdf">
+        <Pdf targetRef={divRef} options={options} filename="bill.pdf">
           {({ toPdf }) => (
             <IconHolder
               handleClick={toPdf}
@@ -60,7 +60,7 @@ function Bill({ identity, data }) {
         <div className="top-container">
           <div className="head-text">
             <img src={wechsel} />
-            <span>Angenommen</span>
+            <span>Accepted</span>
           </div>
           <div className="line">
             <hr />
@@ -68,7 +68,7 @@ function Bill({ identity, data }) {
             <hr />
           </div>
           <div className="unter-text">
-            <span>unterschrift des Annehmers</span>
+            <span>Acceptor’s signature</span>
           </div>
         </div>
         <div className="details">
@@ -77,24 +77,26 @@ function Bill({ identity, data }) {
               <div className="details-container-uper-den">
                 <div className="details-container-uper-den-main">
                   <div className="details-container-uper-den-main-first">
-                    SOME TEXT HERE
+                    {data?.place_of_drawing}
                   </div>
                   <div className="details-container-uper-den-main-second">
-                    , den
+                    ,
                   </div>
                   <div className="details-container-uper-den-main-third">
-                    SOME TEXT HERE
+                    {data?.date_of_issue}
                   </div>
                 </div>
-                <span className="bottom-text">Ort und Tag der Ausstellung</span>
+                <span className="bottom-text">
+                  Place and day of the issuing
+                </span>
               </div>
               <div className="details-container-uper-zah">
                 <div className="details-container-uper-zah-main">
                   <div className="details-container-uper-zah-main-first">
-                    Zahlungsort
+                    Place of payment
                   </div>
                   <div className="details-container-uper-zah-main-second">
-                    SOME TEXT HERE
+                    {data?.place_of_payment}
                   </div>
                 </div>
                 <hr />
@@ -110,7 +112,7 @@ function Bill({ identity, data }) {
                     SOME NUM HERE
                   </span>
                   <span className="details-container-middle-date-right-lower">
-                    Monat in Buchstaben
+                    Month in letters
                   </span>
                 </div>
               </div>
@@ -120,28 +122,28 @@ function Bill({ identity, data }) {
                     an
                   </span>
                   <span className="details-container-middle-num-text-further">
-                    SOME TEXT HERE
+                    {data?.payee.name}
                   </span>
                 </span>
                 <span className="details-container-middle-num-amount">
                   <span className="details-container-middle-num-amount-currency">
-                    €
+                    sat
                   </span>
                   <span className="details-container-middle-num-amount-figures">
-                    SOME NUM HERE
+                    {data?.amount_numbers}
                   </span>
                 </span>
               </div>
               <div className="details-container-middle-letter">
                 <span className="details-container-middle-letter-currency">
-                  EURO
+                  Satoshi
                 </span>
                 <span className="details-container-middle-letter-amount">
                   <span className="details-container-middle-letter-amount-figures">
-                    SOME TEXT HERE
+                    {data?.amounts_letters}
                   </span>
                   <span className="details-container-middle-letter-amount-text">
-                    Betrag in Buchstaben
+                    Amount in letters
                   </span>
                 </span>
               </div>
@@ -151,14 +153,14 @@ function Bill({ identity, data }) {
                 <div className="details-container-bottom-left-bez">
                   <span className="details-container-bottom-left-bez-line">
                     <span className="details-container-bottom-left-bez-line-text">
-                      Bezogenger
+                      Payer
                     </span>
                     <span className="details-container-bottom-left-bez-line-ans">
-                      SOME TEXT HERE
+                      {data?.drawee?.name}
                     </span>
                   </span>
                   <span className="details-container-bottom-left-bez-next-line">
-                    SOME TEXT HERE
+                    --
                   </span>
                 </div>
                 <div className="details-container-bottom-left-in">
@@ -167,10 +169,10 @@ function Bill({ identity, data }) {
                   </span>
                   <span className="details-container-bottom-left-in-further">
                     <span className="details-container-bottom-left-in-further-text">
-                      SOME TEXT HERE
+                      {data?.drawee?.postal_address}
                     </span>
                     <span className="details-container-bottom-left-in-further-bottom">
-                      Ort und Strabe (genaue Adressangebe)
+                      City and street Address
                     </span>
                   </span>
                 </div>
@@ -178,14 +180,14 @@ function Bill({ identity, data }) {
                   <div className="details-container-bottom-left-bez">
                     <span className="details-container-bottom-left-bez-line">
                       <span className="details-container-bottom-left-bez-line-text">
-                        Zahlbar bei
+                        Place of payment
                       </span>
                       <span className="details-container-bottom-left-bez-line-ans">
-                        SOME TEXT HERE
+                        {data?.place_of_payment}
                       </span>
                     </span>
                     <span className="details-container-bottom-left-bez-next-line">
-                      SOME TEXT HERE
+                      --
                     </span>
                   </div>
                   <div className="details-container-bottom-left-in">
@@ -194,7 +196,7 @@ function Bill({ identity, data }) {
                     </span>
                     <span className="details-container-bottom-left-in-further">
                       <span className="details-container-bottom-left-in-further-text">
-                        SOME TEXT HERE
+                        --
                       </span>
                       <span className="details-container-bottom-left-in-further-bottom">
                         Diesen Raum nur fur Zahistellen - und Domizilvermerke
@@ -208,7 +210,7 @@ function Bill({ identity, data }) {
                 <span className="signature">
                   <img src={dumySig} />
                 </span>
-                <span>Unterschrift und Adresse des Ausstellers</span>
+                <span>Signature and address of the drawer</span>
               </div>
             </div>
           </div>

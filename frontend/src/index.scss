@@ -37,7 +37,8 @@ $White: #fff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: "Poppins", sans-serif;
-  line-height: calcView(30);
+  font-size: calcView(24);
+  line-height: calcView(24);
   -webkit-user-select: none; /* Safari */
   -ms-user-select: none; /* IE 10 and IE 11 */
   user-select: none; /* Standard syntax */
@@ -98,6 +99,7 @@ select {
 select:disabled {
   filter: grayscale(1);
 }
+
 .select-class-main {
   .select-class:disabled {
     .select-class-main:after {
@@ -105,6 +107,7 @@ select:disabled {
     }
   }
 }
+
 select:focus {
   border: calcView(2) solid $PrimaryColor;
 }
@@ -334,23 +337,22 @@ input {
 .search-select {
   display: block;
   width: 100%;
+  height: calcView(56);
   position: relative;
   .select-class-main {
     position: relative;
   }
 
   .select-class-main:after {
-    content: url(./assests/dropdown.svg);
-    width: calcView(24);
-    font-size: calcView(24);
-    height: calcView(24);
-    background: white;
+    content: "";
+    width: calcView(26);
+    height: calcView(26);
+    background: center/contain no-repeat url(./assests/dropdown.svg), white;
     border-radius: calcView(22);
     z-index: 2;
     position: absolute;
-    right: calcView(15);
-    top: 50%;
-    transform: translateY(-50%);
+    right: calcView(10);
+    top: calcView(12);
   }
   .select-class:disabled {
     background: transparent;
@@ -797,7 +799,7 @@ input {
   width: 100%;
   margin-top: calcView(16);
   display: block;
-
+  overflow-y: auto;
   hr {
     padding: 0;
     height: calcView(1);
@@ -821,7 +823,6 @@ input {
     height: calcView(1122.52);
     background-color: #ffffff;
     margin-top: calcView(-56);
-
     .top-container {
       padding-top: calcView(40);
 
@@ -977,19 +978,17 @@ input {
           &-num {
             display: flex;
             justify-content: space-between;
-
             &-text {
               display: flex;
               align-items: end;
               gap: calcView(5);
               width: calcView(503);
-
               &-an {
+                white-space: pre;
                 font-size: calcView(14);
                 font-weight: 500;
                 line-height: calcView(10);
               }
-
               &-further {
                 font-size: calcView(16);
                 line-height: calcView(14);
