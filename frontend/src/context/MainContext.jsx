@@ -68,7 +68,7 @@ function MainProvider({ children }) {
     })
       .then((response) => {
         // if (response.redirected) {
-        let filtered = contacts.filter((d) => d.name != id);
+        let filtered = contacts?.filter((d) => d.name != id);
         setContacts(filtered);
         setToast("Contact Deleted");
         // } else {
@@ -146,7 +146,7 @@ function MainProvider({ children }) {
       .catch((err) => {
         console.log(err.message);
       });
-  }, []);
+  }, [refresh]);
   // Set peer id
   useEffect(() => {
     setLoading(true);

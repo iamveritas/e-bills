@@ -1,19 +1,11 @@
-import React, { useContext } from "react";
+import React from "react";
 import IssueForm from "../sections/IssueForm";
 import Header from "../sections/Header";
 import TopDownHeading from "../elements/TopDownHeading";
 import IconHolder from "../elements/IconHolder";
 import attachment from "../../assests/attachment.svg";
-import { MainContext } from "../../context/MainContext";
 
-export default function IssuePage({
-  changeHandle,
-  checkHandleSearch,
-  data,
-  handleChangeDrawerIsDrawee,
-  handleChangeDrawerIsPayee,
-}) {
-  const { identity, contacts, handlePage } = useContext(MainContext);
+export default function IssuePage() {
   return (
     <div className="issue">
       <Header title="Issue" />
@@ -22,16 +14,7 @@ export default function IssuePage({
         <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
         <IconHolder icon={attachment} />
       </div>
-      <IssueForm
-        contacts={contacts}
-        handlePage={handlePage}
-        changeHandle={changeHandle}
-        checkHandleSearch={checkHandleSearch}
-        data={data}
-        identity={identity}
-        handleChangeDrawerIsDrawee={handleChangeDrawerIsDrawee}
-        handleChangeDrawerIsPayee={handleChangeDrawerIsPayee}
-      />
+      <IssueForm />
     </div>
   );
 }

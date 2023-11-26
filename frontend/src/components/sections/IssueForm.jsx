@@ -1,43 +1,84 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import SelectSearchOption from "../elements/SelectSearchOption";
+import { MainContext } from "../../context/MainContext";
 
-export default function IssueForm({
-  contacts,
-  data,
-  identity,
-  changeHandle,
-  checkHandleSearch,
-  handlePage,
-  handleChangeDrawerIsDrawee,
-  handleChangeDrawerIsPayee,
-}) {
-  const handleSubmition = (e) => {
-    e.preventDefault();
-
-    const form_data = new FormData();
-    form_data.append("bill_jurisdiction", data.bill_jurisdiction);
-    form_data.append("place_of_drawing", data.place_of_drawing);
-    form_data.append("amount_numbers", data.amount_numbers);
-    form_data.append("language", data.language);
-    form_data.append("drawee_name", data.drawee_name);
-    form_data.append("payee_name", data.payee_name);
-    form_data.append("place_of_payment", data.place_of_payment);
-    form_data.append("maturity_date", data.maturity_date);
-    form_data.append("drawer_is_payee", data.drawer_is_payee);
-    form_data.append("drawer_is_drawee", data.drawer_is_drawee);
-    fetch("http://localhost:8000/bill/issue", {
-      method: "POST",
-      body: form_data,
-      mode: "no-cors",
-    })
-      .then((response) => {
-        console.log(response);
-      })
-      .catch((err) => err);
-
-    handlePage("home");
+export default function IssueForm() {
+  const { contacts, handlePage, handleRefresh, setToast } =
+    useContext(MainContext);
+  const [click, setClick] = useState(true);
+  const [data, setData] = useState({
+    maturity_date: "",
+    payee_name: "",
+    currency_code: "sats",
+    amount_numbers: "",
+    drawee_name: "",
+    drawer_name: "",
+    place_of_drawing: "",
+    place_of_payment: "",
+    bill_jurisdiction: "",
+    date_of_issue: "",
+    language: "en",
+    drawer_is_payee: false,
+    drawer_is_drawee: false,
+  });
+  const changeHandle = (e) => {
+    let value = e.target.value;
+    let name = e.target.name;
+    setData({ ...data, [name]: value });
   };
-  console.log(data);
+  const checkHandleSearch = (e) => {
+    let value = e.target.value;
+    let name = e.target.name;
+    const isValidOption = contacts.some((d) => d.name == value);
+    if (isValidOption || value === "") {
+      setData({ ...data, [name]: value });
+    } else {
+      setData({ ...data, [name]: "" });
+    }
+  };
+  const handleChangeDrawerIsPayee = (e) => {
+    let value = !data.drawer_is_payee;
+    let name = e.target.name;
+    setData({ ...data, [name]: value });
+  };
+  const handleChangeDrawerIsDrawee = (e) => {
+    let value = !data.drawer_is_drawee;
+    let name = e.target.name;
+    setData({ ...data, [name]: value });
+  };
+  const handleSubmition = async (e) => {
+    e.preventDefault();
+    if (click) {
+      setClick(false);
+      const form_data = new FormData();
+      form_data.append("bill_jurisdiction", data.bill_jurisdiction);
+      form_data.append("place_of_drawing", data.place_of_drawing);
+      form_data.append("amount_numbers", data.amount_numbers);
+      form_data.append("language", data.language);
+      form_data.append("drawee_name", data.drawee_name);
+      form_data.append("payee_name", data.payee_name);
+      form_data.append("place_of_payment", data.place_of_payment);
+      form_data.append("maturity_date", data.maturity_date);
+      form_data.append("drawer_is_payee", data.drawer_is_payee);
+      form_data.append("drawer_is_drawee", data.drawer_is_drawee);
+      setToast("please wait...");
+      await fetch("http://localhost:8000/bill/issue", {
+        method: "POST",
+        body: form_data,
+        mode: "no-cors",
+      })
+        .then((response) => {
+          console.log(response);
+          setToast("Your Bill is Added.");
+          handleRefresh();
+          handlePage("home");
+          setClick(true);
+        })
+        .catch((err) => err);
+    } else {
+      setToast("please wait...");
+    }
+  };
   return (
     <form className="form" onSubmit={handleSubmition}>
       <div className="form-input">
@@ -259,7 +300,12 @@ export default function IssueForm({
       {/*    />*/}
       {/*  </div>*/}
       {/*</div>*/}
-      <input className="btn" type="submit" value="Issue bill" />
+      <input
+        disabled={!click}
+        className="btn"
+        type="submit"
+        value="Issue bill"
+      />
     </form>
   );
 }
