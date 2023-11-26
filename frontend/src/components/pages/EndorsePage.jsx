@@ -8,7 +8,8 @@ import { MainContext } from "../../context/MainContext";
 import SelectSearchOption from "../elements/SelectSearchOption";
 
 export default function EndorsePage({ data }) {
-  const { handlePage, contacts, showPopUp } = useContext(MainContext);
+  const { handlePage, contacts, showPopUp, showPopUpSecondary, handleRefresh } =
+    useContext(MainContext);
 
   const [billEndorse, setBillEndorse] = useState("");
   const changeHandle = (e) => {
@@ -25,8 +26,10 @@ export default function EndorsePage({ data }) {
     })
       .then((response) => {
         console.log(response);
+        showPopUpSecondary(false, "");
         showPopUp(false, "");
         handlePage("bill");
+        handleRefresh();
       })
       .catch((err) => err);
   };

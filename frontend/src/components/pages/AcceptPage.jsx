@@ -6,7 +6,8 @@ import attachment from "../../assests/attachment.svg";
 import { MainContext } from "../../context/MainContext";
 
 export default function AcceptPage({ data }) {
-  const { identity, handlePage, showPopUp } = useContext(MainContext);
+  const { identity, handlePage, showPopUp, showPopUpSecondary } =
+    useContext(MainContext);
   const handleSubmit = async () => {
     const form_data = new FormData();
     form_data.append("bill_name", data.name);
@@ -17,7 +18,7 @@ export default function AcceptPage({ data }) {
     })
       .then((response) => {
         console.log(response);
-
+        showPopUpSecondary(false, "");
         showPopUp(false, "");
         handlePage("bill");
       })

@@ -7,7 +7,8 @@ import UniqueNumber from "../sections/UniqueNumber";
 import { MainContext } from "../../context/MainContext";
 
 export default function ReqAcceptPage({ data }) {
-  const { handlePage, showPopUp } = useContext(MainContext);
+  const { handlePage, showPopUp, showPopUpSecondary, handleRefresh } =
+    useContext(MainContext);
   const handleSubmit = async () => {
     const form_data = new FormData();
     form_data.append("bill_name", data.name);
@@ -18,9 +19,10 @@ export default function ReqAcceptPage({ data }) {
     })
       .then((response) => {
         console.log(response);
-
+        showPopUpSecondary(false, "");
         showPopUp(false, "");
         handlePage("bill");
+        handleRefresh();
       })
       .catch((err) => err);
   };
