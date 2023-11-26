@@ -22,7 +22,7 @@ export default function App() {
     const [data, setData] = useState({
         maturity_date: "",
         payee_name: "",
-        currency_code: "sats",
+        currency_code: "sat",
         amount_numbers: "",
         drawee_name: "",
         drawer_name: "",

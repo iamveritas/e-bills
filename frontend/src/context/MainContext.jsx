@@ -14,7 +14,7 @@ function MainProvider({children}) {
         content: "",
     });
     const [amount, setAmount] = useState({bill: 0, iou: 0, endors: 0});
-    const [currency, setCurrency] = useState("BTC");
+    const [currency, setCurrency] = useState("sat");
     const [bills_list, setBillsList] = useState([]);
     const [toast, setToast] = useState("");
     useEffect(() => {

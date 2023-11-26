@@ -41,7 +41,7 @@ function ActivityPage() {
         <div className="activity">
             <Header backHeader route="home"/>
             <div className="head">
-                <TopDownHeading upper={"All " + titleName}/>
+                <TopDownHeading upper={"All | " + titleName}/>
                 <IconHolder handleClick={toggleFilterPop} icon={fitler}/>
             </div>
             {filterPop && <PopedUp filter={filter} changleHandler={changleHandler}/>}

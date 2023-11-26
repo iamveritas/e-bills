@@ -121,10 +121,10 @@ export default function IssueForm({
                 id="currency_code"
                 name="currency_code"
                 onChange={changeHandle}
-                placeholder="SATS"
+                placeholder="sat"
                 required
             >
-              <option value={data.currency_code}>sats</option>
+              <option value={data.currency_code}>sat</option>
             </select>
           </span>
                     <input
