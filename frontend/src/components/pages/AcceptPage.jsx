@@ -1,51 +1,48 @@
-import React, {useContext} from "react";
+import React, { useContext } from "react";
 import Header from "../sections/Header";
 import TopDownHeading from "../elements/TopDownHeading";
 import IconHolder from "../elements/IconHolder";
 import attachment from "../../assests/attachment.svg";
-import {MainContext} from "../../context/MainContext";
+import { MainContext } from "../../context/MainContext";
 
-export default function AcceptPage({data}) {
-    const {identity, handlePage, showPopUpSecondary, showPopUp} = useContext(MainContext);
-    const handleSubmit = async () => {
-        const form_data = new FormData();
-        form_data.append("bill_name", data.name);
-        await fetch("http://localhost:8000/bill/accept", {
-            method: "POST",
-            body: form_data,
-            mode: "no-cors",
-        }).then((response) => {
-            console.log(response);
-            showPopUpSecondary(false, "");
-            showPopUp(false, "");
-            handlePage("home");
-        }).catch((err) => {
-            console.log(err);
-            showPopUpSecondary(false, "");
-            showPopUp(false, "");
-            handlePage("home");
-        });
-    };
-
-    return (
-        <div className="accept">
-            <Header title="Accept"/>
-            {/*<UniqueNumber UID="001" date="16-Feb-2023" />*/}
-            <div className="head">
-                <TopDownHeading upper="Against this" lower="Bill Of Exchange"/>
-                <IconHolder icon={attachment}/>
-            </div>
-            <div className="accept-container">
-                <div className="accept-container-content">
-                    {/*<div className="block">*/}
-                    {/*    <span className="accept-heading">Drawer:</span>*/}
-                    {/*    <span className="detail block">{identity.name}</span>*/}
-                    {/*</div>*/}
-                    <div className="block">
-                        <span className="accept-heading">Drawee:</span>
-                        <span className="detail block">{data.drawee.name}</span>
-                    </div>
-                    <div className="block mt">
+export default function AcceptPage({ data }) {
+  const { identity, handlePage, showPopUp, showPopUpSecondary } =
+    useContext(MainContext);
+  const handleSubmit = async () => {
+    const form_data = new FormData();
+    form_data.append("bill_name", data.name);
+    await fetch("http://localhost:8000/bill/accept", {
+      method: "POST",
+      body: form_data,
+      mode: "no-cors",
+    })
+      .then((response) => {
+        console.log(response);
+        showPopUpSecondary(false, "");
+        showPopUp(false, "");
+        handlePage("home");
+      })
+      .catch((err) => err);
+  };
+  return (
+    <div className="accept">
+      <Header title="Accept" />
+      {/*<UniqueNumber UID="001" date="16-Feb-2023" />*/}
+      <div className="head">
+        <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
+        <IconHolder icon={attachment} />
+      </div>
+      <div className="accept-container">
+        <div className="accept-container-content">
+          {/*<div className="block">*/}
+          {/*  <span className="accept-heading">Drawer:</span>*/}
+          {/*  <span className="detail block">{identity.name}</span>*/}
+          {/*</div>*/}
+          <div className="block">
+            <span className="accept-heading">Drawee:</span>
+            <span className="detail block">{data.drawee.name}</span>
+          </div>
+          <div className="block mt">
             <span className="block">
               <span className="accept-heading">Date of issue </span>
               <span className="detail">{data.date_of_issue}</span>
