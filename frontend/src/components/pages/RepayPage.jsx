@@ -30,7 +30,7 @@ export default function RepayPage({ data }) {
         <label htmlFor="wallet">Link to pay:</label>
         <span
           className="select-opt"
-          onClick={() => copytoClip(data.link_to_pay, "You copied link to Pay")}
+          onClick={() => copytoClip(data.link_to_pay, "You copied link to pay")}
         >
           {data.link_to_pay?.slice(0, 20)}...{" "}
           <img

@@ -307,7 +307,7 @@ export default function IssueForm() {
       {/*  </div>*/}
       {/*</div>*/}
       <input
-        disabled={click}
+        disabled={!click}
         className="btn"
         type="submit"
         value="Issue bill"
