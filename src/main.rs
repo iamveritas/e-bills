@@ -122,7 +122,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/bills", routes![web::return_bills_list,])
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
-        }));
+        }))
+        .attach(web::CORS);
 
     open::that("http://127.0.0.1:8000/bitcredit/").expect("Can't open browser.");
 

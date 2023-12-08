@@ -48,7 +48,9 @@ function MainProvider({ children }) {
   const [contacts, setContacts] = useState([]);
   // Set contacts
   useEffect(() => {
-    fetch("http://localhost:8000/contacts/return")
+    fetch("http://localhost:8000/contacts/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         setContacts(data);
@@ -64,7 +66,7 @@ function MainProvider({ children }) {
     await fetch("http://localhost:8000/contacts/remove", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      mode: "cors",
     })
       .then((response) => {
         // if (response.redirected) {
@@ -84,7 +86,7 @@ function MainProvider({ children }) {
     await fetch("http://localhost:8000/contacts/new", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      mode: "cors",
     })
       .then((response) => {
         // if (response.redirected) {
@@ -115,7 +117,9 @@ function MainProvider({ children }) {
   // Set identity
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:8000/identity/return")
+    fetch("http://localhost:8000/identity/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((response) => {
         if (response.name !== "" && response.email !== "") {
@@ -135,7 +139,9 @@ function MainProvider({ children }) {
   }, [refresh]);
   // Set bills
   useEffect(() => {
-    fetch("http://localhost:8000/bills/return")
+    fetch("http://localhost:8000/bills/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         let newData = data.sort(
@@ -150,7 +156,9 @@ function MainProvider({ children }) {
   // Set peer id
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:8000/identity/peer_id/return")
+    fetch("http://localhost:8000/identity/peer_id/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         setLoading(false);

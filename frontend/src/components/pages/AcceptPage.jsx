@@ -14,7 +14,7 @@ export default function AcceptPage({ data }) {
     await fetch("http://localhost:8000/bill/accept", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      mode: "cors",
     })
       .then((response) => {
         console.log(response);
