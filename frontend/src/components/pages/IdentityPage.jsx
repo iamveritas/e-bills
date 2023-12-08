@@ -58,7 +58,7 @@ export default function IdentityPage() {
         await fetch("http://localhost:8000/identity/create", {
             method: "POST",
             body: form_data,
-            mode: "no-cors",
+            mode: "cors",
         })
             .then((response) => {
                 console.log(response);

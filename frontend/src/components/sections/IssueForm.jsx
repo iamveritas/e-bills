@@ -68,7 +68,7 @@ export default function IssueForm() {
       fetch("http://localhost:8000/bill/issue", {
         method: "POST",
         body: form_data,
-        mode: "no-cors",
+        mode: "cors",
       })
         .then((response) => {
           console.log(response);

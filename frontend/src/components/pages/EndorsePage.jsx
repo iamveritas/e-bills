@@ -22,7 +22,7 @@ export default function EndorsePage({ data }) {
     await fetch("http://localhost:8000/bill/endorse", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      mode: "cors",
     })
       .then((response) => {
         console.log(response);
