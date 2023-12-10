@@ -11,28 +11,26 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Switch rust version
-      run: rustup default nightly
-    - name: Update rust
-      run: rustup update
-    - name: Install protoc
-      run: sudo apt-get install -y protobuf-compiler
-    - name: Add component fmt
-      run: rustup component add rustfmt
-    - name: Update
-      run: cargo update --verbose
-    - name: Clean
-      run: cargo clean --verbose
-    - name: Check
-      run: cargo check --verbose
-    - name: Fmt
-      run: cargo fmt --verbose
-    - name: Test
-      run: cargo test
-    - name: Build
-      run: cargo build --verbose
+      - uses: actions/checkout@v3
+      - name: Switch rust version
+        run: rustup default nightly
+      - name: Update rust
+        run: rustup update
+      - name: Install protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Add component fmt
+        run: rustup component add rustfmt
+      - name: Update
+        run: cargo update --verbose
+      - name: Clean
+        run: cargo clean --verbose
+      - name: Check
+        run: cargo check --verbose
+      - name: Fmt
+        run: cargo fmt --verbose
+      - name: Test
+        run: cargo test
+      - name: Build
+        run: cargo build --verbose
