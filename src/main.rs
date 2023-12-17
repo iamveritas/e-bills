@@ -2,12 +2,12 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
-use bitcoin::PublicKey;
 use std::collections::HashMap;
 use std::fs::DirEntry;
 use std::path::Path;
 use std::{env, fs, mem, path};
 
+use bitcoin::PublicKey;
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::Utc;
 use libp2p::identity::Keypair;
@@ -903,9 +903,13 @@ pub fn issue_new_bill(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
@@ -985,9 +989,13 @@ pub fn issue_new_bill_drawer_is_payee(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
@@ -1067,9 +1075,13 @@ pub fn issue_new_bill_drawer_is_drawee(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
