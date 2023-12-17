@@ -1,11 +1,11 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use bitcoin::secp256k1::Scalar;
-use chrono::{Days, Utc};
-use libp2p::PeerId;
 use std::path::Path;
 use std::str::FromStr;
 
+use bitcoin::secp256k1::Scalar;
+use chrono::{Days, Utc};
+use libp2p::PeerId;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::form::Form;
 use rocket::http::{Header, Status};
@@ -275,6 +275,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let identity: IdentityWithAll = get_whole_identity();
     let bill: BitcreditBill = read_bill_from_file(&id);
     let chain = Chain::read_chain_from_file(&bill.name);
+    let drawer = chain.get_drawer();
     let chain_to_return = ChainToReturn::new(chain.clone());
     let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
@@ -324,7 +325,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         bill_jurisdiction: bill.bill_jurisdiction,
         timestamp_at_drawing: bill.timestamp_at_drawing,
         drawee: bill.drawee,
-        drawer: bill.drawer,
+        drawer: drawer,
         payee: bill.payee,
         endorsee: bill.endorsee,
         place_of_drawing: bill.place_of_drawing,
