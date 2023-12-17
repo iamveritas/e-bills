@@ -1,11 +1,11 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {useContext, useEffect, useState} from "react";
 import IconHolder from "../elements/IconHolder";
 import back from "../../assests/back.svg";
 import download from "../../assests/download.svg";
 import wechsel from "../../assests/WECHSEL.svg";
 import dumySig from "../../assests/Jordan-signature.png";
 import Pdf from "react-to-pdf";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 
 function Bill({ identity, data }) {
   const { showPopUpSecondary } = useContext(MainContext);
@@ -45,7 +45,7 @@ function Bill({ identity, data }) {
           circuled="circule"
           icon={back}
         />
-        <Pdf targetRef={divRef} options={options} filename="bill.pdf">
+        <Pdf targetRef={divRef} options={options} filename="Bill of exchange.pdf">
           {({ toPdf }) => (
             <IconHolder
               handleClick={toPdf}
@@ -87,7 +87,7 @@ function Bill({ identity, data }) {
                   </div>
                 </div>
                 <span className="bottom-text">
-                  Place and day of the issuing
+                  Place and day of the issuance
                 </span>
               </div>
               <div className="details-container-uper-zah">
@@ -105,7 +105,7 @@ function Bill({ identity, data }) {
             <div className="details-container-middle">
               <div className="details-container-middle-date">
                 <span className="details-container-middle-date-left">
-                  Against this bill pay on
+                  Against this bill of exchange pay on {data?.maturity_date}
                 </span>
                 <div className="details-container-middle-date-right">
                   <span className="details-container-middle-date-right-uper">
@@ -119,10 +119,10 @@ function Bill({ identity, data }) {
               <div className="details-container-middle-num">
                 <span className="details-container-middle-num-text">
                   <span className="details-container-middle-num-text-an">
-                    To the order of
+                    To
                   </span>
                   <span className="details-container-middle-num-text-further">
-                    {data?.payee.name}
+                    {data?.payee.name}, {data?.payee.postal_address}
                   </span>
                 </span>
                 <span className="details-container-middle-num-amount">
@@ -156,7 +156,7 @@ function Bill({ identity, data }) {
                       Payer
                     </span>
                     <span className="details-container-bottom-left-bez-line-ans">
-                      {data?.drawee?.name}
+                      {data?.drawee?.name}, {data?.drawee?.postal_address}
                     </span>
                   </span>
                   <span className="details-container-bottom-left-bez-next-line">
@@ -180,7 +180,7 @@ function Bill({ identity, data }) {
                   <div className="details-container-bottom-left-bez">
                     <span className="details-container-bottom-left-bez-line">
                       <span className="details-container-bottom-left-bez-line-text">
-                        Place of payment
+                        Payment agents
                       </span>
                       <span className="details-container-bottom-left-bez-line-ans">
                         {data?.place_of_payment}
