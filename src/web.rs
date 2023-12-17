@@ -116,6 +116,7 @@ pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Cl
     let identity: IdentityForm = identity_form.into_inner();
     create_whole_identity(
         identity.name,
+        identity.company,
         identity.date_of_birth,
         identity.city_of_birth,
         identity.country_of_birth,

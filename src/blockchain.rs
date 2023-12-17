@@ -129,6 +129,7 @@ impl Chain {
         let mut last_endorsee = IdentityPublicData {
             peer_id: "".to_string(),
             name: "".to_string(),
+            company: "".to_string(),
             bitcoin_public_key: "".to_string(),
             postal_address: "".to_string(),
             email: "".to_string(),
