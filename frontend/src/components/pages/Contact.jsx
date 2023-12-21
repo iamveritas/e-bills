@@ -42,7 +42,6 @@ export default function Contact() {
                     return (
                         <div key={i} className="contact-body-user">
                             <span>{d.name}</span>
-                            <span>{d.peer_id}</span>
                             <img onClick={() => showPopUp(true, <EditContact old_name={d.name}/>)} src={editBtn}/>
                             <img onClick={() => handleDelete(d.name)} src={deleteBtn}/>
                         </div>
