@@ -96,6 +96,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
             routes![
                 web::add_contact,
                 web::new_contact,
+                web::edit_contact,
                 web::remove_contact,
                 web::contacts,
                 web::return_contacts
@@ -200,6 +201,13 @@ fn add_in_contacts_map(name: String, peer_id: String) {
     }
     let mut contacts: HashMap<String, String> = read_contacts_map();
     contacts.insert(name, peer_id);
+    write_contacts_map(contacts);
+}
+
+fn change_contact_from_contacts_map(old_entry_key: String, new_name: String, new_peer_id: String) {
+    let mut contacts: HashMap<String, String> = read_contacts_map();
+    contacts.remove(&old_entry_key);
+    contacts.insert(new_name, new_peer_id);
     write_contacts_map(contacts);
 }
 
@@ -1418,6 +1426,14 @@ pub struct IdentityForm {
 #[derive(FromForm, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct NewContactForm {
+    pub name: String,
+    pub node_id: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct EditContactForm {
+    pub old_name: String,
     pub name: String,
     pub node_id: String,
 }

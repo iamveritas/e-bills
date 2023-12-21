@@ -77,6 +77,25 @@ function MainProvider({ children }) {
       })
       .catch((err) => console.log(err));
   };
+
+  const handleEditContact = async (old_contact_id, newContact, hidePop) => {
+    const form_data = new FormData();
+    form_data.append("old_name", old_contact_id);
+    form_data.append("name", newContact.name);
+    form_data.append("node_id", newContact.peer_id);
+    const response = await fetch("http://localhost:8000/contacts/edit", {
+      method: "POST",
+      body: form_data,
+    })
+    .then((res) => res.json())
+    .then((data) => {
+      setContacts(data);
+      hidePop(false, "");
+      setToast("Contact Changed");
+    })
+    .catch((err) => console.log(err));
+  };
+
   const handleAddContact = async (newContact, hidePop) => {
     const form_data = new FormData();
     form_data.append("name", newContact.name);
@@ -84,21 +103,17 @@ function MainProvider({ children }) {
     await fetch("http://localhost:8000/contacts/new", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      // mode: "no-cors",
     })
-      .then((response) => {
-        // if (response.redirected) {
-        setContacts((prev) => [...prev, newContact]);
+      .then((res) => res.json())
+      .then((data) => {
+        setContacts(data);
         hidePop(false, "");
         setToast("Your Contact is Added");
-        // } else {
-        //   setToast("Oops! there is an error please try again later");
-        // }
       })
-      .catch((err) => {
-        return false;
-      });
+      .catch((err) => console.log(err));
   };
+  
   const [identity, setIdentity] = useState({
     name: "",
     date_of_birth: "",
@@ -220,6 +235,7 @@ function MainProvider({ children }) {
         setToast,
         handleDelete,
         handleAddContact,
+        handleEditContact,
         bills_list,
         refresh,
         contacts,
