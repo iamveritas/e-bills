@@ -2,12 +2,12 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
-use bitcoin::PublicKey;
 use std::collections::HashMap;
 use std::fs::DirEntry;
 use std::path::Path;
 use std::{env, fs, mem, path};
 
+use bitcoin::PublicKey;
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use chrono::Utc;
 use libp2p::identity::Keypair;
@@ -123,7 +123,8 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
         .mount("/bills", routes![web::return_bills_list,])
         .attach(Template::custom(|engines| {
             web::customize(&mut engines.handlebars);
-        }));
+        }))
+        .attach(web::CORS);
 
     open::that("http://127.0.0.1:8000/bitcredit/").expect("Can't open browser.");
 
@@ -488,6 +489,7 @@ impl NodeId {
 pub struct IdentityPublicData {
     peer_id: String,
     name: String,
+    company: String,
     bitcoin_public_key: String,
     postal_address: String,
     email: String,
@@ -499,6 +501,7 @@ impl IdentityPublicData {
         Self {
             peer_id,
             name: identity.name,
+            company: identity.company,
             bitcoin_public_key: identity.bitcoin_public_key,
             postal_address: identity.postal_address,
             email: identity.email,
@@ -510,6 +513,7 @@ impl IdentityPublicData {
         Self {
             peer_id: "".to_string(),
             name: "".to_string(),
+            company: "".to_string(),
             bitcoin_public_key: "".to_string(),
             postal_address: "".to_string(),
             email: "".to_string(),
@@ -529,6 +533,7 @@ pub struct IdentityWithAll {
 #[serde(crate = "rocket::serde")]
 pub struct Identity {
     name: String,
+    company: String,
     date_of_birth: String,
     city_of_birth: String,
     country_of_birth: String,
@@ -544,6 +549,7 @@ impl Identity {
     pub fn new_empty() -> Self {
         Self {
             name: "".to_string(),
+            company: "".to_string(),
             date_of_birth: "".to_string(),
             city_of_birth: "".to_string(),
             bitcoin_public_key: "".to_string(),
@@ -571,6 +577,7 @@ pub fn get_whole_identity() -> IdentityWithAll {
 
 pub fn create_whole_identity(
     name: String,
+    company: String,
     date_of_birth: String,
     city_of_birth: String,
     country_of_birth: String,
@@ -579,6 +586,7 @@ pub fn create_whole_identity(
 ) -> IdentityWithAll {
     let identity = create_new_identity(
         name,
+        company,
         date_of_birth,
         city_of_birth,
         country_of_birth,
@@ -612,6 +620,7 @@ fn write_dht_logic(peer_id: &PeerId, ed25519_keys: &Keypair) {
 
 fn create_new_identity(
     name: String,
+    company: String,
     date_of_birth: String,
     city_of_birth: String,
     country_of_birth: String,
@@ -633,6 +642,7 @@ fn create_new_identity(
 
     Identity {
         name,
+        company,
         date_of_birth,
         city_of_birth,
         country_of_birth,
@@ -910,9 +920,13 @@ pub fn issue_new_bill(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
@@ -992,9 +1006,13 @@ pub fn issue_new_bill_drawer_is_payee(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
@@ -1074,9 +1092,13 @@ pub fn issue_new_bill_drawer_is_drawee(
         endorsee: IdentityPublicData::new_empty(),
     };
 
+    let drawer_public_data =
+        IdentityPublicData::new(drawer.identity.clone(), drawer.peer_id.to_string().clone());
+
     start_blockchain_for_new_bill(
         &new_bill,
         OperationCode::Issue,
+        drawer_public_data,
         drawer.identity.public_key_pem.clone(),
         drawer.identity.private_key_pem.clone(),
         private_key_pem.clone(),
@@ -1416,6 +1438,7 @@ pub struct AcceptBitcreditBillForm {
 #[serde(crate = "rocket::serde")]
 pub struct IdentityForm {
     name: String,
+    company: String,
     date_of_birth: String,
     city_of_birth: String,
     country_of_birth: String,

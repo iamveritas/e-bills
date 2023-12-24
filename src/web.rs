@@ -1,16 +1,16 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::path::Path;
+use std::str::FromStr;
+
 use bitcoin::secp256k1::Scalar;
 use chrono::{Days, Utc};
 use libp2p::PeerId;
-use std::path::Path;
-use std::str::FromStr;
-use std::collections::HashMap;
-
+use rocket::fairing::{Fairing, Info, Kind};
 use rocket::form::Form;
-use rocket::http::Status;
+use rocket::http::{Header, Status};
 use rocket::serde::json::Json;
-use rocket::{Request, State};
+use rocket::{Request, Response, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
 use crate::blockchain::{Chain, ChainToReturn, GossipsubEvent, GossipsubEventId, OperationCode};
@@ -116,6 +116,7 @@ pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Cl
     let identity: IdentityForm = identity_form.into_inner();
     create_whole_identity(
         identity.name,
+        identity.company,
         identity.date_of_birth,
         identity.city_of_birth,
         identity.country_of_birth,
@@ -275,6 +276,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let identity: IdentityWithAll = get_whole_identity();
     let bill: BitcreditBill = read_bill_from_file(&id);
     let chain = Chain::read_chain_from_file(&bill.name);
+    let drawer = chain.get_drawer();
     let chain_to_return = ChainToReturn::new(chain.clone());
     let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
@@ -324,7 +326,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         bill_jurisdiction: bill.bill_jurisdiction,
         timestamp_at_drawing: bill.timestamp_at_drawing,
         drawee: bill.drawee,
-        drawer: bill.drawer,
+        drawer: drawer,
         payee: bill.payee,
         endorsee: bill.endorsee,
         place_of_drawing: bill.place_of_drawing,
@@ -878,7 +880,7 @@ pub async fn edit_contact(edit_contact_form: Form<EditContactForm>) -> Result<Js
             edit_contact_form.name.clone(),
             edit_contact_form.node_id.clone(),
         );
-        
+
         Ok(Json(get_contacts_vec()))
     }
 }
@@ -933,4 +935,26 @@ fn wow_helper(
     }
 
     Ok(())
+}
+
+pub struct CORS;
+
+#[rocket::async_trait]
+impl Fairing for CORS {
+    fn info(&self) -> Info {
+        Info {
+            name: "Add CORS headers to responses",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+        response.set_header(Header::new(
+            "Access-Control-Allow-Methods",
+            "POST, GET, PATCH, OPTIONS",
+        ));
+        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    }
 }

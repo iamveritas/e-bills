@@ -15,7 +15,9 @@ export default function App() {
   const [operation_codes, setOperationCodes] = useState([]);
   // Set operation codes
   useEffect(() => {
-    fetch("http://localhost:8000/opcodes/return")
+    fetch("http://localhost:8000/opcodes/return", {
+      mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         setOperationCodes(data);

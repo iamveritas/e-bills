@@ -129,6 +129,7 @@ impl Chain {
         let mut last_endorsee = IdentityPublicData {
             peer_id: "".to_string(),
             name: "".to_string(),
+            company: "".to_string(),
             bitcoin_public_key: "".to_string(),
             postal_address: "".to_string(),
             email: "".to_string(),
@@ -248,6 +249,19 @@ impl Chain {
             });
         }
         history
+    }
+
+    pub fn get_drawer(&self) -> IdentityPublicData {
+        let drawer: IdentityPublicData;
+        let bill = self.get_first_version_bill();
+        if !bill.drawer.name.is_empty() {
+            drawer = bill.drawer.clone();
+        } else if bill.to_payee {
+            drawer = bill.payee.clone();
+        } else {
+            drawer = bill.drawee.clone();
+        }
+        drawer
     }
 
     pub fn bill_contain_node(&self, request_node_id: String) -> bool {
@@ -771,12 +785,16 @@ pub fn encrypted_hash_data_from_bill(bill: &BitcreditBill, private_key_pem: Stri
 pub fn start_blockchain_for_new_bill(
     bill: &BitcreditBill,
     operation_code: OperationCode,
+    drawer: IdentityPublicData,
     public_key: String,
     private_key: String,
     private_key_pem: String,
     timestamp: i64,
 ) {
-    let genesis_hash: String = hex::encode("GENESIS".to_string().as_bytes());
+    let data_for_new_block_in_bytes = serde_json::to_vec(&drawer).unwrap();
+    let data_for_new_block = "Signed by ".to_string() + &hex::encode(data_for_new_block_in_bytes);
+
+    let genesis_hash: String = hex::encode(data_for_new_block.as_bytes());
 
     let bill_data: String = encrypted_hash_data_from_bill(&bill, private_key_pem);
 

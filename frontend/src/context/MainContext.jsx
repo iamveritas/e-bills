@@ -48,7 +48,9 @@ function MainProvider({ children }) {
   const [contacts, setContacts] = useState([]);
   // Set contacts
   useEffect(() => {
-    fetch("http://localhost:8000/contacts/return")
+    fetch("http://localhost:8000/contacts/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         setContacts(data);
@@ -64,7 +66,7 @@ function MainProvider({ children }) {
     await fetch("http://localhost:8000/contacts/remove", {
       method: "POST",
       body: form_data,
-      mode: "no-cors",
+      mode: "cors",
     })
       .then((response) => {
         // if (response.redirected) {
@@ -84,14 +86,15 @@ function MainProvider({ children }) {
     form_data.append("name", newContact.name);
     form_data.append("node_id", newContact.peer_id);
     const response = await fetch("http://localhost:8000/contacts/edit", {
-      method: "POST",
-      body: form_data,
+        method: "POST",
+        body: form_data,
+        mode: "cors",
     })
     .then((res) => res.json())
     .then((data) => {
-      setContacts(data);
-      hidePop(false, "");
-      setToast("Contact Changed");
+        setContacts(data);
+        hidePop(false, "");
+        setToast("Contact Changed");
     })
     .catch((err) => console.log(err));
   };
@@ -103,17 +106,20 @@ function MainProvider({ children }) {
     await fetch("http://localhost:8000/contacts/new", {
       method: "POST",
       body: form_data,
-      // mode: "no-cors",
+      mode: "cors",
     })
       .then((res) => res.json())
       .then((data) => {
         setContacts(data);
         hidePop(false, "");
         setToast("Your Contact is Added");
+        // } else {
+        //   setToast("Oops! there is an error please try again later");
+        // }
       })
       .catch((err) => console.log(err));
   };
-  
+
   const [identity, setIdentity] = useState({
     name: "",
     date_of_birth: "",
@@ -130,7 +136,9 @@ function MainProvider({ children }) {
   // Set identity
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:8000/identity/return")
+    fetch("http://localhost:8000/identity/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((response) => {
         if (response.name !== "" && response.email !== "") {
@@ -150,7 +158,9 @@ function MainProvider({ children }) {
   }, [refresh]);
   // Set bills
   useEffect(() => {
-    fetch("http://localhost:8000/bills/return")
+    fetch("http://localhost:8000/bills/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         let newData = data.sort(
@@ -165,7 +175,9 @@ function MainProvider({ children }) {
   // Set peer id
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:8000/identity/peer_id/return")
+    fetch("http://localhost:8000/identity/peer_id/return", {
+        mode: "cors",
+    })
       .then((res) => res.json())
       .then((data) => {
         setLoading(false);

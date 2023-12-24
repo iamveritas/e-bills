@@ -1,37 +1,19 @@
 #[cfg(test)]
 mod test {
-    use bitcoin::key::XOnlyPublicKey;
-    use bitcoin::secp256k1::Scalar;
-    use std::collections::BTreeMap;
-    use std::io::{BufReader, Cursor, Read};
-    use std::path::{Path, PathBuf};
-    use std::time::Duration;
+    use std::io::Read;
+    use std::path::Path;
     use std::{fs, mem};
 
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use bitcoin::secp256k1::Scalar;
     use libp2p::identity::Keypair;
-    use libp2p::kad::store::MemoryStore;
-    use libp2p::kad::{Kademlia, KademliaConfig};
-    use libp2p::{identity, PeerId};
-    use openssl::hash::MessageDigest;
-    use openssl::pkey::{PKey, Private, Public};
+    use libp2p::PeerId;
     use openssl::rsa::{Padding, Rsa};
-    use openssl::sha::sha256;
-    use openssl::sign::{Signer, Verifier};
-    use openssl::symm::Cipher;
-    use openssl::{aes, rsa, sha};
     use serde_derive::Deserialize;
 
-    use crate::blockchain::{is_block_valid, signature, Block, Chain};
-    use crate::constants::BILLS_FOLDER_PATH;
     use crate::numbers_to_words::encode;
     use crate::{
-        bill_from_byte_array, bill_to_byte_array, byte_array_to_size_array_keypair,
-        byte_array_to_size_array_peer_id, create_new_identity, decrypt_bytes, encrypt_bytes,
-        endorse_bitcredit_bill, generation_rsa_key, get_whole_identity, issue_new_bill,
-        pem_private_key_from_rsa, pem_public_key_from_rsa, private_key_from_pem_u8,
-        public_key_from_pem_u8, read_bill_from_file, read_identity_from_file,
-        read_peer_id_from_file, structure_as_u8_slice, BitcreditBill, Identity, IdentityPublicData,
+        byte_array_to_size_array_keypair, byte_array_to_size_array_peer_id, create_new_identity,
+        generation_rsa_key, structure_as_u8_slice,
     };
 
     //TODO: Change. Because we create new bill every time we run tests
@@ -309,6 +291,7 @@ mod test {
         let peer_id = PeerId::from(ed25519_keys.public());
         let id = create_new_identity(
             "qwq".to_string(),
+            "adsda".to_string(),
             "ewqe".to_string(),
             "qwewqe".to_string(),
             "qwewqe".to_string(),
