@@ -1,8 +1,10 @@
 import React, {useContext, useState} from "react";
 import closeIcon from "../../assests/close-btn.svg";
 import deleteBtn from "../../assests/delete.svg";
+import editBtn from "../../assests/edit.svg";
 import {MainContext} from "../../context/MainContext";
 import AddContact from "../popups/AddContact";
+import EditContact from "../popups/EditContact";
 
 export default function Contact() {
     const {showPopUp, handlePage, handleDelete, contacts} =
@@ -36,10 +38,11 @@ export default function Contact() {
                 onChange={handleSearchChange}
             />
             <div className="contact-body">
-                {newContact.map((d, i) => {
+                {Array.isArray(newContact) && newContact.map((d, i) => {
                     return (
                         <div key={i} className="contact-body-user">
                             <span>{d.name}</span>
+                            <img onClick={() => showPopUp(true, <EditContact old_name={d.name}/>)} src={editBtn}/>
                             <img onClick={() => handleDelete(d.name)} src={deleteBtn}/>
                         </div>
                     );

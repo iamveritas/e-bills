@@ -17,14 +17,14 @@ use crate::blockchain::{Chain, ChainToReturn, GossipsubEvent, GossipsubEventId, 
 use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
 use crate::{
-    accept_bill, add_in_contacts_map, api, blockchain, create_whole_identity,
-    delete_from_contacts_map, endorse_bitcredit_bill, get_bills, get_contact_from_map,
-    get_contacts_vec, get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
-    issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
-    read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
-    AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm, BitcreditBillToReturn, Contact,
-    DeleteContactForm, EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData,
-    IdentityWithAll, NewContactForm, NodeId, RequestToAcceptBitcreditBillForm,
+    accept_bill, add_in_contacts_map, api, blockchain, change_contact_from_contacts_map,
+    create_whole_identity, delete_from_contacts_map, endorse_bitcredit_bill, get_bills,
+    get_contact_from_map, get_contacts_vec, get_whole_identity, issue_new_bill,
+    issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee, read_bill_from_file,
+    read_contacts_map, read_identity_from_file, read_peer_id_from_file, request_acceptance,
+    request_pay, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm, BitcreditBillToReturn,
+    Contact, DeleteContactForm, EditContactForm, EndorseBitcreditBillForm, Identity, IdentityForm,
+    IdentityPublicData, IdentityWithAll, NewContactForm, NodeId, RequestToAcceptBitcreditBillForm,
     RequestToPayBitcreditBillForm,
 };
 
@@ -857,16 +857,35 @@ pub async fn remove_contact(remove_contact_form: Form<DeleteContactForm>) -> Sta
 }
 
 #[post("/new", data = "<new_contact_form>")]
-pub async fn new_contact(new_contact_form: Form<NewContactForm>) -> Status {
+pub async fn new_contact(
+    new_contact_form: Form<NewContactForm>,
+) -> Result<Json<Vec<Contact>>, Status> {
     if !Path::new(IDENTITY_FILE_PATH).exists() {
-        Status::NotAcceptable
+        Err(Status::NotAcceptable)
     } else {
         add_in_contacts_map(
             new_contact_form.name.clone(),
             new_contact_form.node_id.clone(),
         );
 
-        Status::Ok
+        Ok(Json(get_contacts_vec()))
+    }
+}
+
+#[post("/edit", data = "<edit_contact_form>")]
+pub async fn edit_contact(
+    edit_contact_form: Form<EditContactForm>,
+) -> Result<Json<Vec<Contact>>, Status> {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Err(Status::NotAcceptable)
+    } else {
+        change_contact_from_contacts_map(
+            edit_contact_form.old_name.clone(),
+            edit_contact_form.name.clone(),
+            edit_contact_form.node_id.clone(),
+        );
+
+        Ok(Json(get_contacts_vec()))
     }
 }
 
