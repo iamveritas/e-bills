@@ -56,6 +56,7 @@ async fn main() {
     dht.check_new_bills(local_peer_id.to_string().clone()).await;
     dht.upgrade_table(local_peer_id.to_string().clone()).await;
     dht.subscribe_to_all_bills_topics().await;
+    dht.put_bills_for_parties().await;
     dht.start_provide().await;
     dht.receive_updates_for_all_bills_topics().await;
     dht.put_identity_public_data_in_dht().await;
