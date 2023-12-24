@@ -550,6 +550,18 @@ pub mod network {
             }
         }
 
+        pub async fn put_bills_for_parties(&mut self) {
+            let bills = get_bills();
+
+            for bill in bills {
+                let chain = Chain::read_chain_from_file(&bill.name);
+                let nodes = chain.get_all_nodes_from_bill();
+                for node in nodes {
+                    self.add_bill_to_dht_for_node(&bill.name, &node).await;
+                }
+            }
+        }
+
         pub async fn subscribe_to_all_bills_topics(&mut self) {
             let bills = get_bills();
 
