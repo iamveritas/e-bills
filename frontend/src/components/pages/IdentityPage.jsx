@@ -23,6 +23,7 @@ export default function IdentityPage() {
         country_of_birth: identity.country_of_birth || "",
         city_of_birth: identity.city_of_birth || "",
         postal_address: identity.postal_address || "",
+        company: identity.company || "",
     });
     const [image, setImage] = useState();
     const [uneditable, setunEditable] = useState(true);
@@ -236,6 +237,18 @@ export default function IdentityPage() {
                                 disabled={uneditable}
                                 onChange={onChangeHandler}
                                 placeholder="Postal Address"
+                                type="text"
+                            />
+                        </div>
+                        <div className="create-body-form-input-in">
+                            <label htmlFor="country_of_birth">Company</label>
+                            <input
+                                id="company"
+                                name="company"
+                                value={userData.company}
+                                disabled={uneditable}
+                                onChange={onChangeHandler}
+                                placeholder="Company"
                                 type="text"
                             />
                         </div>
