@@ -435,18 +435,19 @@ pub mod network {
             }
         }
 
-        //TODO: if node is not in dht - not to continue
         pub async fn get_identity_public_data_from_dht(
             &mut self,
             peer_id: String,
         ) -> IdentityPublicData {
             let key = "INFO".to_string() + &peer_id;
             let current_info = self.get_record(key.clone()).await.value;
-            let current_info_string = std::str::from_utf8(&current_info)
-                .expect("Cant get value.")
-                .to_string();
-            let identity_public_data: IdentityPublicData =
-                serde_json::from_str(&current_info_string).unwrap();
+            let mut identity_public_data: IdentityPublicData = IdentityPublicData::new_empty();
+            if !current_info.is_empty() {
+                let current_info_string = std::str::from_utf8(&current_info)
+                    .expect("Cant get value.")
+                    .to_string();
+                identity_public_data = serde_json::from_str(&current_info_string).unwrap();
+            }
 
             identity_public_data
         }

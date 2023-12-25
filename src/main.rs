@@ -30,6 +30,7 @@ use crate::constants::{
     CSS_FOLDER_PATH, IDENTITY_ED_25529_KEYS_FILE_PATH, IDENTITY_FILE_PATH, IDENTITY_FOLDER_PATH,
     IDENTITY_PEER_ID_FILE_PATH, IMAGE_FOLDER_PATH, SATOSHI, TEMPLATES_FOLDER_PATH, USEDNET,
 };
+use crate::dht::network::Client;
 use crate::numbers_to_words::encode;
 
 mod api;
@@ -172,63 +173,143 @@ fn get_contacts_vec() -> Vec<Contact> {
         create_contacts_map();
     }
     let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
-    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    let contacts: HashMap<String, IdentityPublicData> = HashMap::try_from_slice(&data).unwrap();
     let mut contacts_vec: Vec<Contact> = Vec::new();
-    for (name, peer_id) in contacts {
-        contacts_vec.push(Contact { name, peer_id });
+    for (name, public_data) in contacts {
+        contacts_vec.push(Contact {
+            name,
+            peer_id: public_data.peer_id,
+        });
     }
     contacts_vec
 }
 
-fn read_contacts_map() -> HashMap<String, String> {
+fn read_contacts_map() -> HashMap<String, IdentityPublicData> {
     if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
         create_contacts_map();
     }
     let data: Vec<u8> = fs::read(CONTACT_MAP_FILE_PATH).expect("Unable to read contacts.");
-    let contacts: HashMap<String, String> = HashMap::try_from_slice(&data).unwrap();
+    let contacts: HashMap<String, IdentityPublicData> = HashMap::try_from_slice(&data).unwrap();
     contacts
 }
 
 fn delete_from_contacts_map(name: String) {
     if Path::new(CONTACT_MAP_FILE_PATH).exists() {
-        let mut contacts: HashMap<String, String> = read_contacts_map();
+        let mut contacts: HashMap<String, IdentityPublicData> = read_contacts_map();
         contacts.remove(&name);
         write_contacts_map(contacts);
     }
 }
 
-fn add_in_contacts_map(name: String, peer_id: String) {
+async fn add_in_contacts_map(name: String, peer_id: String, mut client: Client) {
     if !Path::new(CONTACT_MAP_FILE_PATH).exists() {
         create_contacts_map();
     }
-    let mut contacts: HashMap<String, String> = read_contacts_map();
-    contacts.insert(name, peer_id);
+
+    let mut identity_public_data = IdentityPublicData::new_only_peer_id(peer_id.clone());
+
+    let identity_public_data_from_dht = client.get_identity_public_data_from_dht(peer_id).await;
+
+    if !identity_public_data.name.is_empty() {
+        identity_public_data = identity_public_data_from_dht;
+    }
+
+    let mut contacts: HashMap<String, IdentityPublicData> = read_contacts_map();
+
+    contacts.insert(name, identity_public_data);
     write_contacts_map(contacts);
 }
 
-fn change_contact_from_contacts_map(old_entry_key: String, new_name: String, new_peer_id: String) {
-    let mut contacts: HashMap<String, String> = read_contacts_map();
+pub fn change_contact_data_from_dht(
+    name: String,
+    dht_data: IdentityPublicData,
+    local_data: IdentityPublicData,
+) {
+    if !dht_data.eq(&local_data) {
+        let mut contacts: HashMap<String, IdentityPublicData> = read_contacts_map();
+        contacts.remove(&name);
+        contacts.insert(name, dht_data);
+        write_contacts_map(contacts);
+    }
+}
+
+fn change_contact_name_from_contacts_map(old_entry_key: String, new_name: String) {
+    let mut contacts: HashMap<String, IdentityPublicData> = read_contacts_map();
+    let peer_info = contacts.get(&old_entry_key).unwrap().clone();
     contacts.remove(&old_entry_key);
-    contacts.insert(new_name, new_peer_id);
+    contacts.insert(new_name, peer_info);
     write_contacts_map(contacts);
 }
 
 fn create_contacts_map() {
-    let contacts: HashMap<String, String> = HashMap::new();
+    let contacts: HashMap<String, IdentityPublicData> = HashMap::new();
     write_contacts_map(contacts);
 }
 
-fn write_contacts_map(map: HashMap<String, String>) {
+fn write_contacts_map(map: HashMap<String, IdentityPublicData>) {
     let contacts_byte = map.try_to_vec().unwrap();
     fs::write(CONTACT_MAP_FILE_PATH, contacts_byte).expect("Unable to write peer id in file.");
 }
 
-fn get_contact_from_map(name: &String) -> String {
+fn get_contact_from_map(name: &String) -> IdentityPublicData {
     let contacts = read_contacts_map();
     if contacts.contains_key(name) {
-        contacts.get(name).unwrap().to_string()
+        let data = contacts.get(name).unwrap().clone();
+        data
     } else {
-        String::new()
+        IdentityPublicData::new_empty()
+    }
+}
+
+#[derive(
+    BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone, Eq, PartialEq,
+)]
+#[serde(crate = "rocket::serde")]
+pub struct IdentityPublicData {
+    peer_id: String,
+    name: String,
+    company: String,
+    bitcoin_public_key: String,
+    postal_address: String,
+    email: String,
+    rsa_public_key_pem: String,
+}
+
+impl IdentityPublicData {
+    pub fn new(identity: Identity, peer_id: String) -> Self {
+        Self {
+            peer_id,
+            name: identity.name,
+            company: identity.company,
+            bitcoin_public_key: identity.bitcoin_public_key,
+            postal_address: identity.postal_address,
+            email: identity.email,
+            rsa_public_key_pem: identity.public_key_pem,
+        }
+    }
+
+    pub fn new_empty() -> Self {
+        Self {
+            peer_id: "".to_string(),
+            name: "".to_string(),
+            company: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            email: "".to_string(),
+            rsa_public_key_pem: "".to_string(),
+        }
+    }
+
+    pub fn new_only_peer_id(peer_id: String) -> Self {
+        Self {
+            peer_id,
+            name: "".to_string(),
+            company: "".to_string(),
+            bitcoin_public_key: "".to_string(),
+            postal_address: "".to_string(),
+            email: "".to_string(),
+            rsa_public_key_pem: "".to_string(),
+        }
     }
 }
 //--------------------------------------------------------------
@@ -482,44 +563,6 @@ pub struct NodeId {
 impl NodeId {
     pub fn new(peer_id: String) -> Self {
         Self { id: peer_id }
-    }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
-#[serde(crate = "rocket::serde")]
-pub struct IdentityPublicData {
-    peer_id: String,
-    name: String,
-    company: String,
-    bitcoin_public_key: String,
-    postal_address: String,
-    email: String,
-    rsa_public_key_pem: String,
-}
-
-impl IdentityPublicData {
-    pub fn new(identity: Identity, peer_id: String) -> Self {
-        Self {
-            peer_id,
-            name: identity.name,
-            company: identity.company,
-            bitcoin_public_key: identity.bitcoin_public_key,
-            postal_address: identity.postal_address,
-            email: identity.email,
-            rsa_public_key_pem: identity.public_key_pem,
-        }
-    }
-
-    pub fn new_empty() -> Self {
-        Self {
-            peer_id: "".to_string(),
-            name: "".to_string(),
-            company: "".to_string(),
-            bitcoin_public_key: "".to_string(),
-            postal_address: "".to_string(),
-            email: "".to_string(),
-            rsa_public_key_pem: "".to_string(),
-        }
     }
 }
 
@@ -1459,7 +1502,6 @@ pub struct NewContactForm {
 pub struct EditContactForm {
     pub old_name: String,
     pub name: String,
-    pub node_id: String,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
