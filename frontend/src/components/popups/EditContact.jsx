@@ -1,12 +1,10 @@
-import React, {useState} from "react";
-import {useContext} from "react";
+import React, {useContext, useState} from "react";
 import closeIcon from "../../assests/close-btn.svg";
-import editIcon from "../../assests/edit.svg";
 import {MainContext} from "../../context/MainContext";
 
 export default function EditContact({old_name}) {
     const {showPopUp, handleEditContact} = useContext(MainContext);
-    const [contact, setContact] = useState({name: old_name, peer_id: ""});
+    const [contact, setContact] = useState({name: old_name});
     const handleChange = (e) => {
         setContact({...contact, [e.target.name]: e.target.value});
     };
@@ -26,14 +24,6 @@ export default function EditContact({old_name}) {
                     id="name"
                     value={contact.name}
                     placeholder={old_name}
-                    onChange={handleChange}
-                />
-                <input
-                    type="text"
-                    name="peer_id"
-                    id="peer_id"
-                    value={contact.peer_id}
-                    placeholder="Node Identity"
                     onChange={handleChange}
                 />
             </div>
