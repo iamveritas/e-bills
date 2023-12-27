@@ -296,7 +296,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         let transaction = api::get_transactions_testet(address_to_pay.clone()).await;
         let txid = api::Txid::get_first_transaction(transaction.clone()).await;
         let height = api::get_testnet_last_block_height().await;
-        number_of_confirmations = height - txid.status.block_height;
+        number_of_confirmations = height - txid.status.block_height + 1;
     }
     let address_to_pay = get_address_to_pay(bill.clone());
     let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
@@ -397,7 +397,7 @@ pub async fn get_bill(id: String) -> Template {
             let transaction = api::get_transactions_testet(address_to_pay.clone()).await;
             let txid = api::Txid::get_first_transaction(transaction.clone()).await;
             let height = api::get_testnet_last_block_height().await;
-            number_of_confirmations = height - txid.status.block_height;
+            number_of_confirmations = height - txid.status.block_height + 1;
         }
         if !endorsed.clone() && payee_public_key.eq(&identity.identity.bitcoin_public_key)
         // && !payee.peer_id.eq(&drawee_from_bill.peer_id)

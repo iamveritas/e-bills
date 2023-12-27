@@ -45,6 +45,17 @@ export default function CreateIdenity({identity}) {
                             />
                         </div>
                         <div className="create-body-form-input-in">
+                            <label htmlFor="name">Company</label>
+                            <input
+                                id="company"
+                                value={userData.company}
+                                name="company"
+                                onChange={onChangeHandler}
+                                placeholder="Company"
+                                type="text"
+                            />
+                        </div>
+                        <div className="create-body-form-input-in">
                             <label htmlFor="phonenumber">Phone Number</label>
                             <input
                                 id="phonenumber"
@@ -97,7 +108,7 @@ export default function CreateIdenity({identity}) {
                                 value={userData.city_of_birth}
                                 name="city_of_birth"
                                 onChange={onChangeHandler}
-                                placeholder="Country Of Birth"
+                                placeholder="City Of Birth"
                                 type="text"
                             />
                         </div>
@@ -109,17 +120,6 @@ export default function CreateIdenity({identity}) {
                                 name="postal_address"
                                 onChange={onChangeHandler}
                                 placeholder="Postal Address"
-                                type="text"
-                            />
-                        </div>
-                        <div className="create-body-form-input-in">
-                            <label htmlFor="name">Company</label>
-                            <input
-                                id="company"
-                                value={userData.company}
-                                name="company"
-                                onChange={onChangeHandler}
-                                placeholder="Company"
                                 type="text"
                             />
                         </div>
