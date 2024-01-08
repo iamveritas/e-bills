@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import SelectSearchOption from "../elements/SelectSearchOption";
 import { MainContext } from "../../context/MainContext";
 
@@ -23,11 +23,14 @@ export default function IssueForm() {
     drawer_is_drawee: false,
   });
   const [click, setClick] = useState(true);
-
   const changeHandle = (e) => {
     let value = e.target.value;
     let name = e.target.name;
-    setData({ ...data, [name]: value });
+    if (name === "amount_numbers") {
+      setData({ ...data, [name]: parseInt(value) });
+    } else {
+      setData({ ...data, [name]: value });
+    }
   };
   const checkHandleSearch = (e) => {
     let value = e.target.value;
@@ -85,6 +88,13 @@ export default function IssueForm() {
       setToast("Please Wait...");
     }
   };
+  const [currentDateGmt, setCurrentDateGmt] = useState("");
+
+  useEffect(() => {
+    // Get the current date in GMT
+    const currentDate = new Date().toJSON().slice(0, 10);
+    setCurrentDateGmt(currentDate);
+  }, []);
   return (
     <form className="form" onSubmit={handleSubmition}>
       <div className="form-input">
@@ -94,11 +104,12 @@ export default function IssueForm() {
             className="drop-shadow"
             id="maturity_date"
             name="maturity_date"
+            min={currentDateGmt}
             value={data.maturity_date}
             onChange={changeHandle}
             checkHandleSearch={checkHandleSearch}
             type="date"
-            placeholder="16 May 2023"
+            placeholder={currentDateGmt}
             required
           />
         </div>
@@ -119,7 +130,7 @@ export default function IssueForm() {
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_payee">
-          <span className="me-text"> ME</span>
+          <span className="me-text">me</span>
           <div className="form-input-row">
             <input
               disabled={data?.drawer_is_drawee || data?.payee_name}
@@ -137,8 +148,8 @@ export default function IssueForm() {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="5vw"
-                height="4vw"
+                width="4vw"
+                height="3vw"
                 viewBox="0 0 15 12"
                 fill="none"
               >
@@ -162,7 +173,6 @@ export default function IssueForm() {
                 appereance: "none",
                 MozAppearance: "none",
                 WebkitAppearance: "none",
-                textTransform: "uppercase",
               }}
               className="form-select"
               id="currency_code"
@@ -201,7 +211,7 @@ export default function IssueForm() {
           </div>
         </div>
         <label className="flex-col align-center" htmlFor="drawer_is_drawee">
-          <span className="me-text"> ME</span>
+          <span className="me-text">me</span>
           <div className="form-input-row">
             <input
               disabled={data.drawer_is_payee || data.drawee_name}
@@ -219,8 +229,8 @@ export default function IssueForm() {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="5vw"
-                height="4vw"
+                width="4vw"
+                height="3vw"
                 viewBox="0 0 15 12"
                 fill="none"
               >
