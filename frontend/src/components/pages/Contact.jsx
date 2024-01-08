@@ -1,9 +1,17 @@
 import React, { useContext, useState } from "react";
 import closeIcon from "../../assests/close-btn.svg";
+<<<<<<< HEAD
 
 import { MainContext } from "../../context/MainContext";
 import AddContact from "../popups/AddContact";
 import SingleContact from "../SingleContact";
+=======
+import deleteBtn from "../../assests/delete.svg";
+import editBtn from "../../assests/edit.svg";
+import {MainContext} from "../../context/MainContext";
+import AddContact from "../popups/AddContact";
+import EditContact from "../popups/EditContact";
+>>>>>>> master
 
 export default function Contact() {
   const { showPopUp, handlePage, handleDelete, contacts } =
@@ -45,6 +53,7 @@ export default function Contact() {
               name={d.name}
               PeerId={d.peer_id}
             />
+<<<<<<< HEAD
           );
         })}
       </div>
@@ -53,4 +62,22 @@ export default function Contact() {
       </button>
     </div>
   );
+=======
+            <div className="contact-body">
+                {Array.isArray(newContact) && newContact.map((d, i) => {
+                    return (
+                        <div key={i} className="contact-body-user">
+                            <span>{d.name}</span>
+                            <img onClick={() => showPopUp(true, <EditContact old_name={d.name}/>)} src={editBtn}/>
+                            <img onClick={() => handleDelete(d.name)} src={deleteBtn}/>
+                        </div>
+                    );
+                })}
+            </div>
+            <button onClick={() => showPopUp(true, <AddContact/>)} className="btn">
+                ADD CONTACT
+            </button>
+        </div>
+    );
+>>>>>>> master
 }

@@ -3,7 +3,7 @@ import React, {useState} from "react";
 import avatar from "../../assests/avatar.svg";
 
 export default function CreateIdenity({identity}) {
-    const [userData, setuserData] = useState({
+    const [userData, setUserData] = useState({
         name: identity.name && "",
         phone_number: identity.phone_number && "",
         email: identity.email && "",
@@ -11,11 +11,12 @@ export default function CreateIdenity({identity}) {
         country_of_birth: identity.country_of_birth && "",
         city_of_birth: identity.city_of_birth && "",
         postal_address: identity.postal_address && "",
+        company: identity.company && "",
     });
     const onChangeHandler = (e) => {
         let values = e.target.value;
         let name = e.target.name;
-        setuserData({...userData, [name]: values});
+        setUserData({...userData, [name]: values});
     };
     return (
         <div className="create">
@@ -40,6 +41,17 @@ export default function CreateIdenity({identity}) {
                                 name="name"
                                 onChange={onChangeHandler}
                                 placeholder="Full Name"
+                                type="text"
+                            />
+                        </div>
+                        <div className="create-body-form-input-in">
+                            <label htmlFor="name">Company</label>
+                            <input
+                                id="company"
+                                value={userData.company}
+                                name="company"
+                                onChange={onChangeHandler}
+                                placeholder="Company"
                                 type="text"
                             />
                         </div>
@@ -96,7 +108,7 @@ export default function CreateIdenity({identity}) {
                                 value={userData.city_of_birth}
                                 name="city_of_birth"
                                 onChange={onChangeHandler}
-                                placeholder="Country Of Birth"
+                                placeholder="City Of Birth"
                                 type="text"
                             />
                         </div>

@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 import React, { useContext, useEffect, useState } from "react";
+=======
+import React, {useContext, useState} from "react";
+>>>>>>> master
 import SelectSearchOption from "../elements/SelectSearchOption";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 
 export default function IssueForm() {
   const { contacts, handlePage, handleRefresh, setToast } =
@@ -75,9 +79,13 @@ export default function IssueForm() {
       })
         .then((response) => {
           console.log(response);
+          if (response.status == 200) {
+            setToast("You Bill is Added.");
+          } else {
+            setToast("Some error happened.");
+          }
           handleRefresh();
           handlePage("home");
-          setToast("You Bill is Added.");
           setClick(true);
         })
         .catch((err) => {
