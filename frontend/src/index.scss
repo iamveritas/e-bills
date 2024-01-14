@@ -173,6 +173,7 @@ select:focus {
   &-text {
     font-size: calcView(23);
     // margin-top: calcView(24);
+    text-transform: uppercase;
     font-weight: 600;
   }
 }
@@ -815,13 +816,12 @@ input {
 
 .accept {
   width: 100%;
+  height: 100vh;
   overflow-y: auto;
 
   &-container {
     width: 100%;
-    height: calcView(583);
     border-radius: calcView(32) calcView(32) 0 0;
-
     &-content {
       padding: calcView(50) calcView(23);
       display: flex;
@@ -1256,6 +1256,7 @@ input {
   position: relative;
 
   .poped-up {
+    z-index: 99;
     position: absolute;
     right: calcView(23);
     top: calcView(150);
@@ -1697,9 +1698,16 @@ input {
       align-items: center;
       justify-content: space-between;
       border-radius: calcView(8);
-
+      &-name {
+        width: fit-content;
+      }
+      .copyicon {
+        width: calcView(16);
+        height: calcView(16);
+        object-fit: contain;
+      }
       span {
-        flex-grow: 1;
+        // flex-grow: 1;
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: pre;
@@ -1709,6 +1717,11 @@ input {
         width: calcView(28);
         height: calcView(28);
         object-fit: contain;
+      }
+      .flexgap {
+        display: flex;
+        align-items: center;
+        gap: calcView(10);
       }
     }
   }
@@ -1764,8 +1777,8 @@ input {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   background: $White;
   display: flex;
   flex-direction: column;

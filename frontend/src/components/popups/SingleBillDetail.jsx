@@ -170,16 +170,17 @@ export default function SingleBillDetail({ item }) {
             </svg>
             download bill
           </span>
-          {singleBill?.requested_to_pay && (
-            <Key
-              payed={singleBill?.payed}
-              peerId={peer_id}
-              payee={singleBill?.payee}
-              privatekey={singleBill?.pr_key_bill}
-              pending={singleBill?.pending}
-              confirmations={singleBill?.number_of_confirmations}
-            />
-          )}
+          {singleBill?.requested_to_pay ||
+            (singleBill?.payed && (
+              <Key
+                payed={singleBill?.payed}
+                peerId={peer_id}
+                payee={singleBill?.payee}
+                privatekey={singleBill?.pr_key_bill}
+                pending={singleBill?.pending}
+                confirmations={singleBill?.number_of_confirmations}
+              />
+            ))}
           <div className="head">
             <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
             <IconHolder icon={attachment} />

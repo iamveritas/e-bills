@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 import React, { useContext, useEffect, useState } from "react";
-=======
-import React, {useContext, useState} from "react";
->>>>>>> master
 import SelectSearchOption from "../elements/SelectSearchOption";
-import {MainContext} from "../../context/MainContext";
+import { MainContext } from "../../context/MainContext";
 
 export default function IssueForm() {
   const { contacts, handlePage, handleRefresh, setToast } =

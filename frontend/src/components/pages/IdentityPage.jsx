@@ -6,7 +6,6 @@ import { MainContext } from "../../context/MainContext";
 import copyIcon from "../../assests/copy.svg";
 
 export default function IdentityPage() {
-<<<<<<< HEAD
   const {
     toast,
     handlePage,
@@ -22,34 +21,13 @@ export default function IdentityPage() {
   // Set the minimum and maximum date states
   const [minDate, setMinDate] = useState("");
   const [maxDate, setMaxDate] = useState("");
+  const [image, setImage] = useState();
+  const [uneditable, setunEditable] = useState(true);
   useEffect(() => {
     // Calculate the minimum date (18 years ago)
     const minDateObj = new Date();
     minDateObj.setFullYear(minDateObj.getFullYear() - minAge);
     const minDateStr = minDateObj.toISOString().split("T")[0];
-=======
-    const {
-        toast,
-        handlePage,
-        peer_id,
-        identity,
-        handleRefresh,
-        setToast,
-        copytoClip,
-    } = useContext(MainContext);
-    const [userData, setUserData] = useState({
-        name: identity.name || "",
-        email: identity.email || "",
-        date_of_birth:
-            new Date(identity.date_of_birth).toLocaleDateString("en-CA") || "",
-        country_of_birth: identity.country_of_birth || "",
-        city_of_birth: identity.city_of_birth || "",
-        postal_address: identity.postal_address || "",
-        company: identity.company || "",
-    });
-    const [image, setImage] = useState();
-    const [uneditable, setunEditable] = useState(true);
->>>>>>> master
 
     // Calculate the maximum date (100 years ago)
     const maxDateObj = new Date();
@@ -69,8 +47,6 @@ export default function IdentityPage() {
     city_of_birth: identity.city_of_birth || "",
     postal_address: identity.postal_address || "",
   });
-  const [image, setImage] = useState();
-  const [uneditable, setunEditable] = useState(true);
 
   const [content, setContent] = useState({
     justify: "",
@@ -92,7 +68,6 @@ export default function IdentityPage() {
       }
     }
   };
-
   const peerIdLength = peer_id?.length;
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -210,7 +185,6 @@ export default function IdentityPage() {
                 type="text"
               />
             </div> */}
-<<<<<<< HEAD
             <div
               className={
                 toast != "" && userData?.email === ""
@@ -288,108 +262,95 @@ export default function IdentityPage() {
               />
             </div>
           </div>
-=======
-                        <div
-                            className={
-                                toast != "" && userData?.email === ""
-                                    ? "create-body-form-input-in invalid"
-                                    : "create-body-form-input-in"
-                            }
-                        >
-                            <label htmlFor="email">Email Address</label>
-                            <input
-                                id="email"
-                                name="email"
-                                value={userData.email}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder="Email Address"
-                                type="text"
-                            />
-                        </div>
-                        <div
-                            className={
-                                toast != "" && userData?.date_of_birth === "Invalid Date"
-                                    ? "create-body-form-input-in invalid"
-                                    : "create-body-form-input-in"
-                            }
-                        >
-                            <label htmlFor="date_of_birth">Date Of Birth</label>
-                            <input
-                                id="date_of_birth"
-                                name="date_of_birth"
-                                value={userData.date_of_birth}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder=""
-                                type="date"
-                            />
-                        </div>
-                    </div>
-                    <div className="create-body-form-input">
-                        <div className="create-body-form-input-in">
-                            <label htmlFor="country_of_birth">Country Of Birth</label>
-                            <input
-                                id="country_of_birth"
-                                name="country_of_birth"
-                                value={userData.country_of_birth}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder="Country Of Birth"
-                                type="text"
-                            />
-                        </div>
-                        <div className="create-body-form-input-in">
-                            <label htmlFor="city_of_birth">City Of Birth</label>
-                            <input
-                                id="city_of_birth"
-                                name="city_of_birth"
-                                value={userData.city_of_birth}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder="Country Of Birth"
-                                type="text"
-                            />
-                        </div>
-                        <div className="create-body-form-input-in">
-                            <label htmlFor="postal_address">Postal Address</label>
-                            <input
-                                id="postal_address"
-                                name="postal_address"
-                                value={userData.postal_address}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder="Postal Address"
-                                type="text"
-                            />
-                        </div>
-                        <div className="create-body-form-input-in">
-                            <label htmlFor="country_of_birth">Company</label>
-                            <input
-                                id="company"
-                                name="company"
-                                value={userData.company}
-                                disabled={uneditable}
-                                onChange={onChangeHandler}
-                                placeholder="Company"
-                                type="text"
-                            />
-                        </div>
-                    </div>
-                </div>
-                {content.sign && (
-                    <div className="flex justify-space">
-                        <div onClick={checkPreview} className="create-body-btn">
-                            {uneditable ? "CANCEL" : "PREVIEW"}
-                        </div>
-                        {uneditable && (
-                            <input className="create-body-btn" type="submit" value="SIGN"/>
-                        )}
-                    </div>
-                )}
-            </form>
->>>>>>> master
+
+          <div
+            className={
+              toast != "" && userData?.email === ""
+                ? "create-body-form-input-in invalid"
+                : "create-body-form-input-in"
+            }
+          >
+            <label htmlFor="email">Email Address</label>
+            <input
+              id="email"
+              name="email"
+              value={userData.email}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder="Email Address"
+              type="text"
+            />
+          </div>
+          <div
+            className={
+              toast != "" && userData?.date_of_birth === "Invalid Date"
+                ? "create-body-form-input-in invalid"
+                : "create-body-form-input-in"
+            }
+          >
+            <label htmlFor="date_of_birth">Date Of Birth</label>
+            <input
+              id="date_of_birth"
+              name="date_of_birth"
+              value={userData.date_of_birth}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder=""
+              type="date"
+            />
+          </div>
         </div>
+        <div className="create-body-form-input">
+          <div className="create-body-form-input-in">
+            <label htmlFor="country_of_birth">Country Of Birth</label>
+            <input
+              id="country_of_birth"
+              name="country_of_birth"
+              value={userData.country_of_birth}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder="Country Of Birth"
+              type="text"
+            />
+          </div>
+          <div className="create-body-form-input-in">
+            <label htmlFor="city_of_birth">City Of Birth</label>
+            <input
+              id="city_of_birth"
+              name="city_of_birth"
+              value={userData.city_of_birth}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder="Country Of Birth"
+              type="text"
+            />
+          </div>
+          <div className="create-body-form-input-in">
+            <label htmlFor="postal_address">Postal Address</label>
+            <input
+              id="postal_address"
+              name="postal_address"
+              value={userData.postal_address}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder="Postal Address"
+              type="text"
+            />
+          </div>
+          <div className="create-body-form-input-in">
+            <label htmlFor="country_of_birth">Company</label>
+            <input
+              id="company"
+              name="company"
+              value={userData.company}
+              disabled={uneditable}
+              onChange={onChangeHandler}
+              placeholder="Company"
+              type="text"
+            />
+          </div>
+        </div>
+
         {content.sign && (
           <div className="flex justify-space">
             <div onClick={checkPreview} className="create-body-btn">
@@ -402,5 +363,17 @@ export default function IdentityPage() {
         )}
       </form>
     </div>
+    //     {content.sign && (
+    //       <div className="flex justify-space">
+    //         <div onClick={checkPreview} className="create-body-btn">
+    //           {uneditable ? "CANCEL" : "PREVIEW"}
+    //         </div>
+    //         {uneditable && (
+    //           <input className="create-body-btn" type="submit" value="SIGN" />
+    //         )}
+    //       </div>
+    //     )}
+    //   </form>
+    // </div>
   );
 }

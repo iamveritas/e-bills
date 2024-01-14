@@ -1,20 +1,12 @@
 import React, { useContext, useState } from "react";
 import closeIcon from "../../assests/close-btn.svg";
-<<<<<<< HEAD
+import SingleContact from "../SingleContact";
 
 import { MainContext } from "../../context/MainContext";
 import AddContact from "../popups/AddContact";
-import SingleContact from "../SingleContact";
-=======
-import deleteBtn from "../../assests/delete.svg";
-import editBtn from "../../assests/edit.svg";
-import {MainContext} from "../../context/MainContext";
-import AddContact from "../popups/AddContact";
-import EditContact from "../popups/EditContact";
->>>>>>> master
 
 export default function Contact() {
-  const { showPopUp, handlePage, handleDelete, contacts } =
+  const { copytoClip, showPopUp, handlePage, handleDelete, contacts } =
     useContext(MainContext);
   const [search, setSearch] = useState("");
   let newContact;
@@ -45,39 +37,23 @@ export default function Contact() {
         onChange={handleSearchChange}
       />
       <div className="contact-body">
-        {newContact.map((d, i) => {
-          return (
-            <SingleContact
-              handleDelete={handleDelete}
-              key={i}
-              name={d.name}
-              PeerId={d.peer_id}
-            />
-<<<<<<< HEAD
-          );
-        })}
+        {Array.isArray(newContact) &&
+          newContact.map((d, i) => {
+            return (
+              <SingleContact
+                handleDelete={handleDelete}
+                key={i}
+                name={d.name}
+                PeerId={d.peer_id}
+                showPopUp={showPopUp}
+                copytoClip={copytoClip}
+              />
+            );
+          })}
       </div>
       <button onClick={() => showPopUp(true, <AddContact />)} className="btn">
         ADD CONTACT
       </button>
     </div>
   );
-=======
-            <div className="contact-body">
-                {Array.isArray(newContact) && newContact.map((d, i) => {
-                    return (
-                        <div key={i} className="contact-body-user">
-                            <span>{d.name}</span>
-                            <img onClick={() => showPopUp(true, <EditContact old_name={d.name}/>)} src={editBtn}/>
-                            <img onClick={() => handleDelete(d.name)} src={deleteBtn}/>
-                        </div>
-                    );
-                })}
-            </div>
-            <button onClick={() => showPopUp(true, <AddContact/>)} className="btn">
-                ADD CONTACT
-            </button>
-        </div>
-    );
->>>>>>> master
 }

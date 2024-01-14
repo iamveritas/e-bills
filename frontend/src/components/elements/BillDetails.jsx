@@ -69,7 +69,7 @@ function BillDetails({ data, icon, filter }) {
             </div>
             <div
               className={`currency-details ${
-                items.amount_numbers.length > 4 ? "currency-details-number" : ""
+                items.amount_numbers >= 999 ? "currency-details-number" : ""
               }`}
               data-set={items.amount_numbers}
             >
