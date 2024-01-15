@@ -48,7 +48,9 @@ function Bill({ identity, data }) {
   const maturityDate = dateObjectMaturity.toLocaleDateString("en-US", ops);
 
   const companyName = data?.drawee?.company;
-  // console.log(companyNameAddress.length);
+  const [{ signature }] = data?.chain_of_blocks?.blocks?.filter(
+    (d) => d.operation_code === "Accept"
+  );
   return (
     <div className="billing">
       <div className="top-buttons">
@@ -164,11 +166,11 @@ function Bill({ identity, data }) {
                       Payer
                     </span>
                     <span className="details-container-bottom-left-bez-line-ans">
-                      {companyName.slice(0, 52)}
+                      {companyName?.slice(0, 52)}
                     </span>
                   </span>
                   <span className="details-container-bottom-left-bez-next-line">
-                    {companyName.slice(52, companyName?.length)}
+                    {companyName?.slice(52, companyName?.length)}
                   </span>
                 </div>
                 <div className="details-container-bottom-left-in">
@@ -191,11 +193,11 @@ function Bill({ identity, data }) {
                         Bill Id
                       </span>
                       <span className="details-container-bottom-left-bez-line-ans">
-                        {data?.bill_Id}
+                        {data?.name?.slice(0, 50)}
                       </span>
                     </span>
                     <span className="details-container-bottom-left-bez-next-line">
-                      SOME TEXT HERE
+                      {data?.name?.slice(50, data?.name?.length)}
                     </span>
                   </div>
                   <div className="details-container-bottom-left-in">
@@ -204,7 +206,7 @@ function Bill({ identity, data }) {
                     </span>
                     <span className="details-container-bottom-left-in-further">
                       <span className="details-container-bottom-left-in-further-text">
-                        SOME TEXT HERE
+                        {/* SOME TEXT HERE */}
                       </span>
                       <span className="details-container-bottom-left-in-further-bottom">
                         Use for domicile instructions
@@ -215,7 +217,8 @@ function Bill({ identity, data }) {
               </div>
               <div className="details-container-bottom-signature">
                 <span className="signature">
-                  <img src={dumySig} />
+                  {signature.slice(0, 9)}...
+                  {signature.slice(signature.length - 9, signature.length)}
                 </span>
                 <span>Signature and address of the drawer</span>
               </div>

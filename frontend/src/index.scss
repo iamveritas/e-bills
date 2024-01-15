@@ -5,6 +5,10 @@
   font-family: writter;
   src: url(./assests/atwriter.ttf);
 }
+@font-face {
+  font-family: signature;
+  src: url(./assests/brother.otf);
+}
 
 $standardWidth: 430;
 $PrimaryColor: #f7931a;
@@ -1199,6 +1203,7 @@ input {
                 &-text {
                   text-align: center;
                   width: 100%;
+                  height: calcView(17);
                   font-size: calcView(16);
                   line-height: calcView(18);
                   border-bottom: calcView(1) solid $LightBlack;
@@ -1238,13 +1243,11 @@ input {
 
             .signature {
               position: absolute;
-              top: 50%;
+              top: 60%;
               left: 50%;
               transform: translate(-50%, -50%);
-
-              img {
-                width: calcView(230);
-              }
+              font-family: signature;
+              font-size: calcView(34);
             }
 
             span {
