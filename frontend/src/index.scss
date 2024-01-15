@@ -998,7 +998,10 @@ input {
 
               &-second {
                 padding: 0 calcView(10);
-                width: 100%;
+                width: 42%;
+                white-space: pre;
+                text-overflow: ellipsis;
+                overflow: hidden;
                 border-bottom: calcView(1) solid $LightBlack;
                 color: $TextColor;
                 font-family: writter;
@@ -1160,6 +1163,7 @@ input {
                   color: $TextColor;
                   font-family: writter;
                   width: 100%;
+                  text-align: center;
                   line-height: calcView(14);
                   font-size: calcView(14);
                   border-bottom: calcView(1) solid $LightBlack;
@@ -1167,6 +1171,7 @@ input {
               }
 
               &-next-line {
+                height: calcView(15);
                 color: $TextColor;
                 font-family: writter;
                 line-height: calcView(14);
