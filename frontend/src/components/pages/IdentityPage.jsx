@@ -90,6 +90,15 @@ export default function IdentityPage() {
         }
     };
 
+    const startEdit = () => {
+        setunEditable(false);
+        setContent({
+            justify: " justify-space",
+            close: true,
+            sign: true,
+        });
+    };
+
     return (
         <div className="create">
             <div className={"create-head" + content.justify}>
@@ -262,6 +271,13 @@ export default function IdentityPage() {
                         {uneditable && (
                             <input className="create-body-btn" type="submit" value="SIGN"/>
                         )}
+                    </div>
+                )}
+                {!content.sign && (
+                    <div className="flex justify-space">
+                        <div onClick={startEdit} className="create-body-btn">
+                            Edit
+                        </div>
                     </div>
                 )}
             </form>
