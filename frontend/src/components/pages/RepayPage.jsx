@@ -32,13 +32,43 @@ export default function RepayPage({ data }) {
           className="select-opt"
           onClick={() => copytoClip(data.link_to_pay, "You copied link to pay")}
         >
-          {data.link_to_pay?.slice(0, 20)}...{" "}
+          {data.link_to_pay?.slice(0, 8)}...
+          {data.link_to_pay?.slice(
+            data.link_to_pay?.length - 4,
+            data.link_to_pay?.length
+          )}
           <img
             style={{
               width: "5vw",
               height: "5vw",
-              display: "inline-block",
+              display: "inline",
               verticalAlign: "middle",
+              marginLeft: "2vw",
+            }}
+            src={copy}
+          />
+        </span>
+      </div>
+      <div className="col mtt">
+        <label htmlFor="wallet">Address to pay:</label>
+        <span
+          className="select-opt"
+          onClick={() =>
+            copytoClip(data.address_to_pay, "You copied address to pay")
+          }
+        >
+          {data.address_to_pay?.slice(0, 8)}...
+          {data.address_to_pay?.slice(
+            data.address_to_pay?.length - 4,
+            data.address_to_pay?.length
+          )}
+          <img
+            style={{
+              width: "5vw",
+              height: "5vw",
+              display: "inline",
+              verticalAlign: "middle",
+              marginLeft: "2vw",
             }}
             src={copy}
           />

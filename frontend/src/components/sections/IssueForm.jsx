@@ -27,11 +27,13 @@ export default function IssueForm() {
     let value = e.target.value;
     let name = e.target.name;
     if (name === "amount_numbers") {
-      setData({ ...data, [name]: parseInt(value) });
+      let val = value.replace(/[^0-9]/g, "");
+      setData({ ...data, [name]: parseInt(val) });
     } else {
       setData({ ...data, [name]: value });
     }
   };
+
   const checkHandleSearch = (e) => {
     let value = e.target.value;
     let name = e.target.name;

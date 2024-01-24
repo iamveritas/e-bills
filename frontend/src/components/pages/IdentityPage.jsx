@@ -261,93 +261,18 @@ export default function IdentityPage() {
                 type="text"
               />
             </div>
-          </div>
-
-          <div
-            className={
-              toast != "" && userData?.email === ""
-                ? "create-body-form-input-in invalid"
-                : "create-body-form-input-in"
-            }
-          >
-            <label htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              name="email"
-              value={userData.email}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Email Address"
-              type="text"
-            />
-          </div>
-          <div
-            className={
-              toast != "" && userData?.date_of_birth === "Invalid Date"
-                ? "create-body-form-input-in invalid"
-                : "create-body-form-input-in"
-            }
-          >
-            <label htmlFor="date_of_birth">Date Of Birth</label>
-            <input
-              id="date_of_birth"
-              name="date_of_birth"
-              value={userData.date_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder=""
-              type="date"
-            />
-          </div>
-        </div>
-        <div className="create-body-form-input">
-          <div className="create-body-form-input-in">
-            <label htmlFor="country_of_birth">Country Of Birth</label>
-            <input
-              id="country_of_birth"
-              name="country_of_birth"
-              value={userData.country_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Country Of Birth"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="city_of_birth">City Of Birth</label>
-            <input
-              id="city_of_birth"
-              name="city_of_birth"
-              value={userData.city_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Country Of Birth"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="postal_address">Postal Address</label>
-            <input
-              id="postal_address"
-              name="postal_address"
-              value={userData.postal_address}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Postal Address"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="country_of_birth">Company</label>
-            <input
-              id="company"
-              name="company"
-              value={userData.company}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Company"
-              type="text"
-            />
+            <div className="create-body-form-input-in">
+              <label htmlFor="country_of_birth">Company</label>
+              <input
+                id="company"
+                name="company"
+                value={userData.company}
+                disabled={uneditable}
+                onChange={onChangeHandler}
+                placeholder="Company"
+                type="text"
+              />
+            </div>
           </div>
         </div>
 
@@ -363,17 +288,5 @@ export default function IdentityPage() {
         )}
       </form>
     </div>
-    //     {content.sign && (
-    //       <div className="flex justify-space">
-    //         <div onClick={checkPreview} className="create-body-btn">
-    //           {uneditable ? "CANCEL" : "PREVIEW"}
-    //         </div>
-    //         {uneditable && (
-    //           <input className="create-body-btn" type="submit" value="SIGN" />
-    //         )}
-    //       </div>
-    //     )}
-    //   </form>
-    // </div>
   );
 }

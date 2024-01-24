@@ -10,7 +10,7 @@ import profile from "../../assests/profile.svg";
 import { MainContext } from "../../context/MainContext";
 
 export default function HomeHeader() {
-  const { handlePage } = useContext(MainContext);
+  const { handlePage, identity } = useContext(MainContext);
   return (
     <div className="home-header">
       <div className="home-header-left">
@@ -30,7 +30,12 @@ export default function HomeHeader() {
           handleClick={() => handlePage("dont")}
           icon={payment_channel}
         />
-        <IconHolder handleClick={() => handlePage("identity")} icon={profile} />
+        <span
+          className={"icon-container profile-icon"}
+          onClick={() => handlePage("identity")}
+        >
+          <span className={"icon"}>{identity.name[0]}</span>
+        </span>
       </div>
     </div>
   );

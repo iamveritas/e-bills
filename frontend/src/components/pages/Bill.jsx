@@ -48,9 +48,12 @@ function Bill({ identity, data }) {
   const maturityDate = dateObjectMaturity.toLocaleDateString("en-US", ops);
 
   const companyName = data?.drawee?.company;
-  const [{ signature }] = data?.chain_of_blocks?.blocks?.filter(
+  const [blocks] = data?.chain_of_blocks?.blocks?.filter(
     (d) => d.operation_code === "Accept"
   );
+  const signatureAccept = blocks?.signature;
+  const signatureIssue = data?.chain_of_blocks?.blocks[0]?.signature;
+  console.log(blocks);
   return (
     <div className="billing">
       <div className="top-buttons">
@@ -78,15 +81,22 @@ function Bill({ identity, data }) {
         <div className="top-container">
           <div className="head-text">
             <img src={wechsel} />
-            <span>Accepted</span>
+            <span>{blocks?.operation_code}</span>
           </div>
           <div className="line">
-            <hr />
-            <hr />
-            <hr />
+            <span></span>
+            <span>
+              {blocks &&
+                `${signatureAccept?.slice(0, 4)}...
+              ${signatureAccept?.slice(
+                signatureAccept?.length - 4,
+                signatureAccept?.length
+              )}`}
+            </span>
+            <span></span>
           </div>
           <div className="unter-text">
-            <span>Acceptor’s signature</span>
+            <span>{blocks && "Acceptor’s signature"}</span>
           </div>
         </div>
         <div className="details">
@@ -217,8 +227,11 @@ function Bill({ identity, data }) {
               </div>
               <div className="details-container-bottom-signature">
                 <span className="signature">
-                  {signature.slice(0, 9)}...
-                  {signature.slice(signature.length - 9, signature.length)}
+                  {signatureIssue.slice(0, 6)}...
+                  {signatureIssue.slice(
+                    signatureIssue.length - 6,
+                    signatureIssue.length
+                  )}
                 </span>
                 <span>Signature and address of the drawer</span>
               </div>

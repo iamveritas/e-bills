@@ -123,7 +123,13 @@ select:disabled {
 select:focus {
   border: calcView(2) solid $PrimaryColor;
 }
-
+.profile-icon {
+  span {
+    font-weight: 700;
+    font-size: calcView(26);
+    line-height: calcView(26);
+  }
+}
 .accept-heading {
   font-size: calcView(22);
   font-weight: 600;
@@ -183,7 +189,7 @@ select:focus {
 }
 
 .icon-container {
-  background-color: #e1e1e6;
+  background-color: #fefefe;
   border-radius: calcView(12);
   @include flexCenter();
   width: calcView(58);
@@ -195,7 +201,7 @@ select:focus {
 
   .icon {
     @include flexCenter();
-    background-color: #fbfbfb;
+    background-color: #eeeeee;
     border-radius: 50%;
     width: calcView(42);
     height: calcView(42);
@@ -530,8 +536,8 @@ input {
       // gap: calcView(25);
       flex: 1 0 0;
       align-self: stretch;
-
       &-single {
+        position: relative;
         display: flex;
         align-items: center;
         gap: calcView(5);
@@ -551,6 +557,23 @@ input {
           color: $Black !important;
           font-size: calcView(20);
         }
+      }
+    }
+    .home-amount-hov {
+      &::after {
+        content: attr(data-set);
+        position: absolute;
+        top: calcView(-35);
+        background: #000000bc;
+        font-size: calcView(16);
+        color: white;
+        padding: calcView(5) calcView(10);
+        border-radius: calcView(8);
+        right: calcView(30);
+        display: none;
+      }
+      &:hover::after {
+        display: block;
       }
     }
 
@@ -652,7 +675,7 @@ input {
           align-items: center;
           gap: calcView(10);
           border-radius: calcView(6);
-          background: #e1e1e6;
+          background: #eff1f4;
         }
 
         .details {
@@ -844,11 +867,13 @@ input {
 
   .select-opt {
     width: calcView(300);
+    display: flex;
   }
 
   .col {
     display: flex;
     flex-direction: column;
+    gap: calcView(5);
   }
 
   .inline {
@@ -866,7 +891,7 @@ input {
   }
 
   .mtt {
-    margin-top: calcView(58);
+    margin-top: calcView(35);
   }
 }
 
@@ -923,9 +948,19 @@ input {
         width: calcView(344);
         margin: 0 auto;
         margin-top: calcView(36);
+        margin-bottom: calcView(16);
         display: flex;
         flex-direction: column;
-        gap: calcView(35);
+        gap: calcView(15);
+        span {
+          height: calcView(18);
+          font-size: calcView(70);
+          line-height: calcView(18);
+          text-align: center;
+          font-family: signature;
+          padding-bottom: calcView(10);
+          // border-bottom: calcView(2) solid black;
+        }
       }
 
       .unter-text {
@@ -1416,9 +1451,9 @@ input {
           display: flex;
           flex-direction: column;
           label {
-            margin-top: calcView(5);
+            // margin-top: calcView(-4);
             font-size: calcView(12);
-            line-height: calcView(4);
+            // line-height: calcView(18);
             font-weight: 600;
           }
           input {
@@ -1433,6 +1468,8 @@ input {
           }
           input:disabled {
             background: transparent;
+            padding: 0;
+            height: calcView(30);
           }
           input:focus {
             border: solid calcView(2) $PrimaryColor;
@@ -1470,7 +1507,8 @@ input {
   bottom: calcView(10);
   left: 50%;
   transform: translateX(-50%);
-  background: #00000096;
+  background: #000000ba;
+  color: #fff;
   padding: calcView(6) calcView(16);
   font-size: calcView(16);
   white-space: pre;
