@@ -1,3 +1,3 @@
 # E-Bills
 
-Core for bitcredit project.
+Core for Bitcredit project.
