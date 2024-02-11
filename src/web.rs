@@ -19,18 +19,14 @@ use crate::dht::network::Client;
 use crate::{
     accept_bill, add_in_contacts_map, api, blockchain, change_contact_data_from_dht,
     change_contact_name_from_contacts_map, create_whole_identity, delete_from_contacts_map,
-    endorse_bitcredit_bill, get_bills, get_contact_from_map, get_contacts_vec, get_whole_identity,
-    issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee,
-    read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file,
-    request_acceptance, request_pay, write_identity_to_file, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForm,
     endorse_bitcredit_bill, get_bills, get_bills_for_list, get_contact_from_map, get_contacts_vec,
     get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
     issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
     read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
-    AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList, BitcreditBillForm,
-    BitcreditBillToReturn, Contact, DeleteContactForm, EditContactForm, EndorseBitcreditBillForm,
-    Identity, IdentityForm, IdentityPublicData, IdentityWithAll, NewContactForm, NodeId,
-    RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    write_identity_to_file, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList,
+    BitcreditBillForm, BitcreditBillToReturn, Contact, DeleteContactForm, EditContactForm,
+    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
+    NewContactForm, NodeId, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
