@@ -88,10 +88,10 @@ function Bill({ identity, data }) {
             <span>
               {blocks &&
                 `${signatureAccept?.slice(0, 4)}...
-              ${signatureAccept?.slice(
-                signatureAccept?.length - 4,
-                signatureAccept?.length
-              )}`}
+                ${signatureAccept?.slice(
+                  signatureAccept?.length - 4,
+                  signatureAccept?.length
+                )}`}
             </span>
             <span></span>
           </div>
