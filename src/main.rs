@@ -18,6 +18,7 @@ use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
 use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::yansi::Paint;
 use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
@@ -808,6 +809,32 @@ pub struct BitcreditBillToReturn {
     chain_of_blocks: ChainToReturn,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+pub struct BitcreditBillForList {
+    name: String,
+    to_payee: bool,
+    bill_jurisdiction: String,
+    timestamp_at_drawing: i64,
+    drawee: IdentityPublicData,
+    drawer: IdentityPublicData,
+    payee: IdentityPublicData,
+    endorsee: IdentityPublicData,
+    place_of_drawing: String,
+    currency_code: String,
+    amount_numbers: u64,
+    amounts_letters: String,
+    maturity_date: String,
+    date_of_issue: String,
+    compounding_interest_rate: u64,
+    type_of_interest_calculation: bool,
+    place_of_payment: String,
+    public_key: String,
+    private_key: String,
+    language: String,
+    chain_of_blocks: ChainToReturn,
+}
+
 #[derive(BorshSerialize, BorshDeserialize, FromForm, Debug, Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct BitcreditBill {
@@ -1061,7 +1088,7 @@ pub fn issue_new_bill_drawer_is_payee(
         private_key: private_key_bitcoin,
         language,
         drawee: public_data_drawee,
-        drawer: IdentityPublicData::new_empty(),
+        drawer: public_data_payee.clone(),
         payee: public_data_payee,
         endorsee: IdentityPublicData::new_empty(),
     };
@@ -1146,8 +1173,8 @@ pub fn issue_new_bill_drawer_is_drawee(
         public_key: public_key_bitcoin,
         private_key: private_key_bitcoin,
         language,
-        drawee: public_data_drawee,
-        drawer: IdentityPublicData::new_empty(),
+        drawee: public_data_drawee.clone(),
+        drawer: public_data_drawee,
         payee: public_data_payee,
         endorsee: IdentityPublicData::new_empty(),
     };
@@ -1206,6 +1233,30 @@ pub fn get_bills() -> Vec<BitcreditBill> {
                 .expect("File name error")
                 .to_string();
             let bill = read_bill_from_file(&path_without_extension);
+            bills.push(bill);
+        }
+    }
+    bills
+}
+
+pub fn get_bills_for_list() -> Vec<BitcreditBillForList> {
+    let mut bills = Vec::new();
+    let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
+    for _path in paths {
+        let dir = _path.unwrap();
+        if is_not_hidden(&dir) {
+            let mut file_name = dir
+                .file_name()
+                .to_str()
+                .expect("File name error")
+                .to_string();
+            //TODO change
+            let path_without_extension = path::Path::file_stem(path::Path::new(&file_name))
+                .expect("File name error")
+                .to_str()
+                .expect("File name error")
+                .to_string();
+            let bill = read_bill_with_chain_from_file(&path_without_extension);
             bills.push(bill);
         }
     }
@@ -1430,6 +1481,37 @@ pub fn accept_bill(bill_name: &String, timestamp: i64) -> bool {
     } else {
         false
     }
+}
+
+fn read_bill_with_chain_from_file(bill_name: &String) -> BitcreditBillForList {
+    let chain = Chain::read_chain_from_file(bill_name);
+    let bill = chain.get_last_version_bill();
+    let chain_to_return = ChainToReturn::new(chain.clone());
+    let bitcredit_bill_to_return: BitcreditBillForList = BitcreditBillForList {
+        name: bill.name,
+        to_payee: bill.to_payee,
+        bill_jurisdiction: bill.bill_jurisdiction,
+        timestamp_at_drawing: bill.timestamp_at_drawing,
+        drawee: bill.drawee,
+        drawer: bill.drawer,
+        payee: bill.payee.clone(),
+        endorsee: bill.endorsee.clone(),
+        place_of_drawing: bill.place_of_drawing,
+        currency_code: bill.currency_code,
+        amount_numbers: bill.amount_numbers,
+        amounts_letters: bill.amounts_letters,
+        maturity_date: bill.maturity_date,
+        date_of_issue: bill.date_of_issue,
+        compounding_interest_rate: bill.compounding_interest_rate,
+        type_of_interest_calculation: bill.type_of_interest_calculation,
+        place_of_payment: bill.place_of_payment,
+        public_key: bill.public_key,
+        private_key: bill.private_key,
+        language: bill.language,
+        chain_of_blocks: chain_to_return,
+    };
+
+    bitcredit_bill_to_return
 }
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
