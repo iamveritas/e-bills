@@ -1,14 +1,6 @@
 import React, {useContext} from "react";
-import IconHolder from "./IconHolder";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 import SingleBillDetail from "../popups/SingleBillDetail";
-
-import billIcon from "../../assests/bills.svg";
-import iconPay from "../../assests/pay.svg";
-import iconAccept from "../../assests/accept.svg";
-import iconEndorse from "../../assests/endorse.svg";
-import iconRTA from "../../assests/reqToAccept.svg";
-import iconRTP from "../../assests/reqToPay.svg";
 
 const signCalculation = (peer_id, items) => {
   if (peer_id == items.drawee.peer_id) {
@@ -230,8 +222,8 @@ function BillDetails({ setFilterPop, data, filter }) {
               <span className="icon">
                 {getIcon(
                   peer_id,
+                  items?.drawee?.peer_id,
                   items?.payee?.peer_id,
-                  items?.drawer?.peer_id,
                   items?.chain_of_blocks?.blocks
                 )}
               </span>
