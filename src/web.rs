@@ -6,28 +6,17 @@ use std::str::FromStr;
 use bitcoin::secp256k1::Scalar;
 use chrono::{Days, Utc};
 use libp2p::PeerId;
+use rocket::{Request, Response, State};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::form::Form;
 use rocket::http::{Header, Status};
 use rocket::serde::json::Json;
-use rocket::{Request, Response, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
+use crate::{accept_bill, AcceptBitcreditBillForm, add_in_contacts_map, api, BitcreditBill, BitcreditBillForList, BitcreditBillForm, BitcreditBillToReturn, blockchain, change_contact_data_from_dht, change_contact_name_from_contacts_map, Contact, create_whole_identity, delete_from_contacts_map, DeleteContactForm, EditContactForm, endorse_bitcredit_bill, EndorseBitcreditBillForm, get_bills, get_bills_for_list, get_contact_from_map, get_contacts_vec, get_whole_identity, Identity, IdentityForm, IdentityPublicData, IdentityWithAll, issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee, NewContactForm, NodeId, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm, sell_bitcredit_bill, SellBitcreditBillForm};
 use crate::blockchain::{Chain, ChainToReturn, GossipsubEvent, GossipsubEventId, OperationCode};
-use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
+use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
-use crate::{
-    accept_bill, add_in_contacts_map, api, blockchain, change_contact_data_from_dht,
-    change_contact_name_from_contacts_map, create_whole_identity, delete_from_contacts_map,
-    endorse_bitcredit_bill, get_bills, get_bills_for_list, get_contact_from_map, get_contacts_vec,
-    get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
-    issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
-    read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
-    AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList, BitcreditBillForm,
-    BitcreditBillToReturn, Contact, DeleteContactForm, EditContactForm, EndorseBitcreditBillForm,
-    Identity, IdentityForm, IdentityPublicData, IdentityWithAll, NewContactForm, NodeId,
-    RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
-};
 
 use self::handlebars::{Handlebars, JsonRender};
 
@@ -286,6 +275,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let mut requested_to_accept =
         chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToAccept);
     let address_to_pay = get_address_to_pay(bill.clone());
+    //TODO: add last_sell_block_paid
     let check_if_already_paid =
         check_if_paid(address_to_pay.clone(), bill.amount_numbers.clone()).await;
     let payed = check_if_already_paid.0;
@@ -327,7 +317,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         bill_jurisdiction: bill.bill_jurisdiction,
         timestamp_at_drawing: bill.timestamp_at_drawing,
         drawee: bill.drawee,
-        drawer: drawer,
+        drawer,
         payee: bill.payee,
         endorsee: bill.endorsee,
         place_of_drawing: bill.place_of_drawing,
@@ -716,6 +706,55 @@ pub async fn get_identity_public_data(
     }
 
     identity
+}
+
+#[post("/sell", data = "<sell_bill_form>")]
+pub async fn sell_bill(
+    state: &State<Client>,
+    sell_bill_form: Form<SellBitcreditBillForm>,
+) -> Status {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Status::NotAcceptable
+    } else {
+        let mut client = state.inner().clone();
+
+        let public_data_buyer =
+            get_identity_public_data(sell_bill_form.buyer.clone(), client.clone()).await;
+
+        if !public_data_buyer.name.is_empty() {
+            let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+            let correct = sell_bitcredit_bill(
+                &sell_bill_form.bill_name,
+                public_data_buyer.clone(),
+                timestamp,
+                sell_bill_form.amount_numbers.clone(),
+            );
+
+            if correct {
+                let chain: Chain = Chain::read_chain_from_file(&sell_bill_form.bill_name);
+                let block = chain.get_latest_block();
+
+                let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+                let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+                let message = event.to_byte_array();
+
+                client
+                    .add_message_to_topic(message, sell_bill_form.bill_name.clone())
+                    .await;
+
+                client
+                    .add_bill_to_dht_for_node(
+                        &sell_bill_form.bill_name,
+                        &public_data_buyer.peer_id.to_string().clone(),
+                    )
+                    .await;
+            }
+            Status::Ok
+        } else {
+            Status::NotAcceptable
+        }
+    }
 }
 
 #[post("/endorse", data = "<endorse_bill_form>")]

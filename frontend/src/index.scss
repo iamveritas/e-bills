@@ -789,6 +789,14 @@ input {
   width: 100%;
   overflow-y: auto;
 
+  .form-select {
+    width: calcView(150);
+  }
+
+  .drop-shadow {
+    filter: drop-shadow(calcView(3) calcView(4) calcView(4) $DarkGray);
+  }
+
   &-container {
     width: 100%;
     height: calcView(583);

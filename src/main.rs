@@ -2,10 +2,10 @@ extern crate core;
 #[macro_use]
 extern crate rocket;
 
+use std::{env, fs, mem, path};
 use std::collections::HashMap;
 use std::fs::DirEntry;
 use std::path::Path;
-use std::{env, fs, mem, path};
 
 use bitcoin::PublicKey;
 use borsh::{self, BorshDeserialize, BorshSerialize};
@@ -16,14 +16,14 @@ use openssl::pkey::{Private, Public};
 use openssl::rsa;
 use openssl::rsa::{Padding, Rsa};
 use openssl::sha::sha256;
+use rocket::{Build, Rocket};
 use rocket::fs::FileServer;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::yansi::Paint;
-use rocket::{Build, Rocket};
 use rocket_dyn_templates::Template;
 
 use crate::blockchain::{
-    start_blockchain_for_new_bill, Block, Chain, ChainToReturn, OperationCode,
+    Block, Chain, ChainToReturn, OperationCode, start_blockchain_for_new_bill,
 };
 use crate::constants::{
     BILLS_FOLDER_PATH, BILLS_KEYS_FOLDER_PATH, BOOTSTRAP_FOLDER_PATH,
@@ -121,6 +121,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::return_bill,
                 web::return_chain_of_blocks,
                 web::return_basic_bill,
+                web::sell_bill,
             ],
         )
         .mount("/bills", routes![web::return_bills_list,])
@@ -1261,7 +1262,10 @@ pub fn endorse_bitcredit_bill(
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1307,6 +1311,72 @@ pub fn endorse_bitcredit_bill(
     }
 }
 
+// check if buyer last block
+pub fn sell_bitcredit_bill(bill_name: &String, buyer: IdentityPublicData, timestamp: i64, amount_numbers: u64, ) -> bool {
+    let my_peer_id = read_peer_id_from_file().to_string();
+    let mut bill = read_bill_from_file(&bill_name);
+
+    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    let last_block = blockchain_from_file.get_latest_block();
+
+    let exist_block_with_code_endorse =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
+
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    //TODO check if last block paid
+
+    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse && !exist_block_with_code_sell)
+        || (
+            my_peer_id.eq(&bill.endorsee.peer_id)
+        )
+    {
+        let identity = get_whole_identity();
+
+        let my_identity_public =
+            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+        let endorsed_by = serde_json::to_vec(&my_identity_public).unwrap();
+
+        let data_for_new_block_in_bytes = serde_json::to_vec(&buyer).unwrap();
+        let data_for_new_block = "Sold to ".to_string()
+            + &hex::encode(data_for_new_block_in_bytes)
+            + " sold by "
+            + &hex::encode(endorsed_by)
+            + " amount: "
+            + &hex::encode(amount_numbers);
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
+
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            data_for_new_block_encrypted_in_string_format,
+            bill_name.clone(),
+            identity.identity.public_key_pem.clone(),
+            OperationCode::Sell,
+            identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
+        );
+
+        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+        if try_add_block && blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
@@ -1317,7 +1387,12 @@ pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    //TODO check if last block paid
+
+    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1370,7 +1445,12 @@ pub fn request_acceptance(bill_name: &String, timestamp: i64) -> bool {
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    //TODO check if last block paid
+
+    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1540,6 +1620,14 @@ pub struct BitcreditBillForm {
 pub struct EndorseBitcreditBillForm {
     pub endorsee: String,
     pub bill_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct SellBitcreditBillForm {
+    pub buyer: String,
+    pub bill_name: String,
+    pub amount_numbers: u64,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]
