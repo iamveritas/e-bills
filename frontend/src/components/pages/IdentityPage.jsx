@@ -15,29 +15,10 @@ export default function IdentityPage() {
     setToast,
     copytoClip,
   } = useContext(MainContext);
-  // Set the minimum and maximum age
-  const minAge = 18;
-  const maxAge = 100;
-  // Set the minimum and maximum date states
-  const [minDate, setMinDate] = useState("");
-  const [maxDate, setMaxDate] = useState("");
+
   const [image, setImage] = useState();
   const [uneditable, setunEditable] = useState(true);
-  useEffect(() => {
-    // Calculate the minimum date (18 years ago)
-    const minDateObj = new Date();
-    minDateObj.setFullYear(minDateObj.getFullYear() - minAge);
-    const minDateStr = minDateObj.toISOString().split("T")[0];
 
-    // Calculate the maximum date (100 years ago)
-    const maxDateObj = new Date();
-    maxDateObj.setFullYear(maxDateObj.getFullYear() - maxAge);
-    const maxDateStr = maxDateObj.toISOString().split("T")[0];
-
-    // Set the state variables
-    setMinDate(minDateStr);
-    setMaxDate(maxDateStr);
-  }, []);
   const [userData, setUserData] = useState({
     name: identity.name || "",
     email: identity.email || "",
@@ -46,6 +27,7 @@ export default function IdentityPage() {
     country_of_birth: identity.country_of_birth || "",
     city_of_birth: identity.city_of_birth || "",
     postal_address: identity.postal_address || "",
+    company: identity.company || "",
   });
 
   const [content, setContent] = useState({
@@ -101,14 +83,29 @@ export default function IdentityPage() {
     if (
       userData.name != "" &&
       userData.email != "" &&
-      userData.date_of_birth != "Invalid Date"
+      userData.date_of_birth != "Invalid Date" &&
+      userData.country_of_birth != "" &&
+      userData.city_of_birth != "" &&
+      userData.postal_address != "" &&
+      userData.company != ""
     ) {
       setunEditable(!uneditable);
     } else {
       setToast("Please fill Required field");
     }
   };
+  // Set the minimum and maximum age
+  const minAge = 18;
+  const maxAge = 100;
+  // Set the minimum and maximum date states
+  const minDateObj = new Date();
+  minDateObj.setFullYear(minDateObj.getFullYear() - minAge);
+  const minDateStr = minDateObj.toISOString().split("T")[0];
 
+  // Calculate the maximum date (100 years ago)
+  const maxDateObj = new Date();
+  maxDateObj.setFullYear(maxDateObj.getFullYear() - maxAge);
+  const maxDateStr = maxDateObj.toISOString().split("T")[0];
   return (
     <div className="create">
       <div className={"create-head" + content.justify}>
@@ -215,8 +212,8 @@ export default function IdentityPage() {
                 id="date_of_birth"
                 name="date_of_birth"
                 value={userData.date_of_birth}
-                min={minDate}
-                max={maxDate}
+                min={maxDateStr}
+                max={minDateStr}
                 disabled={uneditable}
                 onChange={onChangeHandler}
                 placeholder=""

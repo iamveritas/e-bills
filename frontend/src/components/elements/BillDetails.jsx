@@ -176,7 +176,7 @@ const getIcon = (peer_id, payerId, holderId, blocks) => {
     );
   }
 };
-function BillDetails({ data, filter }) {
+function BillDetails({ setFilterPop, data, filter }) {
   const { peer_id, showPopUp } = useContext(MainContext);
   var allData = [];
   var filteredData;
@@ -206,7 +206,10 @@ function BillDetails({ data, filter }) {
         return (
           <div
             key={i}
-            onClick={() => showPopUp(true, <SingleBillDetail item={items} />)}
+            onClick={() => {
+              showPopUp(true, <SingleBillDetail item={items} />);
+              setFilterPop(false);
+            }}
             className="home-container-bills-container"
           >
             <span className="icon-container">

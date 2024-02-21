@@ -45,7 +45,12 @@ function ActivityPage() {
       </div>
       {filterPop && <PopedUp filter={filter} changleHandler={changleHandler} />}
       <div className="bills">
-        <BillDetails filter={filter} color="a3a3a3" data={bills_list} />
+        <BillDetails
+          setFilterPop={setFilterPop}
+          filter={filter}
+          color="a3a3a3"
+          data={bills_list}
+        />
       </div>
     </div>
   );

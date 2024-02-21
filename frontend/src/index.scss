@@ -6,6 +6,10 @@
   src: url(./assests/atwriter.ttf);
 }
 @font-face {
+  font-family: fancyfonts;
+  src: url(./assests/OstrichSansInline-Regular.otf);
+}
+@font-face {
   font-family: signature;
   src: url(./assests/brother.otf);
 }
@@ -127,13 +131,14 @@ select:focus {
 .profile-icon {
   span {
     font-weight: 700;
-    font-size: calcView(26);
-    line-height: calcView(26);
+    font-size: calcView(24);
+    line-height: calcView(24);
+    margin-top: calcView(2);
   }
 }
 .accept-heading {
   font-size: calcView(22);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .detail {
@@ -149,6 +154,9 @@ select:focus {
   display: block;
 }
 
+.mt-5 {
+  margin-top: calcView(8);
+}
 .mt {
   margin-top: calcView(15);
 }
@@ -159,13 +167,6 @@ select:focus {
 
 .mttt {
   margin-top: calcView(75);
-}
-
-.btn {
-  align-self: center;
-  width: calcView(150);
-  padding: calcView(13) calcView(52);
-  border-radius: calcView(6);
 }
 
 .btn {
@@ -403,13 +404,13 @@ input {
   height: calcView(46);
   border-radius: calcView(43);
   border: calcView(1) solid #d3d3d3;
-  background: #fff;
+  // background: #fff;
 
   &-image {
     object-fit: contain;
     object-position: center;
-    width: calcView(20);
-    height: calcView(20);
+    width: calcView(16);
+    height: calcView(16);
   }
 }
 
@@ -428,19 +429,19 @@ input {
   align-items: center;
 
   &-icon {
-    width: calcView(80);
-    height: calcView(80);
+    width: calcView(76);
+    height: calcView(76);
     @include flexCenter();
     border: calcView(5) solid black;
     border-radius: calcView(99);
 
     &-svg {
-      width: calcView(32);
-      height: calcView(32);
+      width: calcView(26);
+      height: calcView(26);
 
       path {
-        width: calcView(32);
-        height: calcView(32);
+        width: calcView(26);
+        height: calcView(26);
         fill: black;
       }
     }
@@ -533,15 +534,14 @@ input {
 
     &-amount {
       display: flex;
-      justify-content: space-evenly;
-      // gap: calcView(25);
-      flex: 1 0 0;
-      align-self: stretch;
+      justify-content: center;
+
       &-single {
         position: relative;
         display: flex;
-        align-items: center;
+        justify-content: center;
         gap: calcView(5);
+        width: calcView(200);
 
         #arrow {
           height: calcView(22);
@@ -875,16 +875,15 @@ input {
     display: flex;
     flex-direction: column;
     gap: calcView(5);
+    span,
+    label {
+      font-size: calcView(22);
+      font-weight: 400;
+    }
   }
 
   .inline {
     display: inline;
-  }
-
-  span,
-  label {
-    font-size: calcView(22);
-    font-weight: 500;
   }
 
   .colored {
@@ -929,19 +928,19 @@ input {
 
       .head-text {
         text-align: center;
-
-        img {
-          width: calcView(316);
-          height: calcView(107);
-          object-fit: cover;
-        }
-
         span {
           display: block;
           font-size: calcView(16);
           font-weight: 700;
           line-height: calcView(18.78);
           color: #151515;
+        }
+        &-maintext {
+          font-family: fancyfonts;
+          margin-top: calcView(40);
+          margin-bottom: calcView(20);
+          font-size: calcView(66) !important;
+          line-height: calcView(66) !important;
         }
       }
 
@@ -965,7 +964,7 @@ input {
       }
 
       .unter-text {
-        font-size: calcView(10);
+        font-size: calcView(12);
         text-align: center;
       }
     }

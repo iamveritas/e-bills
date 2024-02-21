@@ -16,7 +16,7 @@ export default function AddContact() {
     } else if (contact.peer_id === "") {
       setToast("Peer Id can not be empty");
     } else {
-      handleAddContact(contact, showPopUp);
+      handleAddContact(contact);
     }
   };
   return (

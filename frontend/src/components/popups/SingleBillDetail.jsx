@@ -137,7 +137,7 @@ export default function SingleBillDetail({ item }) {
   } else {
     chain = chain?.slice(0, 3);
   }
-
+  let showKey = singleBill?.requested_to_pay || singleBill?.payed;
   return (
     <>
       <div className="popup-head">
@@ -172,17 +172,16 @@ export default function SingleBillDetail({ item }) {
               download bill
             </span>
           )}
-          {singleBill?.requested_to_pay ||
-            (singleBill?.payed && (
-              <Key
-                payed={singleBill?.payed}
-                peerId={peer_id}
-                payee={singleBill?.payee}
-                privatekey={singleBill?.pr_key_bill}
-                pending={singleBill?.pending}
-                confirmations={singleBill?.number_of_confirmations}
-              />
-            ))}
+          {showKey && (
+            <Key
+              payed={singleBill?.payed}
+              peerId={peer_id}
+              payee={singleBill?.payee}
+              privatekey={singleBill?.pr_key_bill}
+              pending={singleBill?.pending}
+              confirmations={singleBill?.number_of_confirmations}
+            />
+          )}
           <div className="head">
             <TopDownHeading upper="Against this" lower="Bill Of Exchange" />
             <IconHolder icon={attachment} />

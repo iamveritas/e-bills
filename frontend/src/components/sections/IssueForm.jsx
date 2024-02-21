@@ -195,6 +195,12 @@ export default function IssueForm() {
             name="amount_numbers"
             value={data.amount_numbers}
             onChange={changeHandle}
+            onKeyUp={(e) => {
+              console.log(e.key, /[^0-9\Backspace]/g.test(e.key));
+              if (/[^0-9\Backspace]/g.test(e.key)) {
+                setToast("This field's only accepts Integers.");
+              }
+            }}
             type="number"
             placeholder="10000"
             required

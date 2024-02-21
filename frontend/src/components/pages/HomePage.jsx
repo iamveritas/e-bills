@@ -11,7 +11,11 @@ export default function HomePage() {
   const { amount, currency, bills_list } = useContext(MainContext);
   // find all bills event
   useEffect(() => {
-    fetch("http://localhost:8000/bill/dht");
+    try {
+      fetch("http://localhost:8000/bill/dht");
+    } catch (err) {
+      console.log(err);
+    }
   }, []);
   return (
     <div className="home">
