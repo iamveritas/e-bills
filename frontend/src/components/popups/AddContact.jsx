@@ -31,6 +31,7 @@ export default function AddContact() {
       </div>
       <div className="contact-body">
         <input
+          className="input-contact"
           type="text"
           name="name"
           id="name"
@@ -39,6 +40,7 @@ export default function AddContact() {
           onChange={handleChange}
         />
         <input
+          className="input-contact"
           type="text"
           name="peer_id"
           id="peer_id"

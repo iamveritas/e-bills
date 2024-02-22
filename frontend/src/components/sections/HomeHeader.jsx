@@ -11,8 +11,8 @@ import { MainContext } from "../../context/MainContext";
 
 export default function HomeHeader() {
   const { handlePage, identity } = useContext(MainContext);
-  let first = identity.name.split(" ")[0][0];
-  let second = identity.name.split(" ")[1][0];
+  let first = identity?.name?.split(" ")[0][0];
+  let second = identity?.name?.split(" ")[1][0];
 
   return (
     <div className="home-header">

@@ -23,11 +23,16 @@ export default function EditContact({ old_info }) {
     <div className="contact edit-contact">
       <div className="contact-head">
         <span className="contact-head-title">CHANGE CONTACT</span>
-        <img onClick={() => showPopUp(false, "")} src={closeIcon} />
+        <img
+          className="close-btn"
+          onClick={() => showPopUp(false, "")}
+          src={closeIcon}
+        />
       </div>
       <div className="contact-body">
         <input
-          style={{ background: "#f4f4ff" }}
+          className="input-contact"
+          style={{ background: "#ebebeb" }}
           type="text"
           name="name"
           id="name"

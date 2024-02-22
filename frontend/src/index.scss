@@ -400,8 +400,8 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calcView(46);
-  height: calcView(46);
+  width: calcView(45);
+  height: calcView(45);
   border-radius: calcView(43);
   border: calcView(1) solid #d3d3d3;
   // background: #fff;
@@ -864,8 +864,12 @@ input {
 }
 
 .Repay {
-  display: block;
-
+  width: 100%;
+  &-body {
+    margin: 0 auto;
+    display: block;
+    width: 90%;
+  }
   .select-opt {
     width: calcView(300);
     display: flex;
@@ -1717,7 +1721,7 @@ input {
     padding-left: calcView(10);
     outline: none;
     border-radius: calcView(12);
-    border: calcView(2) solid #515151;
+    border: calcView(2) solid #818181;
 
     &:focus {
       border: calcView(2) solid #d77300;

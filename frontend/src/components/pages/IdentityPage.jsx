@@ -79,21 +79,86 @@ export default function IdentityPage() {
       setunEditable(false);
     }
   }, []);
-  const checkPreview = () => {
-    if (
-      userData.name != "" &&
-      userData.email != "" &&
-      userData.date_of_birth != "Invalid Date" &&
-      userData.country_of_birth != "" &&
-      userData.city_of_birth != "" &&
-      userData.postal_address != "" &&
-      userData.company != ""
-    ) {
-      setunEditable(!uneditable);
+  const [errorInput, seterrorInput] = useState({
+    name: false,
+    email: false,
+    date_of_birth: false,
+    country_of_birth: false,
+    city_of_birth: false,
+    postal_address: false,
+    company: false,
+  });
+  const checkValidation = () => {
+    let isValid = true;
+    let errors = {};
+
+    if (userData.name === "") {
+      errors.name = true;
+      isValid = false;
+    }
+    if (userData.email === "") {
+      errors.email = true;
+      isValid = false;
+    }
+    if (userData.date_of_birth === "Invalid Date") {
+      errors.date_of_birth = true;
+      isValid = false;
+    }
+    if (userData.country_of_birth === "") {
+      errors.country_of_birth = true;
+      isValid = false;
+    }
+    if (userData.city_of_birth === "") {
+      errors.city_of_birth = true;
+      isValid = false;
+    }
+    if (userData.postal_address === "") {
+      errors.postal_address = true;
+      isValid = false;
+    }
+    if (userData.company === "") {
+      errors.company = true;
+      isValid = false;
+    }
+
+    if (isValid) {
+      seterrorInput({
+        name: false,
+        email: false,
+        date_of_birth: false,
+        country_of_birth: false,
+        city_of_birth: false,
+        postal_address: false,
+        company: false,
+      });
     } else {
       setToast("Please fill Required field");
+      seterrorInput(errors);
+    }
+
+    return isValid;
+  };
+
+  const checkPreview = () => {
+    if (checkValidation()) {
+      setunEditable(!uneditable);
+    } else {
+      setunEditable(uneditable);
     }
   };
+  useEffect(() => {
+    if (
+      errorInput.name ||
+      errorInput.email ||
+      errorInput.date_of_birth ||
+      errorInput.country_of_birth ||
+      errorInput.city_of_birth ||
+      errorInput.postal_address ||
+      errorInput.company
+    ) {
+      checkValidation();
+    }
+  }, [userData]);
   // Set the minimum and maximum age
   const minAge = 18;
   const maxAge = 100;
@@ -161,6 +226,11 @@ export default function IdentityPage() {
               <label htmlFor="name">Full Name</label>
               <input
                 id="name"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.name ? "#d40202" : "transparent"
+                  }`,
+                }}
                 name="name"
                 value={userData.name}
                 disabled={uneditable}
@@ -193,6 +263,11 @@ export default function IdentityPage() {
               <input
                 id="email"
                 name="email"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.email ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.email}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -211,6 +286,11 @@ export default function IdentityPage() {
               <input
                 id="date_of_birth"
                 name="date_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.date_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.date_of_birth}
                 min={maxDateStr}
                 max={minDateStr}
@@ -227,6 +307,11 @@ export default function IdentityPage() {
               <input
                 id="country_of_birth"
                 name="country_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.country_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.country_of_birth}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -239,6 +324,11 @@ export default function IdentityPage() {
               <input
                 id="city_of_birth"
                 name="city_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.city_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.city_of_birth}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -251,6 +341,11 @@ export default function IdentityPage() {
               <input
                 id="postal_address"
                 name="postal_address"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.postal_address ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.postal_address}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -263,6 +358,11 @@ export default function IdentityPage() {
               <input
                 id="company"
                 name="company"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.company ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.company}
                 disabled={uneditable}
                 onChange={onChangeHandler}
