@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, {useContext, useEffect, useState} from "react";
 
 import avatar from "../../assests/avatar.svg";
 import closebtn from "../../assests/close-btn.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 import copyIcon from "../../assests/copy.svg";
 
 export default function IdentityPage() {
@@ -332,7 +332,7 @@ export default function IdentityPage() {
                 value={userData.city_of_birth}
                 disabled={uneditable}
                 onChange={onChangeHandler}
-                placeholder="Country Of Birth"
+                placeholder="City Of Birth"
                 type="text"
               />
             </div>
