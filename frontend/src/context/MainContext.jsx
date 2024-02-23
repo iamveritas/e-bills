@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from "react";
+import React, {createContext, useEffect, useState} from "react";
 
 const MainContext = createContext();
 
@@ -198,15 +198,6 @@ function MainProvider({ children }) {
       setAmount((prev) => ({
         ...prev,
         iou: prev.iou + items.amount_numbers,
-      }));
-    } else if (
-      peer_id == items.drawer.peer_id &&
-      peer_id != items.endorsee.peer_id
-    ) {
-      //   name = `${items.drawee.name} ${items.payee.name}`;
-      setAmount((prev) => ({
-        ...prev,
-        endors: prev.endors + items.amount_numbers,
       }));
     } else if (peer_id == items.payee.peer_id) {
       //   name = `${items.drawee.name} ${items.payee.name}`;

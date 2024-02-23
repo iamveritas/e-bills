@@ -557,6 +557,7 @@ input {
         .currency {
           color: $Black !important;
           font-size: calcView(20);
+          text-transform: lowercase;
         }
       }
     }
@@ -646,6 +647,7 @@ input {
         }
         .currency {
           font-size: calcView(20);
+          text-transform: lowercase;
         }
       }
     }
@@ -739,7 +741,6 @@ input {
             color: #151515;
             font-family: Poppins;
             font-size: calcView(18);
-            text-transform: uppercase;
             font-style: normal;
             font-weight: 500;
             line-height: calcView(18);

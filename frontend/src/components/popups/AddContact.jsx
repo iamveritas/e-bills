@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { useContext } from "react";
+import React, {useContext, useState} from "react";
 import closeIcon from "../../assests/close-btn.svg";
 import addIcon from "../../assests/add.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 
 export default function AddContact() {
   const { showPopUp, setToast, handleAddContact } = useContext(MainContext);
@@ -51,7 +50,7 @@ export default function AddContact() {
       </div>
       <button onClick={handleSubmit} className="btn">
         <img src={addIcon} />
-        <span>ADD CONTACT</span>
+        <span>SAVE CONTACT</span>
       </button>
     </div>
   );
