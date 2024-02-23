@@ -1,5 +1,5 @@
-import React, { useContext } from "react";
-import { MainContext } from "../../context/MainContext";
+import React, {useContext} from "react";
+import {MainContext} from "../../context/MainContext";
 import SingleBillDetail from "../popups/SingleBillDetail";
 
 const signCalculation = (peer_id, items) => {
@@ -55,20 +55,17 @@ const getIcon = (peer_id, payerId, payeeId, keys) => {
       !keys?.requested_to_accept &&
       !keys?.payed &&
       !keys.requested_to_pay &&
-      payer) ||
-    payee;
+        (payer || payee));
   let AcceptedRed =
     (!keys?.accepted &&
       keys?.requested_to_accept &&
       !keys?.payed &&
       !keys.requested_to_pay &&
-      payer) ||
-    payee;
+        (payer || payee));
   let PayYellow =
-    (keys?.accepted && !keys?.payed && !keys.requested_to_pay && payer) ||
-    payee;
-  let PayRed = (!keys?.payed && keys.requested_to_pay && payer) || payee;
-  let PayGreen = (keys?.payed && payer) || payee;
+    (keys?.accepted && !keys?.payed && !keys.requested_to_pay && (payer || payee));
+  let PayRed = (!keys?.payed && keys.requested_to_pay && (payer || payee));
+  let PayGreen = (keys?.payed && (payer || payee));
 
   if (AcceptedYellow) {
     return (
