@@ -135,22 +135,26 @@ pub async fn create_identity(identity_form: Form<IdentityForm>, state: &State<Cl
 #[post("/change", data = "<identity_form>")]
 pub async fn change_identity(identity_form: Form<IdentityForm>, state: &State<Client>) -> Status {
     println!("Change identity");
-    
-    let mut my_identity: Identity;
-    if !Path::new(IDENTITY_FILE_PATH).exists() {
-        return Status::NotAcceptable;
-    } else {
-        my_identity = read_identity_from_file();
-    }
 
     let identity_form: IdentityForm = identity_form.into_inner();
     let mut identity_changes: Identity = Identity::new_empty();
-    identity_changes.name = identity_form.name;
-    identity_changes.company = identity_form.company;
-    identity_changes.email = identity_form.email;
-    identity_changes.postal_address = identity_form.postal_address;
+    identity_changes.name = identity_form.name.trim().to_string();
+    identity_changes.company = identity_form.company.trim().to_string();
+    identity_changes.email = identity_form.email.trim().to_string();
+    identity_changes.postal_address = identity_form.postal_address.trim().to_string();
+   
+    let mut my_identity: Identity;
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        return Status::NotAcceptable;
+    }
+    my_identity = read_identity_from_file();
     
-    my_identity.update_from(&identity_changes);        
+    
+    if !my_identity.update_valid(&identity_changes) {
+        return Status::NotAcceptable;
+    }
+    my_identity.update_from(&identity_changes);
+
     write_identity_to_file(&my_identity);
     let mut client = state.inner().clone();
     client.put_identity_public_data_in_dht().await;

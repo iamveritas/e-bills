@@ -615,6 +615,30 @@ impl Identity {
         }
     }
 
+    fn all_changeable_fields_empty(&self) -> bool {
+        self.name == "" &&
+        self.company == "" &&
+        self.postal_address == "" &&
+        self.email == ""
+    }
+
+    fn all_changeable_fields_equal_to(&self, other: &Self) -> bool {
+        self.name == other.name && 
+        self.company == other.company &&
+        self.postal_address == other.postal_address &&
+        self.email == other.email
+    }
+   
+    fn update_valid(&self, other: &Self) -> bool {
+        if other.all_changeable_fields_empty() { 
+            return false;
+        }
+        if self.all_changeable_fields_equal_to(other) {
+            return false;
+        }
+        true
+    }
+
     pub fn update_from(&mut self, other: &Identity) {
         update_field!(self, other, name);
         update_field!(self, other, company);
