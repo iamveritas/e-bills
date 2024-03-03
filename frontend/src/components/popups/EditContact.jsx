@@ -26,14 +26,6 @@ export default function EditContact({old_name}) {
                     placeholder={old_name}
                     onChange={handleChange}
                 />
-                <input
-                    type="text"
-                    name="peer_id"
-                    id="peer_id"
-                    value={contact.peer_id}
-                    placeholder="Node Identity"
-                    onChange={handleChange}
-                />
             </div>
             <button onClick={handleSubmit} className="btn">
                 <span>UPDATE CONTACT</span>
