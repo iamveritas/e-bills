@@ -53,11 +53,11 @@ export default function IdentityPage() {
     const peerIdLength = peer_id?.length;
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const form_data = new FormData(e.target);
-        for (const [key, value] of Object.entries(userData)) {
-            form_data.append(key, value);
-        }
         if (!content.edit) {
+            const form_data = new FormData(e.target);
+            for (const [key, value] of Object.entries(userData)) {
+                form_data.append(key, value);
+            }
             await fetch("http://localhost:8000/identity/create", {
                 method: "POST",
                 body: form_data,
@@ -67,10 +67,22 @@ export default function IdentityPage() {
                 console.log(response);
                 handleRefresh();
             })
-            .catch((err) => console.log(err));
+            .catch((err) => console.log(err.message));
         } else {
-            const differing_attributes = Object.keys(userData).filter((key) => userData[key] !== identity[key]);
-            if (differing_attributes.length > 0) {
+            const has_differing_attributes = Object.keys(userData).filter((key) => userData[key].trim() !== identity[key]).length > 0;
+            if (has_differing_attributes) {
+                const differece = Object.keys(userData).reduce((result, key) => {
+                    if (userData[key].trim() !== identity[key]) {
+                        result[key] = userData[key].trim();
+                    } else {
+                        result[key] = "";
+                    }
+                    return result;
+                }, {});
+                const form_data = new FormData(e.target);
+                for (const [key, value] of Object.entries(differece)) {
+                    form_data.append(key, value);
+                }
                 await fetch("http://localhost:8000/identity/change", {
                     method: "POST",
                     body: form_data,
@@ -78,9 +90,22 @@ export default function IdentityPage() {
                 })
                 .then((response) => {
                     console.log(response);
-                    handleRefresh();
+                    if (response.status != 200) {
+                        setToast("Identity update denied.");
+                        setunEditable(!uneditable);
+                        Object.keys(userData).forEach(key => {
+                            if (identity.hasOwnProperty(key)) {
+                                userData[key] = identity[key];
+                            }
+                        });
+                    } else {
+                        setToast("Identity update successful.");
+                        handleRefresh();
+                    }                    
                 })
-                .catch((err) => console.log(err));
+                .catch((err) => {
+                    console.log(err.message);
+                }) 
             } else {
                 setToast("No changes made");
                 setunEditable(!uneditable);
