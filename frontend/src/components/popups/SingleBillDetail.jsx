@@ -1,7 +1,7 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, {useContext, useEffect, useState} from "react";
 import closeBtn from "../../assests/close-btn.svg";
 import attachment from "../../assests/attachment.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 import TopDownHeading from "../elements/TopDownHeading";
 import IconHolder from "../elements/IconHolder";
 
@@ -12,6 +12,7 @@ import iconRTA from "../../assests/reqToAccept.svg";
 import iconRTP from "../../assests/reqToPay.svg";
 import AcceptPage from "../pages/AcceptPage";
 import RepayPage from "../pages/RepayPage";
+import BuyPage from "../pages/BuyPage";
 import EndorsePage from "../pages/EndorsePage";
 import ReqAcceptPage from "../pages/ReqAcceptPage";
 import ReqPaymentPage from "../pages/ReqPaymentPage";
@@ -52,10 +53,12 @@ export default function SingleBillDetail({ item }) {
   let accepted = false;
   let endorse = false;
   let sell = false;
+  let buy = false;
   let req_to_pay = false;
   let req_to_acpt = false;
   let canMyPeerIdEndorse = peer_id == singleBill?.payee?.peer_id;
-    let canMyPeerIdSell = peer_id == singleBill?.payee?.peer_id;
+  let canMyPeerIdSell = peer_id == singleBill?.payee?.peer_id;
+  let canMyPeerIdBuy = peer_id == singleBill?.buyer?.peer_id;
   let canMyPeerIdAccept = peer_id == singleBill?.drawee?.peer_id;
   let canMyPeerIdPay = peer_id == singleBill?.drawee?.peer_id;
   let canMyPeerIdReqToAccept = peer_id == singleBill?.payee?.peer_id;
@@ -65,6 +68,7 @@ export default function SingleBillDetail({ item }) {
     !singleBill?.payed &&
     !singleBill?.accepted &&
     !singleBill?.pending &&
+    !singleBill?.waited_for_payment &&
     canMyPeerIdAccept
   ) {
     accepted = true;
@@ -72,6 +76,7 @@ export default function SingleBillDetail({ item }) {
   if (
       !singleBill?.payed &&
       !singleBill?.pending &&
+      !singleBill?.waited_for_payment &&
       canMyPeerIdEndorse
   ) {
       endorse = true;
@@ -79,15 +84,25 @@ export default function SingleBillDetail({ item }) {
   if (
         !singleBill?.payed &&
         !singleBill?.pending &&
+        !singleBill?.waited_for_payment &&
         canMyPeerIdSell
     ) {
-        sell = true;
+      sell = true;
     }
+  if (
+      !singleBill?.payed &&
+      !singleBill?.pending &&
+      singleBill?.waited_for_payment &&
+      canMyPeerIdBuy
+  ) {
+      buy = true;
+  }
   if (
     !singleBill?.payed &&
     !singleBill?.accepted &&
     !singleBill?.pending &&
     !singleBill?.requested_to_accept &&
+    !singleBill?.waited_for_payment &&
     canMyPeerIdReqToAccept
   ) {
     req_to_acpt = true;
@@ -96,11 +111,16 @@ export default function SingleBillDetail({ item }) {
     !singleBill?.payed &&
     !singleBill?.pending &&
     !singleBill?.requested_to_pay &&
+    !singleBill?.waited_for_payment &&
     canMyPeerIdReqToPay
   ) {
     req_to_pay = true;
   }
-  if (!singleBill?.payed && !singleBill?.pending && canMyPeerIdPay) {
+  if (!singleBill?.payed &&
+      !singleBill?.pending &&
+      !singleBill?.waited_for_payment &&
+      canMyPeerIdPay
+  ) {
     payed = true;
   }
 
@@ -108,7 +128,10 @@ export default function SingleBillDetail({ item }) {
     { isVisible: payed, name: "PAY", icon: iconPay },
     { isVisible: accepted, name: "ACCEPT", icon: iconAccept },
     { isVisible: endorse, name: "ENDORSE", icon: iconEndorse },
+    //todo icon sell
     {isVisible: sell, name: "SELL", icon: iconEndorse },
+      //todo icon buy
+    {isVisible: buy, name: "BUY", icon: iconPay },
     {
       isVisible: req_to_acpt,
       name: "REQUEST TO ACCEPT",
@@ -125,6 +148,9 @@ export default function SingleBillDetail({ item }) {
     switch (name) {
       case "PAY":
         showPopUpSecondary(true, <RepayPage data={singleBill} />);
+        break;
+      case "BUY":
+        showPopUpSecondary(true, <BuyPage data={singleBill} />);
         break;
       case "ACCEPT":
         showPopUpSecondary(true, <AcceptPage data={singleBill} />);

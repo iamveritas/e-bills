@@ -13,7 +13,7 @@ export default function SellPage({ data }) {
 
     const [dataForm, setDataForm] = useState({
         amount_numbers: "",
-        billBuyer: "",
+        buyer: "",
         currency_code: "sat",
     });
 
@@ -26,7 +26,7 @@ export default function SellPage({ data }) {
     const handleSubmit = async () => {
         const form_data = new FormData();
         form_data.append("bill_name", data.name);
-        form_data.append("buyer", dataForm.billBuyer);
+        form_data.append("buyer", dataForm.buyer);
         form_data.append("amount_numbers", dataForm.amount_numbers);
 
         await fetch("http://localhost:8000/bill/sell", {
@@ -80,10 +80,10 @@ export default function SellPage({ data }) {
                             <span className="accept-heading">sell to the order of </span>
                             <span className="block detail input-blank search-select">
                                 <SelectSearchOption
-                                    identity="drawee_name"
+                                    identity="buyer"
                                     placingHolder="Select Your Buyer"
                                     class="endorse-select"
-                                    value={data.billBuyer}
+                                    value={dataForm.buyer}
                                     changeHandle={changeHandle}
                                     checkHandleSearch={checkHandleSearch}
                                     options={contacts}
@@ -115,7 +115,7 @@ export default function SellPage({ data }) {
                                 <input
                                     className="drop-shadow"
                                     name="amount_numbers"
-                                    value={data.amount_numbers}
+                                    value={dataForm.amount_numbers}
                                     onChange={changeHandle}
                                     type="number"
                                     placeholder="10000"

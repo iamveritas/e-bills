@@ -1,22 +1,35 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::convert::identity;
 use std::path::Path;
 use std::str::FromStr;
 
 use bitcoin::secp256k1::Scalar;
 use chrono::{Days, Utc};
 use libp2p::PeerId;
-use rocket::{Request, Response, State};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::form::Form;
 use rocket::http::{Header, Status};
 use rocket::serde::json::Json;
+use rocket::{Request, Response, State};
 use rocket_dyn_templates::{context, handlebars, Template};
 
-use crate::{accept_bill, AcceptBitcreditBillForm, add_in_contacts_map, api, BitcreditBill, BitcreditBillForList, BitcreditBillForm, BitcreditBillToReturn, blockchain, change_contact_data_from_dht, change_contact_name_from_contacts_map, Contact, create_whole_identity, delete_from_contacts_map, DeleteContactForm, EditContactForm, endorse_bitcredit_bill, EndorseBitcreditBillForm, get_bills, get_bills_for_list, get_contact_from_map, get_contacts_vec, get_whole_identity, Identity, IdentityForm, IdentityPublicData, IdentityWithAll, issue_new_bill, issue_new_bill_drawer_is_drawee, issue_new_bill_drawer_is_payee, NewContactForm, NodeId, read_bill_from_file, read_contacts_map, read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm, sell_bitcredit_bill, SellBitcreditBillForm};
 use crate::blockchain::{Chain, ChainToReturn, GossipsubEvent, GossipsubEventId, OperationCode};
-use crate::constants::{BILL_VALIDITY_PERIOD, BILLS_FOLDER_PATH, IDENTITY_FILE_PATH, USEDNET};
+use crate::constants::{BILLS_FOLDER_PATH, BILL_VALIDITY_PERIOD, IDENTITY_FILE_PATH, USEDNET};
 use crate::dht::network::Client;
+use crate::{
+    accept_bill, add_in_contacts_map, api, blockchain, change_contact_data_from_dht,
+    change_contact_name_from_contacts_map, create_whole_identity, delete_from_contacts_map,
+    endorse_bitcredit_bill, get_bills, get_bills_for_list, get_contact_from_map, get_contacts_vec,
+    get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
+    issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
+    read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
+    sell_bitcredit_bill, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList,
+    BitcreditBillForm, BitcreditBillToReturn, Contact, DeleteContactForm, EditContactForm,
+    EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
+    NewContactForm, NodeId, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    SellBitcreditBillForm,
+};
 
 use self::handlebars::{Handlebars, JsonRender};
 
@@ -96,7 +109,7 @@ pub async fn return_contacts() -> Json<Vec<Contact>> {
 
 #[get("/return")]
 pub async fn return_bills_list() -> Json<Vec<BitcreditBillToReturn>> {
-    let bills: Vec<BitcreditBillToReturn> = get_bills_for_list().await;
+    let bills: Vec<BitcreditBillToReturn> = get_bills_for_list();
     Json(bills)
 }
 
@@ -267,9 +280,34 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let bill: BitcreditBill = read_bill_from_file(&id);
     let chain = Chain::read_chain_from_file(&bill.name);
     let drawer = chain.get_drawer();
+    let mut link_for_buy = "".to_string();
     let chain_to_return = ChainToReturn::new(chain.clone());
     let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+    let mut address_for_selling: String = String::new();
+    let mut amount_for_selling = 0;
+    let waiting_for_payment = chain.waiting_for_payment();
+    let waited_for_payment = waiting_for_payment.0;
+    println!("WAITED_FOR_PAYMENT {}", waited_for_payment.clone());
+    let mut buyer = waiting_for_payment.1;
+    let mut seller = waiting_for_payment.2;
+    if waited_for_payment
+        && (identity.peer_id.to_string().eq(&buyer.peer_id)
+            || identity.peer_id.to_string().eq(&seller.peer_id))
+    {
+        address_for_selling = waiting_for_payment.3;
+        amount_for_selling = waiting_for_payment.4;
+        let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
+        link_for_buy = generate_link_to_pay(
+            address_for_selling.clone(),
+            amount_for_selling.clone(),
+            message,
+        )
+        .await;
+    } else {
+        buyer = IdentityPublicData::new_empty();
+        seller = IdentityPublicData::new_empty();
+    }
     let mut requested_to_pay =
         chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
     let mut requested_to_accept =
@@ -336,7 +374,13 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         endorsed,
         requested_to_pay,
         requested_to_accept,
+        waited_for_payment,
+        address_for_selling,
+        amount_for_selling,
+        buyer,
+        seller,
         payed,
+        link_for_buy,
         link_to_pay,
         address_to_pay,
         pr_key_bill,

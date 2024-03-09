@@ -1,7 +1,11 @@
 use std::str::FromStr;
+use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::prelude::*;
+use futures::executor::block_on;
 use log::{info, warn};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
@@ -10,11 +14,16 @@ use openssl::rsa::Rsa;
 use openssl::sha::Sha256;
 use openssl::sign::{Signer, Verifier};
 use rocket::form::validate::Contains;
+use rocket::route::Cloneable;
 use serde::{Deserialize, Serialize};
 
-use crate::{api, bill_from_byte_array, BitcreditBill, decrypt_bytes, encrypt_bytes, IdentityPublicData, private_key_from_pem_u8, public_key_from_pem_u8, read_bill_from_file, read_keys_from_bill_file};
 use crate::blockchain::OperationCode::{Endorse, Sell};
 use crate::constants::{BILLS_FOLDER_PATH, USEDNET};
+use crate::{
+    api, bill_from_byte_array, decrypt_bytes, encrypt_bytes, private_key_from_pem_u8,
+    public_key_from_pem_u8, read_bill_from_file, read_bill_with_chain_from_file,
+    read_keys_from_bill_file, BitcreditBill, IdentityPublicData, IdentityWithAll,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChainToReturn {
@@ -136,11 +145,20 @@ impl Chain {
             rsa_public_key_pem: "".to_string(),
         };
 
-        if self.blocks.len() > 1 && (self.exist_block_with_operation_code(Endorse.clone()) || self.exist_block_with_operation_code(Sell.clone())) {
-            let last_version_block_endorse = self.get_last_version_block_with_operation_code(Endorse);
+        if self.blocks.len() > 1
+            && (self.exist_block_with_operation_code(Endorse.clone())
+                || self.exist_block_with_operation_code(Sell.clone()))
+        {
+            let last_version_block_endorse =
+                self.get_last_version_block_with_operation_code(Endorse);
             let last_version_block_sell = self.get_last_version_block_with_operation_code(Sell);
+            let last_block = self.get_latest_block();
 
-            if (last_version_block_endorse.id < last_version_block_sell.id) && Self::check_if_last_sell_block_is_paid(self){
+            let paid = Self::check_if_last_sell_block_is_paid(self);
+
+            if (last_version_block_endorse.id < last_version_block_sell.id)
+                && ((last_block.id > last_version_block_sell.id) || paid)
+            {
                 let bill_keys = read_keys_from_bill_file(&last_version_block_sell.bill_name);
                 let key: Rsa<Private> =
                     Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
@@ -148,23 +166,56 @@ impl Chain {
                 let decrypted_bytes = decrypt_bytes(&bytes, &key);
                 let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
 
-                let mut part_with_buyer = block_data_decrypted
+                let mut part_without_sold_to = block_data_decrypted
                     .split("Sold to ")
                     .collect::<Vec<&str>>()
                     .get(1)
                     .unwrap()
                     .to_string();
 
-                part_with_buyer = part_with_buyer
+                let mut part_with_buyer = part_without_sold_to
                     .split(" sold by ")
                     .collect::<Vec<&str>>()
                     .get(0)
                     .unwrap()
                     .to_string();
 
-                let endorsee = hex::decode(part_with_buyer).unwrap();
-                last_endorsee = serde_json::from_slice(&endorsee).unwrap();
-            } else {
+                let mut part_with_seller_and_amount = part_without_sold_to
+                    .clone()
+                    .split(" sold by ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string();
+
+                let mut amount: u64 = part_with_seller_and_amount
+                    .clone()
+                    .split(" amount: ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string()
+                    .parse()
+                    .unwrap();
+
+                let mut part_with_seller = part_with_seller_and_amount
+                    .clone()
+                    .split(" amount: ")
+                    .collect::<Vec<&str>>()
+                    .get(0)
+                    .unwrap()
+                    .to_string();
+
+                let buyer_bill_u8 = hex::decode(part_with_buyer).unwrap();
+                let buyer_bill: IdentityPublicData =
+                    serde_json::from_slice(&buyer_bill_u8).unwrap();
+
+                let seller_bill_u8 = hex::decode(part_with_seller).unwrap();
+                let seller_bill: IdentityPublicData =
+                    serde_json::from_slice(&seller_bill_u8).unwrap();
+
+                last_endorsee = buyer_bill.clone();
+            } else if self.exist_block_with_operation_code(Endorse.clone()) {
                 let bill_keys = read_keys_from_bill_file(&last_version_block_endorse.bill_name);
                 let key: Rsa<Private> =
                     Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
@@ -192,6 +243,7 @@ impl Chain {
         }
 
         let mut payee = bill_first_version.payee.clone();
+
         if !last_endorsee.peer_id.is_empty() {
             payee = last_endorsee.clone();
         }
@@ -222,32 +274,39 @@ impl Chain {
         bill
     }
 
-    fn check_if_last_sell_block_is_paid(&self) -> bool {
-        if self.exist_block_with_operation_code(Sell) {
-            let last_version_block_sell = self.get_last_version_block_with_operation_code(Sell);
+    pub fn waiting_for_payment(
+        &self,
+    ) -> (bool, IdentityPublicData, IdentityPublicData, String, u64) {
+        let last_block = self.get_latest_block();
+        let last_version_block_sell = self.get_last_version_block_with_operation_code(Sell);
+        let identity_buyer = IdentityPublicData::new_empty();
+        let identity_seller = IdentityPublicData::new_empty();
 
-            let mut amount = 0;
+        if self.exist_block_with_operation_code(Sell.clone())
+            && last_block.id == last_version_block_sell.id
+        {
             let bill_keys = read_keys_from_bill_file(&last_version_block_sell.bill_name);
             let key: Rsa<Private> =
                 Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
             let bytes = hex::decode(last_version_block_sell.data.clone()).unwrap();
             let decrypted_bytes = decrypt_bytes(&bytes, &key);
             let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
-            let mut part_with_buyer = block_data_decrypted
+
+            let mut part_without_sold_to = block_data_decrypted
                 .split("Sold to ")
                 .collect::<Vec<&str>>()
                 .get(1)
                 .unwrap()
                 .to_string();
 
-            part_with_buyer = part_with_buyer
+            let mut part_with_buyer = part_without_sold_to
                 .split(" sold by ")
                 .collect::<Vec<&str>>()
                 .get(0)
                 .unwrap()
                 .to_string();
 
-            let mut part_with_seller = part_with_buyer
+            let mut part_with_seller_and_amount = part_without_sold_to
                 .clone()
                 .split(" sold by ")
                 .collect::<Vec<&str>>()
@@ -255,30 +314,131 @@ impl Chain {
                 .unwrap()
                 .to_string();
 
-            amount = part_with_seller
+            let mut amount: u64 = part_with_seller_and_amount
                 .clone()
                 .split(" amount: ")
                 .collect::<Vec<&str>>()
                 .get(1)
                 .unwrap()
-                .to_string().parse().unwrap();
+                .to_string()
+                .parse()
+                .unwrap();
+
+            let mut part_with_seller = part_with_seller_and_amount
+                .clone()
+                .split(" amount: ")
+                .collect::<Vec<&str>>()
+                .get(0)
+                .unwrap()
+                .to_string();
+
+            let buyer_bill_u8 = hex::decode(part_with_buyer).unwrap();
+            let buyer_bill: IdentityPublicData = serde_json::from_slice(&buyer_bill_u8).unwrap();
+            let identity_buyer = buyer_bill;
+
+            let seller_bill_u8 = hex::decode(part_with_seller).unwrap();
+            let seller_bill: IdentityPublicData = serde_json::from_slice(&seller_bill_u8).unwrap();
+            let identity_seller = seller_bill;
 
             let bill = self.get_first_version_bill();
 
-            let address_to_pay = Self::get_address_to_pay_for_block_sell(*last_version_block_sell.clone(), bill);
+            let address_to_pay =
+                Self::get_address_to_pay_for_block_sell(last_version_block_sell.clone(), bill);
 
-            let mut paid = false;
+            let address_to_pay_for_async = address_to_pay.clone();
 
-            async {
-                paid = Self::check_if_paid(address_to_pay, amount).await.0;
-            }
+            let paid = thread::spawn(move || Self::check_if_paid(address_to_pay_for_async, amount))
+                .join()
+                .expect("Thread panicked");
 
-            paid
+            (
+                !paid,
+                identity_buyer,
+                identity_seller,
+                address_to_pay,
+                amount,
+            )
+        } else {
+            (false, identity_buyer, identity_seller, String::new(), 0)
         }
-        false
     }
 
-    fn get_address_to_pay_for_block_sell(last_version_block_sell: Block, bill: BitcreditBill) -> String {
+    fn check_if_last_sell_block_is_paid(&self) -> bool {
+        if self.exist_block_with_operation_code(Sell) {
+            let last_version_block_sell = self.get_last_version_block_with_operation_code(Sell);
+
+            let bill_keys = read_keys_from_bill_file(&last_version_block_sell.bill_name);
+            let key: Rsa<Private> =
+                Rsa::private_key_from_pem(bill_keys.private_key_pem.as_bytes()).unwrap();
+            let bytes = hex::decode(last_version_block_sell.data.clone()).unwrap();
+            let decrypted_bytes = decrypt_bytes(&bytes, &key);
+            let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
+
+            let mut part_without_sold_to = block_data_decrypted
+                .split("Sold to ")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .unwrap()
+                .to_string();
+
+            let mut part_with_buyer = part_without_sold_to
+                .split(" sold by ")
+                .collect::<Vec<&str>>()
+                .get(0)
+                .unwrap()
+                .to_string();
+
+            let mut part_with_seller_and_amount = part_without_sold_to
+                .clone()
+                .split(" sold by ")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .unwrap()
+                .to_string();
+
+            let mut amount: u64 = part_with_seller_and_amount
+                .clone()
+                .split(" amount: ")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .unwrap()
+                .to_string()
+                .parse()
+                .unwrap();
+
+            let mut part_with_seller = part_with_seller_and_amount
+                .clone()
+                .split(" amount: ")
+                .collect::<Vec<&str>>()
+                .get(0)
+                .unwrap()
+                .to_string();
+
+            let buyer_bill_u8 = hex::decode(part_with_buyer).unwrap();
+            let buyer_bill: IdentityPublicData = serde_json::from_slice(&buyer_bill_u8).unwrap();
+
+            let seller_bill_u8 = hex::decode(part_with_seller).unwrap();
+            let seller_bill: IdentityPublicData = serde_json::from_slice(&seller_bill_u8).unwrap();
+
+            let bill = self.get_first_version_bill();
+
+            let address_to_pay =
+                Self::get_address_to_pay_for_block_sell(last_version_block_sell.clone(), bill);
+
+            let paid = thread::spawn(move || Self::check_if_paid(address_to_pay, amount))
+                .join()
+                .expect("Thread panicked");
+
+            paid
+        } else {
+            false
+        }
+    }
+
+    fn get_address_to_pay_for_block_sell(
+        last_version_block_sell: Block,
+        bill: BitcreditBill,
+    ) -> String {
         let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
 
         let bill_keys = read_keys_from_bill_file(&last_version_block_sell.bill_name);
@@ -288,21 +448,21 @@ impl Chain {
         let decrypted_bytes = decrypt_bytes(&bytes, &key);
         let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
 
-        let mut part_with_buyer = block_data_decrypted
+        let mut part_without_sold_to = block_data_decrypted
             .split("Sold to ")
             .collect::<Vec<&str>>()
             .get(1)
             .unwrap()
             .to_string();
 
-        part_with_buyer = part_with_buyer
+        let mut part_with_buyer = part_without_sold_to
             .split(" sold by ")
             .collect::<Vec<&str>>()
             .get(0)
             .unwrap()
             .to_string();
 
-        let mut part_with_seller = part_with_buyer
+        let mut part_with_seller_and_amount = part_without_sold_to
             .clone()
             .split(" sold by ")
             .collect::<Vec<&str>>()
@@ -310,7 +470,17 @@ impl Chain {
             .unwrap()
             .to_string();
 
-        part_with_seller = part_with_seller
+        let mut amount: u64 = part_with_seller_and_amount
+            .clone()
+            .split(" amount: ")
+            .collect::<Vec<&str>>()
+            .get(1)
+            .unwrap()
+            .to_string()
+            .parse()
+            .unwrap();
+
+        let part_with_seller = part_with_seller_and_amount
             .clone()
             .split(" amount: ")
             .collect::<Vec<&str>>()
@@ -318,10 +488,10 @@ impl Chain {
             .unwrap()
             .to_string();
 
-        let person_to_pay_u8 = hex::decode(part_with_seller).unwrap();
-        let mut person_to_pay = serde_json::from_slice(&person_to_pay_u8).unwrap();
+        let seller_bill_u8 = hex::decode(part_with_seller).unwrap();
+        let seller_bill: IdentityPublicData = serde_json::from_slice(&seller_bill_u8).unwrap();
 
-        let public_key_seller = person_to_pay.bitcoin_public_key;
+        let public_key_seller = seller_bill.bitcoin_public_key;
         let public_key_bill_seller = bitcoin::PublicKey::from_str(&public_key_seller).unwrap();
 
         let public_key_bill = public_key_bill
@@ -334,17 +504,19 @@ impl Chain {
         address_to_pay
     }
 
-    async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
+    #[tokio::main]
+    async fn check_if_paid(address: String, amount: u64) -> bool {
         let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
         let received_summ = info_about_address.chain_stats.funded_txo_sum;
         let spent_summ = info_about_address.chain_stats.spent_txo_sum;
         let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
         let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
-        return if amount.eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
+        return if amount
+            .eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
         {
-            (true, received_summ.clone())
+            true
         } else {
-            (false, 0)
+            false
         };
     }
 
@@ -574,21 +746,21 @@ impl Chain {
                     let decrypted_bytes = decrypt_bytes(&bytes, &key);
                     let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
 
-                    let mut part_with_buyer = block_data_decrypted
+                    let mut part_without_sold_to = block_data_decrypted
                         .split("Sold to ")
                         .collect::<Vec<&str>>()
                         .get(1)
                         .unwrap()
                         .to_string();
 
-                    part_with_buyer = part_with_buyer
+                    let mut part_with_buyer = part_without_sold_to
                         .split(" sold by ")
                         .collect::<Vec<&str>>()
                         .get(0)
                         .unwrap()
                         .to_string();
 
-                    let mut part_with_seller = part_with_buyer
+                    let mut part_with_seller_and_amount = part_without_sold_to
                         .clone()
                         .split(" sold by ")
                         .collect::<Vec<&str>>()
@@ -596,7 +768,17 @@ impl Chain {
                         .unwrap()
                         .to_string();
 
-                    part_with_seller = part_with_seller
+                    let mut amount: u64 = part_with_seller_and_amount
+                        .clone()
+                        .split(" amount: ")
+                        .collect::<Vec<&str>>()
+                        .get(1)
+                        .unwrap()
+                        .to_string()
+                        .parse()
+                        .unwrap();
+
+                    let mut part_with_seller = part_with_seller_and_amount
                         .clone()
                         .split(" amount: ")
                         .collect::<Vec<&str>>()
@@ -886,21 +1068,21 @@ impl Block {
                 let decrypted_bytes = decrypt_bytes(&bytes, &key);
                 let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
 
-                let mut part_with_buyer = block_data_decrypted
+                let mut part_without_sold_to = block_data_decrypted
                     .split("Sold to ")
                     .collect::<Vec<&str>>()
                     .get(1)
                     .unwrap()
                     .to_string();
 
-                part_with_buyer = part_with_buyer
+                let mut part_with_buyer = part_without_sold_to
                     .split(" sold by ")
                     .collect::<Vec<&str>>()
                     .get(0)
                     .unwrap()
                     .to_string();
 
-                let mut part_with_seller = part_with_buyer
+                let mut part_with_seller_and_amount = part_without_sold_to
                     .clone()
                     .split(" sold by ")
                     .collect::<Vec<&str>>()
@@ -908,7 +1090,17 @@ impl Block {
                     .unwrap()
                     .to_string();
 
-                part_with_seller = part_with_seller
+                let mut amount: u64 = part_with_seller_and_amount
+                    .clone()
+                    .split(" amount: ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string()
+                    .parse()
+                    .unwrap();
+
+                let mut part_with_seller = part_with_seller_and_amount
                     .clone()
                     .split(" amount: ")
                     .collect::<Vec<&str>>()
@@ -1086,21 +1278,21 @@ impl Block {
                 let decrypted_bytes = decrypt_bytes(&bytes, &key);
                 let block_data_decrypted = String::from_utf8(decrypted_bytes).unwrap();
 
-                let mut part_with_buyer = block_data_decrypted
+                let mut part_without_sold_to = block_data_decrypted
                     .split("Sold to ")
                     .collect::<Vec<&str>>()
                     .get(1)
                     .unwrap()
                     .to_string();
 
-                part_with_buyer = part_with_buyer
+                let mut part_with_buyer = part_without_sold_to
                     .split(" sold by ")
                     .collect::<Vec<&str>>()
                     .get(0)
                     .unwrap()
                     .to_string();
 
-                let mut part_with_seller = part_with_buyer
+                let mut part_with_seller_and_amount = part_without_sold_to
                     .clone()
                     .split(" sold by ")
                     .collect::<Vec<&str>>()
@@ -1108,7 +1300,17 @@ impl Block {
                     .unwrap()
                     .to_string();
 
-                part_with_seller = part_with_seller
+                let mut amount: u64 = part_with_seller_and_amount
+                    .clone()
+                    .split(" amount: ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .to_string()
+                    .parse()
+                    .unwrap();
+
+                let part_with_seller = part_with_seller_and_amount
                     .clone()
                     .split(" amount: ")
                     .collect::<Vec<&str>>()
@@ -1120,9 +1322,10 @@ impl Block {
                 let buyer_bill: IdentityPublicData =
                     serde_json::from_slice(&buyer_bill_u8).unwrap();
 
-                let seller_bill_u8 = hex::decode(part_with_sold_by).unwrap();
+                let seller_bill_u8 = hex::decode(part_with_seller).unwrap();
                 let seller_bill: IdentityPublicData =
                     serde_json::from_slice(&seller_bill_u8).unwrap();
+
                 line = seller_bill.name + ", " + &seller_bill.postal_address;
             }
         }
