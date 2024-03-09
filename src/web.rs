@@ -288,7 +288,6 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let mut amount_for_selling = 0;
     let waiting_for_payment = chain.waiting_for_payment();
     let waited_for_payment = waiting_for_payment.0;
-    println!("WAITED_FOR_PAYMENT {}", waited_for_payment.clone());
     let mut buyer = waiting_for_payment.1;
     let mut seller = waiting_for_payment.2;
     if waited_for_payment
