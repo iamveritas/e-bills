@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::prelude::*;
+use chrono::Days;
 use futures::executor::block_on;
 use log::{info, warn};
 use openssl::hash::MessageDigest;
@@ -363,6 +364,32 @@ impl Chain {
         }
     }
 
+    pub async fn check_if_payment_deadline_has_passed(&self) -> bool {
+        if self.exist_block_with_operation_code(crate::blockchain::OperationCode::Sell) {
+            let last_version_block_sell = self
+                .get_last_version_block_with_operation_code(crate::blockchain::OperationCode::Sell);
+
+            let timestamp = last_version_block_sell.timestamp;
+
+            let payment_deadline_has_passed = Self::payment_deadline_has_passed(timestamp, 2).await;
+
+            payment_deadline_has_passed
+        } else {
+            false
+        }
+    }
+
+    async fn payment_deadline_has_passed(timestamp: i64, day: i32) -> bool {
+        let period: i64 = (86400 * day) as i64;
+        let current_timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+        let diference = current_timestamp - timestamp;
+        if diference > period {
+            true
+        } else {
+            false
+        }
+    }
+
     fn check_if_last_sell_block_is_paid(&self) -> bool {
         if self.exist_block_with_operation_code(Sell) {
             let last_version_block_sell = self.get_last_version_block_with_operation_code(Sell);
@@ -509,10 +536,11 @@ impl Chain {
         let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
         let received_summ = info_about_address.chain_stats.funded_txo_sum;
         let spent_summ = info_about_address.chain_stats.spent_txo_sum;
-        let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
+        // let received_summ_mempool = info_about_address.mempool_stats.funded_txo_sum;
         let spent_summ_mempool = info_about_address.mempool_stats.spent_txo_sum;
-        return if amount
-            .eq(&(received_summ + spent_summ + received_summ_mempool + spent_summ_mempool))
+        return if amount.eq(&(received_summ + spent_summ
+                // + received_summ_mempool
+                + spent_summ_mempool))
         {
             true
         } else {

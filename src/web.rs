@@ -286,8 +286,15 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
     let mut address_for_selling: String = String::new();
     let mut amount_for_selling = 0;
-    let waiting_for_payment = chain.waiting_for_payment();
-    let waited_for_payment = waiting_for_payment.0;
+    let mut waiting_for_payment = chain.waiting_for_payment();
+    let mut payment_deadline_has_passed = false;
+    let mut waited_for_payment = waiting_for_payment.0;
+    if waited_for_payment {
+        payment_deadline_has_passed = chain.check_if_payment_deadline_has_passed().await;
+    }
+    if payment_deadline_has_passed {
+        waited_for_payment = false;
+    }
     let mut buyer = waiting_for_payment.1;
     let mut seller = waiting_for_payment.2;
     if waited_for_payment
