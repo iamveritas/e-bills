@@ -181,7 +181,7 @@ export default function IssueForm() {
           <span className="select-opt">
             <select
               style={{
-                appereance: "none",
+                appearance: "none",
                 MozAppearance: "none",
                 WebkitAppearance: "none",
               }}
