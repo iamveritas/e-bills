@@ -72,7 +72,7 @@ export default function SellPage({ data }) {
                         </span>
                         <span className="block">
                             <span className="accept-heading">the sum of </span>
-                            <span className="detail" style={{textTransform: "uppercase"}}>
+                            <span className="detail">
                                 {data.currency_code} {data.amount_numbers}
                             </span>
                         </span>
