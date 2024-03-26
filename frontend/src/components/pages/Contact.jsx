@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import closeIcon from "../../assests/close-btn.svg";
 import SingleContact from "../SingleContact";
 
@@ -11,7 +11,9 @@ export default function Contact() {
   const [search, setSearch] = useState("");
   let newContact;
   if (search) {
-    newContact = contacts.filter((d) => d.name.includes(search));
+    newContact = contacts.filter((d) =>
+      d.name.toUpperCase().includes(search.toUpperCase())
+    );
   } else {
     newContact = contacts;
   }

@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { useContext } from "react";
+import React, {useContext, useState} from "react";
 import closeIcon from "../../assests/close-btn.svg";
 import addIcon from "../../assests/add.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 
 export default function AddContact() {
   const { showPopUp, setToast, handleAddContact } = useContext(MainContext);
@@ -16,7 +15,7 @@ export default function AddContact() {
     } else if (contact.peer_id === "") {
       setToast("Peer Id can not be empty");
     } else {
-      handleAddContact(contact, showPopUp);
+      handleAddContact(contact);
     }
   };
   return (
@@ -31,6 +30,7 @@ export default function AddContact() {
       </div>
       <div className="contact-body">
         <input
+          className="input-contact"
           type="text"
           name="name"
           id="name"
@@ -39,6 +39,7 @@ export default function AddContact() {
           onChange={handleChange}
         />
         <input
+          className="input-contact"
           type="text"
           name="peer_id"
           id="peer_id"
@@ -49,7 +50,7 @@ export default function AddContact() {
       </div>
       <button onClick={handleSubmit} className="btn">
         <img src={addIcon} />
-        <span>ADD CONTACT</span>
+        <span>SAVE CONTACT</span>
       </button>
     </div>
   );

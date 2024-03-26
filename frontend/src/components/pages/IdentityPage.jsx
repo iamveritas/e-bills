@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, {useContext, useEffect, useState} from "react";
 
 import avatar from "../../assests/avatar.svg";
 import closebtn from "../../assests/close-btn.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 import copyIcon from "../../assests/copy.svg";
 
 export default function IdentityPage() {
@@ -15,29 +15,10 @@ export default function IdentityPage() {
     setToast,
     copytoClip,
   } = useContext(MainContext);
-  // Set the minimum and maximum age
-  const minAge = 18;
-  const maxAge = 100;
-  // Set the minimum and maximum date states
-  const [minDate, setMinDate] = useState("");
-  const [maxDate, setMaxDate] = useState("");
+
   const [image, setImage] = useState();
   const [uneditable, setunEditable] = useState(true);
-  useEffect(() => {
-    // Calculate the minimum date (18 years ago)
-    const minDateObj = new Date();
-    minDateObj.setFullYear(minDateObj.getFullYear() - minAge);
-    const minDateStr = minDateObj.toISOString().split("T")[0];
 
-    // Calculate the maximum date (100 years ago)
-    const maxDateObj = new Date();
-    maxDateObj.setFullYear(maxDateObj.getFullYear() - maxAge);
-    const maxDateStr = maxDateObj.toISOString().split("T")[0];
-
-    // Set the state variables
-    setMinDate(minDateStr);
-    setMaxDate(maxDateStr);
-  }, []);
   const [userData, setUserData] = useState({
     name: identity.name || "",
     email: identity.email || "",
@@ -46,6 +27,7 @@ export default function IdentityPage() {
     country_of_birth: identity.country_of_birth || "",
     city_of_birth: identity.city_of_birth || "",
     postal_address: identity.postal_address || "",
+    company: identity.company || "",
   });
 
   const [content, setContent] = useState({
@@ -97,18 +79,98 @@ export default function IdentityPage() {
       setunEditable(false);
     }
   }, []);
-  const checkPreview = () => {
-    if (
-      userData.name != "" &&
-      userData.email != "" &&
-      userData.date_of_birth != "Invalid Date"
-    ) {
-      setunEditable(!uneditable);
+  const [errorInput, seterrorInput] = useState({
+    name: false,
+    email: false,
+    date_of_birth: false,
+    country_of_birth: false,
+    city_of_birth: false,
+    postal_address: false,
+    company: false,
+  });
+  const checkValidation = () => {
+    let isValid = true;
+    let errors = {};
+
+    if (userData.name === "") {
+      errors.name = true;
+      isValid = false;
+    }
+    if (userData.email === "") {
+      errors.email = true;
+      isValid = false;
+    }
+    if (userData.date_of_birth === "Invalid Date") {
+      errors.date_of_birth = true;
+      isValid = false;
+    }
+    if (userData.country_of_birth === "") {
+      errors.country_of_birth = true;
+      isValid = false;
+    }
+    if (userData.city_of_birth === "") {
+      errors.city_of_birth = true;
+      isValid = false;
+    }
+    if (userData.postal_address === "") {
+      errors.postal_address = true;
+      isValid = false;
+    }
+    if (userData.company === "") {
+      errors.company = true;
+      isValid = false;
+    }
+
+    if (isValid) {
+      seterrorInput({
+        name: false,
+        email: false,
+        date_of_birth: false,
+        country_of_birth: false,
+        city_of_birth: false,
+        postal_address: false,
+        company: false,
+      });
     } else {
       setToast("Please fill Required field");
+      seterrorInput(errors);
     }
+
+    return isValid;
   };
 
+  const checkPreview = () => {
+    if (checkValidation()) {
+      setunEditable(!uneditable);
+    } else {
+      setunEditable(uneditable);
+    }
+  };
+  useEffect(() => {
+    if (
+      errorInput.name ||
+      errorInput.email ||
+      errorInput.date_of_birth ||
+      errorInput.country_of_birth ||
+      errorInput.city_of_birth ||
+      errorInput.postal_address ||
+      errorInput.company
+    ) {
+      checkValidation();
+    }
+  }, [userData]);
+  // Set the minimum and maximum age
+  const minAge = 18;
+  const maxAge = 100;
+  // Set the minimum and maximum date states
+  const minDateObj = new Date();
+  minDateObj.setFullYear(minDateObj.getFullYear() - minAge);
+  const minDateStr = minDateObj.toISOString().split("T")[0];
+
+  // Calculate the maximum date (100 years ago)
+  const maxDateObj = new Date();
+  maxDateObj.setFullYear(maxDateObj.getFullYear() - maxAge);
+  const maxDateStr = maxDateObj.toISOString().split("T")[0];
   return (
     <div className="create">
       <div className={"create-head" + content.justify}>
@@ -164,6 +226,11 @@ export default function IdentityPage() {
               <label htmlFor="name">Full Name</label>
               <input
                 id="name"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.name ? "#d40202" : "transparent"
+                  }`,
+                }}
                 name="name"
                 value={userData.name}
                 disabled={uneditable}
@@ -196,6 +263,11 @@ export default function IdentityPage() {
               <input
                 id="email"
                 name="email"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.email ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.email}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -214,9 +286,14 @@ export default function IdentityPage() {
               <input
                 id="date_of_birth"
                 name="date_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.date_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.date_of_birth}
-                min={minDate}
-                max={maxDate}
+                min={maxDateStr}
+                max={minDateStr}
                 disabled={uneditable}
                 onChange={onChangeHandler}
                 placeholder=""
@@ -230,6 +307,11 @@ export default function IdentityPage() {
               <input
                 id="country_of_birth"
                 name="country_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.country_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.country_of_birth}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -242,10 +324,15 @@ export default function IdentityPage() {
               <input
                 id="city_of_birth"
                 name="city_of_birth"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.city_of_birth ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.city_of_birth}
                 disabled={uneditable}
                 onChange={onChangeHandler}
-                placeholder="Country Of Birth"
+                placeholder="City Of Birth"
                 type="text"
               />
             </div>
@@ -254,6 +341,11 @@ export default function IdentityPage() {
               <input
                 id="postal_address"
                 name="postal_address"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.postal_address ? "#d40202" : "transparent"
+                  }`,
+                }}
                 value={userData.postal_address}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -261,93 +353,23 @@ export default function IdentityPage() {
                 type="text"
               />
             </div>
-          </div>
-
-          <div
-            className={
-              toast != "" && userData?.email === ""
-                ? "create-body-form-input-in invalid"
-                : "create-body-form-input-in"
-            }
-          >
-            <label htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              name="email"
-              value={userData.email}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Email Address"
-              type="text"
-            />
-          </div>
-          <div
-            className={
-              toast != "" && userData?.date_of_birth === "Invalid Date"
-                ? "create-body-form-input-in invalid"
-                : "create-body-form-input-in"
-            }
-          >
-            <label htmlFor="date_of_birth">Date Of Birth</label>
-            <input
-              id="date_of_birth"
-              name="date_of_birth"
-              value={userData.date_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder=""
-              type="date"
-            />
-          </div>
-        </div>
-        <div className="create-body-form-input">
-          <div className="create-body-form-input-in">
-            <label htmlFor="country_of_birth">Country Of Birth</label>
-            <input
-              id="country_of_birth"
-              name="country_of_birth"
-              value={userData.country_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Country Of Birth"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="city_of_birth">City Of Birth</label>
-            <input
-              id="city_of_birth"
-              name="city_of_birth"
-              value={userData.city_of_birth}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Country Of Birth"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="postal_address">Postal Address</label>
-            <input
-              id="postal_address"
-              name="postal_address"
-              value={userData.postal_address}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Postal Address"
-              type="text"
-            />
-          </div>
-          <div className="create-body-form-input-in">
-            <label htmlFor="country_of_birth">Company</label>
-            <input
-              id="company"
-              name="company"
-              value={userData.company}
-              disabled={uneditable}
-              onChange={onChangeHandler}
-              placeholder="Company"
-              type="text"
-            />
+            <div className="create-body-form-input-in">
+              <label htmlFor="country_of_birth">Company</label>
+              <input
+                id="company"
+                name="company"
+                style={{
+                  border: `.7vw solid ${
+                    errorInput.company ? "#d40202" : "transparent"
+                  }`,
+                }}
+                value={userData.company}
+                disabled={uneditable}
+                onChange={onChangeHandler}
+                placeholder="Company"
+                type="text"
+              />
+            </div>
           </div>
         </div>
 
@@ -363,17 +385,5 @@ export default function IdentityPage() {
         )}
       </form>
     </div>
-    //     {content.sign && (
-    //       <div className="flex justify-space">
-    //         <div onClick={checkPreview} className="create-body-btn">
-    //           {uneditable ? "CANCEL" : "PREVIEW"}
-    //         </div>
-    //         {uneditable && (
-    //           <input className="create-body-btn" type="submit" value="SIGN" />
-    //         )}
-    //       </div>
-    //     )}
-    //   </form>
-    // </div>
   );
 }

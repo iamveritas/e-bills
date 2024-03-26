@@ -5,7 +5,7 @@ import { MainContext } from "../../context/MainContext";
 export default function IssueForm() {
   const { contacts, handlePage, handleRefresh, setToast } =
     useContext(MainContext);
-
+  const [errorInput, setErrorInput] = useState(false);
   // Set data for bill issue
   const [data, setData] = useState({
     maturity_date: "",
@@ -27,11 +27,13 @@ export default function IssueForm() {
     let value = e.target.value;
     let name = e.target.name;
     if (name === "amount_numbers") {
-      setData({ ...data, [name]: parseInt(value) });
+      let val = value.replace(/[^0-9/.]/g, "");
+      setData({ ...data, [name]: val });
     } else {
       setData({ ...data, [name]: value });
     }
   };
+
   const checkHandleSearch = (e) => {
     let value = e.target.value;
     let name = e.target.name;
@@ -55,39 +57,43 @@ export default function IssueForm() {
   const handleSubmition = (e) => {
     e.preventDefault();
     if (click) {
-      setClick(false);
-      const form_data = new FormData();
-      form_data.append("bill_jurisdiction", data.bill_jurisdiction);
-      form_data.append("place_of_drawing", data.place_of_drawing);
-      form_data.append("amount_numbers", data.amount_numbers);
-      form_data.append("language", data.language);
-      form_data.append("drawee_name", data.drawee_name);
-      form_data.append("payee_name", data.payee_name);
-      form_data.append("place_of_payment", data.place_of_payment);
-      form_data.append("maturity_date", data.maturity_date);
-      form_data.append("drawer_is_payee", data.drawer_is_payee);
-      form_data.append("drawer_is_drawee", data.drawer_is_drawee);
-      setToast("Please Wait...");
-      fetch("http://localhost:8000/bill/issue", {
-        method: "POST",
-        body: form_data,
-        mode: "cors",
-      })
-        .then((response) => {
-          console.log(response);
-          if (response.status == 200) {
-            setToast("You Bill is Added.");
-          } else {
-            setToast("Some error happened.");
-          }
-          handleRefresh();
-          handlePage("home");
-          setClick(true);
+      if (!errorInput) {
+        setClick(false);
+        const form_data = new FormData();
+        form_data.append("bill_jurisdiction", data.bill_jurisdiction);
+        form_data.append("place_of_drawing", data.place_of_drawing);
+        form_data.append("amount_numbers", data.amount_numbers);
+        form_data.append("language", data.language);
+        form_data.append("drawee_name", data.drawee_name);
+        form_data.append("payee_name", data.payee_name);
+        form_data.append("place_of_payment", data.place_of_payment);
+        form_data.append("maturity_date", data.maturity_date);
+        form_data.append("drawer_is_payee", data.drawer_is_payee);
+        form_data.append("drawer_is_drawee", data.drawer_is_drawee);
+        setToast("Please Wait...");
+        fetch("http://localhost:8000/bill/issue", {
+          method: "POST",
+          body: form_data,
+          mode: "cors",
         })
-        .catch((err) => {
-          setClick(true);
-          console.log(err);
-        });
+          .then((response) => {
+            console.log(response);
+            if (response.status == 200) {
+              setToast("You Bill is Added.");
+            } else {
+              setToast("Some error happened.");
+            }
+            handleRefresh();
+            handlePage("home");
+            setClick(true);
+          })
+          .catch((err) => {
+            setClick(true);
+            console.log(err);
+          });
+      } else {
+        setToast("Please check the Errors");
+      }
     } else {
       setToast("Please Wait...");
     }
@@ -99,6 +105,7 @@ export default function IssueForm() {
     const currentDate = new Date().toJSON().slice(0, 10);
     setCurrentDateGmt(currentDate);
   }, []);
+
   return (
     <form className="form" onSubmit={handleSubmition}>
       <div className="form-input">
@@ -174,7 +181,7 @@ export default function IssueForm() {
           <span className="select-opt">
             <select
               style={{
-                appereance: "none",
+                appearance: "none",
                 MozAppearance: "none",
                 WebkitAppearance: "none",
               }}
@@ -190,9 +197,21 @@ export default function IssueForm() {
           </span>
           <input
             className="drop-shadow"
+            style={{
+              border: `.7vw solid ${errorInput ? "#d40202" : "transparent"}`,
+            }}
             name="amount_numbers"
             value={data.amount_numbers}
             onChange={changeHandle}
+            onKeyUp={(e) => {
+              if (/[^0-9]/g.test(e.target.value) || e.target.value[0] == 0) {
+                setToast("This field's only accepts Integers.");
+                setErrorInput(true);
+              } else {
+                setToast("");
+                setErrorInput(false);
+              }
+            }}
             type="number"
             placeholder="10000"
             required

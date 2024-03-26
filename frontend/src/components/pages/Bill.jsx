@@ -46,9 +46,12 @@ function Bill({ identity, data }) {
   // Format the date
   const issueDate = dateObjectIssue.toLocaleDateString("en-US", ops);
   const maturityDate = dateObjectMaturity.toLocaleDateString("en-US", ops);
-
-  const companyName = data?.drawee?.company;
-  // console.log(companyNameAddress.length);
+  const [blocks] = data?.chain_of_blocks?.blocks?.filter(
+    (d) => d.operation_code === "Accept"
+  );
+  const signatureAccept = blocks?.signature;
+  const signatureIssue = data?.chain_of_blocks?.blocks[0]?.signature;
+  const payerName = data?.drawee?.name + ", " + data?.drawee?.company;
   return (
     <div className="billing">
       <div className="top-buttons">
@@ -75,17 +78,22 @@ function Bill({ identity, data }) {
       <div id="main-container" className="billing-container" ref={divRef}>
         <div className="top-container">
           <div className="head-text">
-            <img src={wechsel} />
-            <span>Accepted</span>
+            {/* <img src={wechsel} /> */}
+            <span className="head-text-maintext">BILL OF EXCHANGE</span>
+            <span>{blocks?.operation_code === "Accept" && "Accepted"}</span>
           </div>
           <div className="line">
-            <hr />
-            <hr />
-            <hr />
+            <span></span>
+            <span>
+              {blocks &&
+                `${signatureAccept?.slice(0, 4)}...${signatureAccept?.slice(
+                  signatureAccept?.length - 4,
+                  signatureAccept?.length
+                )}`}
+            </span>
+            <span></span>
           </div>
-          <div className="unter-text">
-            <span>Acceptor’s signature</span>
-          </div>
+          <div className="unter-text">{blocks && "Acceptor’s signature"}</div>
         </div>
         <div className="details">
           <div className="details-container">
@@ -164,11 +172,11 @@ function Bill({ identity, data }) {
                       Payer
                     </span>
                     <span className="details-container-bottom-left-bez-line-ans">
-                      {companyName.slice(0, 52)}
+                      {payerName?.slice(0, 52)}
                     </span>
                   </span>
                   <span className="details-container-bottom-left-bez-next-line">
-                    {companyName.slice(52, companyName?.length)}
+                    {payerName?.slice(52, payerName?.length)}
                   </span>
                 </div>
                 <div className="details-container-bottom-left-in">
@@ -191,11 +199,11 @@ function Bill({ identity, data }) {
                         Bill Id
                       </span>
                       <span className="details-container-bottom-left-bez-line-ans">
-                        {data?.bill_Id}
+                        {data?.name?.slice(0, 50)}
                       </span>
                     </span>
                     <span className="details-container-bottom-left-bez-next-line">
-                      SOME TEXT HERE
+                      {data?.name?.slice(50, data?.name?.length)}
                     </span>
                   </div>
                   <div className="details-container-bottom-left-in">
@@ -204,7 +212,7 @@ function Bill({ identity, data }) {
                     </span>
                     <span className="details-container-bottom-left-in-further">
                       <span className="details-container-bottom-left-in-further-text">
-                        SOME TEXT HERE
+                        {data.bill_jurisdiction}
                       </span>
                       <span className="details-container-bottom-left-in-further-bottom">
                         Use for domicile instructions
@@ -215,9 +223,13 @@ function Bill({ identity, data }) {
               </div>
               <div className="details-container-bottom-signature">
                 <span className="signature">
-                  <img src={dumySig} />
+                  {signatureIssue.slice(0, 6)}...
+                  {signatureIssue.slice(
+                    signatureIssue.length - 6,
+                    signatureIssue.length
+                  )}
                 </span>
-                <span>Signature and address of the drawer</span>
+                <span>Signature of the drawer</span>
               </div>
             </div>
           </div>

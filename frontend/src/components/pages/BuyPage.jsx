@@ -1,16 +1,16 @@
-import React, { useContext } from "react";
+import React, {useContext} from "react";
 import Header from "../sections/Header";
 import TopDownHeading from "../elements/TopDownHeading";
 import IconHolder from "../elements/IconHolder";
 import attachment from "../../assests/attachment.svg";
-import { MainContext } from "../../context/MainContext";
+import {MainContext} from "../../context/MainContext";
 import copy from "../../assests/copy.svg";
 
 export default function RepayPage({ data }) {
   const { copytoClip } = useContext(MainContext);
   return (
     <div className="Repay">
-      <Header title="Pay" />
+      <Header title="Buy" />
       {/*<UniqueNumber UID="001" date="16-Feb-2023" />*/}
       <div className="Repay-body">
         <div className="head">
@@ -19,12 +19,12 @@ export default function RepayPage({ data }) {
         </div>
         <div className="col">
           <span>Send to</span>
-          <span className="colored">{data.payee.name}</span>
+          <span className="colored">{data.seller.name}</span>
         </div>
         <div className="inline">
           <span>the sum of </span>
           <span className="colored" style={{ textTransform: "uppercase" }}>
-            {data.currency_code} {data.amount_numbers}
+            {data.currency_code} {data.amount_for_selling}
           </span>
         </div>
         <div className="col mtt">
@@ -32,13 +32,13 @@ export default function RepayPage({ data }) {
           <span
             className="select-opt"
             onClick={() =>
-              copytoClip(data.link_to_pay, "You copied link to pay")
+              copytoClip(data.link_for_buy, "You copied link to pay")
             }
           >
-            {data.link_to_pay?.slice(0, 8)}...
-            {data.link_to_pay?.slice(
-              data.link_to_pay?.length - 4,
-              data.link_to_pay?.length
+            {data.link_for_buy?.slice(0, 8)}...
+            {data.link_for_buy?.slice(
+              data.link_for_buy?.length - 4,
+              data.link_for_buy?.length
             )}
             <img
               style={{
@@ -57,13 +57,13 @@ export default function RepayPage({ data }) {
           <span
             className="select-opt"
             onClick={() =>
-              copytoClip(data.address_to_pay, "You copied address to pay")
+              copytoClip(data.address_for_selling, "You copied address to pay")
             }
           >
-            {data.address_to_pay?.slice(0, 8)}...
-            {data.address_to_pay?.slice(
-              data.address_to_pay?.length - 4,
-              data.address_to_pay?.length
+            {data.address_for_selling?.slice(0, 8)}...
+            {data.address_for_selling?.slice(
+              data.address_for_selling?.length - 4,
+              data.address_for_selling?.length
             )}
             <img
               style={{
