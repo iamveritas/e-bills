@@ -9,9 +9,11 @@ import { MainContext } from "../../context/MainContext";
 
 export default function Header({ route, backHeader, title }) {
   const { showPopUpSecondary, handlePage, identity } = useContext(MainContext);
-  let first = identity?.name?.split(" ")[0][0];
-  let second = identity?.name?.split(" ")[1][0];
+  let name = identity?.name?.split(" ");
 
+  let first = name[0];
+  let second = name[name?.length - 1];
+  let initials = first[0] + second[0];
   if (backHeader) {
     return (
       <div className="header">
@@ -25,7 +27,7 @@ export default function Header({ route, backHeader, title }) {
           className={"icon-container profile-icon"}
           onClick={() => handlePage("identity")}
         >
-          <span className={"icon"}>{first + second}</span>
+          <span className={"icon"}>{initials}</span>
         </span>
       </div>
     );
