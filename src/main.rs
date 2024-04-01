@@ -5,7 +5,7 @@ extern crate rocket;
 use std::collections::HashMap;
 use std::fs::DirEntry;
 use std::path::Path;
-use std::{env, fs, mem, path};
+use std::{env, fs, mem, path, thread};
 
 use bitcoin::PublicKey;
 use borsh::{self, BorshDeserialize, BorshSerialize};
@@ -65,7 +65,7 @@ async fn main() {
     let _rocket = rocket_main(dht).launch().await.unwrap();
 }
 
-fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
+fn rocket_main(dht: Client) -> Rocket<Build> {
     let rocket = rocket::build()
         .register("/", catchers![web::not_found])
         .manage(dht)
@@ -122,6 +122,7 @@ fn rocket_main(dht: dht::network::Client) -> Rocket<Build> {
                 web::return_bill,
                 web::return_chain_of_blocks,
                 web::return_basic_bill,
+                web::sell_bill,
             ],
         )
         .mount("/bills", routes![web::return_bills_list,])
@@ -825,6 +826,12 @@ pub struct BitcreditBillToReturn {
     requested_to_pay: bool,
     requested_to_accept: bool,
     payed: bool,
+    waited_for_payment: bool,
+    address_for_selling: String,
+    amount_for_selling: u64,
+    buyer: IdentityPublicData,
+    seller: IdentityPublicData,
+    link_for_buy: String,
     link_to_pay: String,
     pr_key_bill: String,
     number_of_confirmations: u64,
@@ -944,6 +951,12 @@ impl BitcreditBillToReturn {
             requested_to_pay: false,
             requested_to_accept: false,
             payed: false,
+            waited_for_payment: false,
+            address_for_selling: String::new(),
+            amount_for_selling: 0,
+            buyer: IdentityPublicData::new_empty(),
+            seller: IdentityPublicData::new_empty(),
+            link_for_buy: "".to_string(),
             link_to_pay: "".to_string(),
             address_to_pay: "".to_string(),
             pr_key_bill: "".to_string(),
@@ -1263,7 +1276,7 @@ pub fn get_bills() -> Vec<BitcreditBill> {
     bills
 }
 
-pub fn get_bills_for_list() -> Vec<BitcreditBillForList> {
+pub fn get_bills_for_list() -> Vec<BitcreditBillToReturn> {
     let mut bills = Vec::new();
     let paths = fs::read_dir(BILLS_FOLDER_PATH).unwrap();
     for _path in paths {
@@ -1280,7 +1293,10 @@ pub fn get_bills_for_list() -> Vec<BitcreditBillForList> {
                 .to_str()
                 .expect("File name error")
                 .to_string();
-            let bill = read_bill_with_chain_from_file(&path_without_extension);
+            let bill =
+                thread::spawn(move || read_bill_with_chain_from_file(&path_without_extension))
+                    .join()
+                    .expect("Thread panicked");
             bills.push(bill);
         }
     }
@@ -1301,7 +1317,12 @@ pub fn endorse_bitcredit_bill(
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    if (my_peer_id.eq(&bill.payee.peer_id)
+        && !exist_block_with_code_endorse
+        && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1347,6 +1368,74 @@ pub fn endorse_bitcredit_bill(
     }
 }
 
+pub fn sell_bitcredit_bill(
+    bill_name: &String,
+    buyer: IdentityPublicData,
+    timestamp: i64,
+    amount_numbers: u64,
+) -> bool {
+    let my_peer_id = read_peer_id_from_file().to_string();
+    let mut bill = read_bill_from_file(&bill_name);
+
+    let mut blockchain_from_file = Chain::read_chain_from_file(bill_name);
+    let last_block = blockchain_from_file.get_latest_block();
+
+    let exist_block_with_code_endorse =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
+
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    if (my_peer_id.eq(&bill.payee.peer_id)
+        && !exist_block_with_code_endorse
+        && !exist_block_with_code_sell)
+        || (my_peer_id.eq(&bill.endorsee.peer_id))
+    {
+        let identity = get_whole_identity();
+
+        let my_identity_public =
+            IdentityPublicData::new(identity.identity.clone(), identity.peer_id.to_string());
+        let seller = serde_json::to_vec(&my_identity_public).unwrap();
+
+        let buyer_u8 = serde_json::to_vec(&buyer).unwrap();
+        let data_for_new_block = "Sold to ".to_string()
+            + &hex::encode(buyer_u8)
+            + " sold by "
+            + &hex::encode(seller)
+            + " amount: "
+            + &amount_numbers.to_string();
+
+        let keys = read_keys_from_bill_file(&bill_name);
+        let key: Rsa<Private> = Rsa::private_key_from_pem(keys.private_key_pem.as_bytes()).unwrap();
+
+        let data_for_new_block_in_bytes = data_for_new_block.as_bytes().to_vec();
+        let data_for_new_block_encrypted = encrypt_bytes(&data_for_new_block_in_bytes, &key);
+        let data_for_new_block_encrypted_in_string_format =
+            hex::encode(data_for_new_block_encrypted);
+
+        let new_block = Block::new(
+            last_block.id + 1,
+            last_block.hash.clone(),
+            data_for_new_block_encrypted_in_string_format,
+            bill_name.clone(),
+            identity.identity.public_key_pem.clone(),
+            OperationCode::Sell,
+            identity.identity.private_key_pem.clone(),
+            timestamp.clone(),
+        );
+
+        let try_add_block = blockchain_from_file.try_add_block(new_block.clone());
+        if try_add_block && blockchain_from_file.is_chain_valid() {
+            blockchain_from_file.write_chain_to_file(&bill.name);
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let my_peer_id = read_peer_id_from_file().to_string();
     let bill = read_bill_from_file(bill_name);
@@ -1357,7 +1446,12 @@ pub fn request_pay(bill_name: &String, timestamp: i64) -> bool {
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    if (my_peer_id.eq(&bill.payee.peer_id)
+        && !exist_block_with_code_endorse
+        && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1410,7 +1504,12 @@ pub fn request_acceptance(bill_name: &String, timestamp: i64) -> bool {
     let exist_block_with_code_endorse =
         blockchain_from_file.exist_block_with_operation_code(OperationCode::Endorse);
 
-    if (my_peer_id.eq(&bill.payee.peer_id) && !exist_block_with_code_endorse)
+    let exist_block_with_code_sell =
+        blockchain_from_file.exist_block_with_operation_code(OperationCode::Sell);
+
+    if (my_peer_id.eq(&bill.payee.peer_id)
+        && !exist_block_with_code_endorse
+        && !exist_block_with_code_sell)
         || (my_peer_id.eq(&bill.endorsee.peer_id))
     {
         let identity = get_whole_identity();
@@ -1507,19 +1606,32 @@ pub fn accept_bill(bill_name: &String, timestamp: i64) -> bool {
     }
 }
 
-fn read_bill_with_chain_from_file(bill_name: &String) -> BitcreditBillForList {
-    let chain = Chain::read_chain_from_file(bill_name);
-    let bill = chain.get_last_version_bill();
+#[tokio::main]
+async fn read_bill_with_chain_from_file(id: &String) -> BitcreditBillToReturn {
+    let bill: BitcreditBill = read_bill_from_file(&id);
+    let chain = Chain::read_chain_from_file(&bill.name);
+    let drawer = chain.get_drawer();
     let chain_to_return = ChainToReturn::new(chain.clone());
-    let bitcredit_bill_to_return: BitcreditBillForList = BitcreditBillForList {
+    let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
+    let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+    let mut requested_to_pay =
+        chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
+    let mut requested_to_accept =
+        chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToAccept);
+    let address_to_pay = web::get_address_to_pay(bill.clone());
+    let check_if_already_paid =
+        web::check_if_paid(address_to_pay.clone(), bill.amount_numbers.clone()).await;
+    let payed = check_if_already_paid.0;
+
+    let full_bill = BitcreditBillToReturn {
         name: bill.name,
         to_payee: bill.to_payee,
         bill_jurisdiction: bill.bill_jurisdiction,
         timestamp_at_drawing: bill.timestamp_at_drawing,
         drawee: bill.drawee,
-        drawer: bill.drawer,
-        payee: bill.payee.clone(),
-        endorsee: bill.endorsee.clone(),
+        drawer: drawer,
+        payee: bill.payee,
+        endorsee: bill.endorsee,
         place_of_drawing: bill.place_of_drawing,
         currency_code: bill.currency_code,
         amount_numbers: bill.amount_numbers,
@@ -1532,10 +1644,26 @@ fn read_bill_with_chain_from_file(bill_name: &String) -> BitcreditBillForList {
         public_key: bill.public_key,
         private_key: bill.private_key,
         language: bill.language,
+        accepted,
+        endorsed,
+        waited_for_payment: false,
+        address_for_selling: "".to_string(),
+        amount_for_selling: 0,
+        buyer: IdentityPublicData::new_empty(),
+        seller: IdentityPublicData::new_empty(),
+        requested_to_pay,
+        requested_to_accept,
+        payed,
+        link_to_pay: "".to_string(),
+        link_for_buy: "".to_string(),
+        pr_key_bill: "".to_string(),
+        number_of_confirmations: 0,
+        pending: false,
+        address_to_pay,
         chain_of_blocks: chain_to_return,
     };
 
-    bitcredit_bill_to_return
+    full_bill
 }
 
 fn read_bill_from_file(bill_name: &String) -> BitcreditBill {
@@ -1580,6 +1708,14 @@ pub struct BitcreditBillForm {
 pub struct EndorseBitcreditBillForm {
     pub endorsee: String,
     pub bill_name: String,
+}
+
+#[derive(FromForm, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct SellBitcreditBillForm {
+    pub buyer: String,
+    pub bill_name: String,
+    pub amount_numbers: u64,
 }
 
 #[derive(FromForm, Debug, Serialize, Deserialize)]

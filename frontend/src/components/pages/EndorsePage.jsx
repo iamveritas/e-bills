@@ -33,6 +33,7 @@ export default function EndorsePage({ data }) {
       })
       .catch((err) => err);
   };
+
   const checkHandleSearch = (e) => {
     let value = e.target.value;
     let name = e.target.name;
@@ -66,7 +67,7 @@ export default function EndorsePage({ data }) {
             </span>
             <span className="block mt">
               <span className="accept-heading">to the order of </span>
-              <span className="block detail input-blank search-select">
+              <span className="block detail search-select">
                 <SelectSearchOption
                   identity="drawee_name"
                   placingHolder="Select Your Endorse"

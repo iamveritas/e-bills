@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::convert::identity;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -23,10 +24,11 @@ use crate::{
     get_whole_identity, issue_new_bill, issue_new_bill_drawer_is_drawee,
     issue_new_bill_drawer_is_payee, read_bill_from_file, read_contacts_map,
     read_identity_from_file, read_peer_id_from_file, request_acceptance, request_pay,
-    write_identity_to_file, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList,
+    sell_bitcredit_bill, write_identity_to_file, AcceptBitcreditBillForm, BitcreditBill, BitcreditBillForList,
     BitcreditBillForm, BitcreditBillToReturn, Contact, DeleteContactForm, EditContactForm,
     EndorseBitcreditBillForm, Identity, IdentityForm, IdentityPublicData, IdentityWithAll,
     NewContactForm, NodeId, RequestToAcceptBitcreditBillForm, RequestToPayBitcreditBillForm,
+    SellBitcreditBillForm,
 };
 
 use self::handlebars::{Handlebars, JsonRender};
@@ -106,8 +108,8 @@ pub async fn return_contacts() -> Json<Vec<Contact>> {
 }
 
 #[get("/return")]
-pub async fn return_bills_list() -> Json<Vec<BitcreditBillForList>> {
-    let bills: Vec<BitcreditBillForList> = get_bills_for_list();
+pub async fn return_bills_list() -> Json<Vec<BitcreditBillToReturn>> {
+    let bills: Vec<BitcreditBillToReturn> = get_bills_for_list();
     Json(bills)
 }
 
@@ -143,14 +145,14 @@ pub async fn change_identity(identity_form: Form<IdentityForm>, state: &State<Cl
     identity_changes.company = identity_form.company.trim().to_string();
     identity_changes.email = identity_form.email.trim().to_string();
     identity_changes.postal_address = identity_form.postal_address.trim().to_string();
-   
+
     let mut my_identity: Identity;
     if !Path::new(IDENTITY_FILE_PATH).exists() {
         return Status::NotAcceptable;
     }
     my_identity = read_identity_from_file();
-    
-    
+
+
     if !my_identity.update_valid(&identity_changes) {
         return Status::NotAcceptable;
     }
@@ -308,14 +310,46 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
     let bill: BitcreditBill = read_bill_from_file(&id);
     let chain = Chain::read_chain_from_file(&bill.name);
     let drawer = chain.get_drawer();
+    let mut link_for_buy = "".to_string();
     let chain_to_return = ChainToReturn::new(chain.clone());
     let endorsed = chain.exist_block_with_operation_code(blockchain::OperationCode::Endorse);
     let accepted = chain.exist_block_with_operation_code(blockchain::OperationCode::Accept);
+    let mut address_for_selling: String = String::new();
+    let mut amount_for_selling = 0;
+    let mut waiting_for_payment = chain.waiting_for_payment();
+    let mut payment_deadline_has_passed = false;
+    let mut waited_for_payment = waiting_for_payment.0;
+    if waited_for_payment {
+        payment_deadline_has_passed = chain.check_if_payment_deadline_has_passed().await;
+    }
+    if payment_deadline_has_passed {
+        waited_for_payment = false;
+    }
+    let mut buyer = waiting_for_payment.1;
+    let mut seller = waiting_for_payment.2;
+    if waited_for_payment
+        && (identity.peer_id.to_string().eq(&buyer.peer_id)
+            || identity.peer_id.to_string().eq(&seller.peer_id))
+    {
+        address_for_selling = waiting_for_payment.3;
+        amount_for_selling = waiting_for_payment.4;
+        let message: String = format!("Payment in relation to a bill {}", bill.name.clone());
+        link_for_buy = generate_link_to_pay(
+            address_for_selling.clone(),
+            amount_for_selling.clone(),
+            message,
+        )
+        .await;
+    } else {
+        buyer = IdentityPublicData::new_empty();
+        seller = IdentityPublicData::new_empty();
+    }
     let mut requested_to_pay =
         chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToPay);
     let mut requested_to_accept =
         chain.exist_block_with_operation_code(blockchain::OperationCode::RequestToAccept);
     let address_to_pay = get_address_to_pay(bill.clone());
+    //TODO: add last_sell_block_paid
     let check_if_already_paid =
         check_if_paid(address_to_pay.clone(), bill.amount_numbers.clone()).await;
     let payed = check_if_already_paid.0;
@@ -357,7 +391,7 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         bill_jurisdiction: bill.bill_jurisdiction,
         timestamp_at_drawing: bill.timestamp_at_drawing,
         drawee: bill.drawee,
-        drawer: drawer,
+        drawer,
         payee: bill.payee,
         endorsee: bill.endorsee,
         place_of_drawing: bill.place_of_drawing,
@@ -376,7 +410,13 @@ pub async fn return_bill(id: String) -> Json<BitcreditBillToReturn> {
         endorsed,
         requested_to_pay,
         requested_to_accept,
+        waited_for_payment,
+        address_for_selling,
+        amount_for_selling,
+        buyer,
+        seller,
         payed,
+        link_for_buy,
         link_to_pay,
         address_to_pay,
         pr_key_bill,
@@ -491,7 +531,7 @@ async fn generate_link_to_pay(address: String, amount: u64, message: String) -> 
     link
 }
 
-async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
+pub async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
     //todo check what net we used
     let info_about_address = api::AddressInfo::get_testnet_address_info(address.clone()).await;
     let received_summ = info_about_address.chain_stats.funded_txo_sum;
@@ -506,7 +546,7 @@ async fn check_if_paid(address: String, amount: u64) -> (bool, u64) {
     };
 }
 
-fn get_address_to_pay(bill: BitcreditBill) -> String {
+pub fn get_address_to_pay(bill: BitcreditBill) -> String {
     let public_key_bill = bitcoin::PublicKey::from_str(&bill.public_key).unwrap();
 
     let mut person_to_pay = bill.payee.clone();
@@ -746,6 +786,55 @@ pub async fn get_identity_public_data(
     }
 
     identity
+}
+
+#[post("/sell", data = "<sell_bill_form>")]
+pub async fn sell_bill(
+    state: &State<Client>,
+    sell_bill_form: Form<SellBitcreditBillForm>,
+) -> Status {
+    if !Path::new(IDENTITY_FILE_PATH).exists() {
+        Status::NotAcceptable
+    } else {
+        let mut client = state.inner().clone();
+
+        let public_data_buyer =
+            get_identity_public_data(sell_bill_form.buyer.clone(), client.clone()).await;
+
+        if !public_data_buyer.name.is_empty() {
+            let timestamp = api::TimeApi::get_atomic_time().await.timestamp;
+
+            let correct = sell_bitcredit_bill(
+                &sell_bill_form.bill_name,
+                public_data_buyer.clone(),
+                timestamp,
+                sell_bill_form.amount_numbers.clone(),
+            );
+
+            if correct {
+                let chain: Chain = Chain::read_chain_from_file(&sell_bill_form.bill_name);
+                let block = chain.get_latest_block();
+
+                let block_bytes = serde_json::to_vec(block).expect("Error serializing block");
+                let event = GossipsubEvent::new(GossipsubEventId::Block, block_bytes);
+                let message = event.to_byte_array();
+
+                client
+                    .add_message_to_topic(message, sell_bill_form.bill_name.clone())
+                    .await;
+
+                client
+                    .add_bill_to_dht_for_node(
+                        &sell_bill_form.bill_name,
+                        &public_data_buyer.peer_id.to_string().clone(),
+                    )
+                    .await;
+            }
+            Status::Ok
+        } else {
+            Status::NotAcceptable
+        }
+    }
 }
 
 #[post("/endorse", data = "<endorse_bill_form>")]
