@@ -33,6 +33,7 @@ export default function EndorsePage({ data }) {
       })
       .catch((err) => err);
   };
+
   const checkHandleSearch = (e) => {
     let value = e.target.value;
     let name = e.target.name;
