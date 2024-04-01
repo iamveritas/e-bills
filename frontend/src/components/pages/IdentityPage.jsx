@@ -316,11 +316,11 @@ export default function IdentityPage() {
               <label htmlFor="name">Full Name</label>
               <input
                 id="name"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.name ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.name ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 name="name"
                 value={userData.name}
                 disabled={uneditable}
@@ -353,11 +353,11 @@ export default function IdentityPage() {
               <input
                 id="email"
                 name="email"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.email ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.email ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.email}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -376,14 +376,14 @@ export default function IdentityPage() {
               <input
                 id="date_of_birth"
                 name="date_of_birth"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.date_of_birth ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.date_of_birth ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.date_of_birth}
-                min={maxDateStr}
-                max={minDateStr}
+                // min={maxDateStr}
+                // max={minDateStr}
                 disabled={uneditable || content.edit}
                 onChange={onChangeHandler}
                 placeholder=""
@@ -397,11 +397,11 @@ export default function IdentityPage() {
               <input
                 id="country_of_birth"
                 name="country_of_birth"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.country_of_birth ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.country_of_birth ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.country_of_birth}
                 disabled={uneditable || content.edit}
                 onChange={onChangeHandler}
@@ -414,11 +414,11 @@ export default function IdentityPage() {
               <input
                 id="city_of_birth"
                 name="city_of_birth"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.city_of_birth ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.city_of_birth ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.city_of_birth}
                 disabled={uneditable || content.edit}
                 onChange={onChangeHandler}
@@ -431,11 +431,11 @@ export default function IdentityPage() {
               <input
                 id="postal_address"
                 name="postal_address"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.postal_address ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.postal_address ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.postal_address}
                 disabled={uneditable}
                 onChange={onChangeHandler}
@@ -448,11 +448,11 @@ export default function IdentityPage() {
               <input
                 id="company"
                 name="company"
-                style={{
-                  border: `.7vw solid ${
-                    errorInput.company ? "#d40202" : "transparent"
-                  }`,
-                }}
+                // style={{
+                //   border: `.7vw solid ${
+                //     errorInput.company ? "#d40202" : "transparent"
+                //   }`,
+                // }}
                 value={userData.company}
                 disabled={uneditable}
                 onChange={onChangeHandler}
