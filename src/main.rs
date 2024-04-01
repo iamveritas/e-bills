@@ -79,6 +79,7 @@ fn rocket_main(dht: Client) -> Rocket<Build> {
             routes![
                 web::get_identity,
                 web::create_identity,
+                web::change_identity,
                 web::return_identity,
                 web::return_peer_id
             ],
@@ -591,6 +592,14 @@ pub struct Identity {
     bitcoin_private_key: String,
 }
 
+macro_rules! update_field {
+    ($self:expr, $other:expr, $field:ident) => {
+        if !$other.$field.is_empty() {
+            $self.$field = $other.$field.clone();
+        }
+    };
+}
+
 impl Identity {
     pub fn new_empty() -> Self {
         Self {
@@ -606,6 +615,37 @@ impl Identity {
             private_key_pem: "".to_string(),
             bitcoin_private_key: "".to_string(),
         }
+    }
+
+    fn all_changeable_fields_empty(&self) -> bool {
+        self.name == "" &&
+        self.company == "" &&
+        self.postal_address == "" &&
+        self.email == ""
+    }
+
+    fn all_changeable_fields_equal_to(&self, other: &Self) -> bool {
+        self.name == other.name && 
+        self.company == other.company &&
+        self.postal_address == other.postal_address &&
+        self.email == other.email
+    }
+   
+    fn update_valid(&self, other: &Self) -> bool {
+        if other.all_changeable_fields_empty() { 
+            return false;
+        }
+        if self.all_changeable_fields_equal_to(other) {
+            return false;
+        }
+        true
+    }
+
+    pub fn update_from(&mut self, other: &Identity) {
+        update_field!(self, other, name);
+        update_field!(self, other, company);
+        update_field!(self, other, postal_address);
+        update_field!(self, other, email);
     }
 }
 
