@@ -54,7 +54,7 @@ export default function SellPage({ data }) {
             showPopUp(false, "");
             handlePage("home");
             handleRefresh();
-            setToast(`You have successfully transfer the amount.`);
+            setToast(`You have successfully sold a bill.`);
           } else {
             setToast(`Something is wrong try again later.`);
           }
