@@ -28,7 +28,6 @@ pub async fn dht_main() -> Result<Client, Box<dyn Error + Send + Sync>> {
 }
 
 pub mod network {
-    use std::any::Any;
     use std::collections::{HashMap, HashSet};
     use std::net::Ipv4Addr;
     use std::path::Path;
@@ -66,8 +65,8 @@ pub mod network {
     };
     use crate::{
         decrypt_bytes_with_private_key, encrypt_bytes_with_public_key, generate_dht_logic,
-        get_bills, get_whole_identity, read_ed25519_keypair_from_file, read_peer_id_from_file,
-        IdentityPublicData, IdentityWithAll,
+        get_bills, get_whole_identity, is_not_hidden, read_ed25519_keypair_from_file,
+        read_peer_id_from_file, IdentityPublicData, IdentityWithAll,
     };
 
     use super::*;
@@ -284,7 +283,7 @@ pub mod network {
                         let bill_bytes = self.get_bill(bill_id.to_string().clone()).await;
                         if !bill_bytes.is_empty() {
                             let path = BILLS_FOLDER_PATH.to_string() + "/" + bill_id + ".json";
-                            fs::write(path, bill_bytes).expect("Can't write file.");
+                            fs::write(path, bill_bytes.clone()).expect("Can't write file.");
                         }
 
                         let key_bytes = self.get_key(bill_id.to_string().clone()).await;
@@ -298,12 +297,14 @@ pub mod network {
                             fs::write(path, key_bytes_decrypted).expect("Can't write file.");
                         }
 
-                        self.sender
-                            .send(Command::SubscribeToTopic {
-                                topic: bill_id.to_string().clone(),
-                            })
-                            .await
-                            .expect("Command receiver not to be dropped.");
+                        if !bill_bytes.is_empty() {
+                            self.sender
+                                .send(Command::SubscribeToTopic {
+                                    topic: bill_id.to_string().clone(),
+                                })
+                                .await
+                                .expect("Command receiver not to be dropped.");
+                        }
                     }
                 }
             }
@@ -350,17 +351,20 @@ pub mod network {
                 let mut new_record: String = record_in_dht.clone();
 
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
+                    let dir = file.unwrap();
+                    if is_not_hidden(&dir) {
+                        let mut bill_name = dir.file_name().into_string().unwrap();
 
-                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                        .expect("File name error")
-                        .to_str()
-                        .expect("File name error")
-                        .to_string();
+                        bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                            .expect("File name error")
+                            .to_str()
+                            .expect("File name error")
+                            .to_string();
 
-                    if !record_in_dht.contains(&bill_name) {
-                        new_record += (",".to_string() + &bill_name.clone()).as_str();
-                        self.put(&bill_name).await;
+                        if !record_in_dht.contains(&bill_name) {
+                            new_record += (",".to_string() + &bill_name.clone()).as_str();
+                            self.put(&bill_name).await;
+                        }
                     }
                 }
                 if !record_in_dht.eq(&new_record) {
@@ -369,19 +373,22 @@ pub mod network {
             } else {
                 let mut new_record = String::new();
                 for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                    let mut bill_name = file.unwrap().file_name().into_string().unwrap();
-                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                        .expect("File name error")
-                        .to_str()
-                        .expect("File name error")
-                        .to_string();
+                    let dir = file.unwrap();
+                    if is_not_hidden(&dir) {
+                        let mut bill_name = dir.file_name().into_string().unwrap();
+                        bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                            .expect("File name error")
+                            .to_str()
+                            .expect("File name error")
+                            .to_string();
 
-                    if new_record.is_empty() {
-                        new_record = bill_name.clone();
-                        self.put(&bill_name).await;
-                    } else {
-                        new_record += (",".to_string() + &bill_name.clone()).as_str();
-                        self.put(&bill_name).await;
+                        if new_record.is_empty() {
+                            new_record = bill_name.clone();
+                            self.put(&bill_name).await;
+                        } else {
+                            new_record += (",".to_string() + &bill_name.clone()).as_str();
+                            self.put(&bill_name).await;
+                        }
                     }
                 }
                 if !new_record.is_empty() {
@@ -392,13 +399,16 @@ pub mod network {
 
         pub async fn start_provide(&mut self) {
             for file in fs::read_dir(BILLS_FOLDER_PATH).unwrap() {
-                let mut bill_name = file.unwrap().file_name().into_string().unwrap();
-                bill_name = path::Path::file_stem(path::Path::new(&bill_name))
-                    .expect("File name error")
-                    .to_str()
-                    .expect("File name error")
-                    .to_string();
-                self.put(&bill_name).await;
+                let dir = file.unwrap();
+                if is_not_hidden(&dir) {
+                    let mut bill_name = dir.file_name().into_string().unwrap();
+                    bill_name = path::Path::file_stem(path::Path::new(&bill_name))
+                        .expect("File name error")
+                        .to_str()
+                        .expect("File name error")
+                        .to_string();
+                    self.put(&bill_name).await;
+                }
             }
         }
 
@@ -431,11 +441,13 @@ pub mod network {
         ) -> IdentityPublicData {
             let key = "INFO".to_string() + &peer_id;
             let current_info = self.get_record(key.clone()).await.value;
-            let current_info_string = std::str::from_utf8(&current_info)
-                .expect("Cant get value.")
-                .to_string();
-            let identity_public_data: IdentityPublicData =
-                serde_json::from_str(&current_info_string).unwrap();
+            let mut identity_public_data: IdentityPublicData = IdentityPublicData::new_empty();
+            if !current_info.is_empty() {
+                let current_info_string = std::str::from_utf8(&current_info)
+                    .expect("Cant get value.")
+                    .to_string();
+                identity_public_data = serde_json::from_str(&current_info_string).unwrap();
+            }
 
             identity_public_data
         }
@@ -491,13 +503,19 @@ pub mod network {
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
-                let file_content = futures::future::select_ok(requests)
-                    .await
-                    .map_err(|_| "None of the providers returned file.")
-                    .expect("Can not get file content.")
-                    .0;
+                let file_content = futures::future::select_ok(requests);
 
-                file_content
+                let file_content_await = file_content.await;
+
+                if file_content_await.is_err() {
+                    println!("None of the providers returned file.");
+                    Vec::new()
+                } else {
+                    file_content_await
+                        .map_err(|_| "None of the providers returned file.")
+                        .expect("Can not get file content.")
+                        .0
+                }
             }
         }
 
@@ -517,13 +535,31 @@ pub mod network {
                     async move { network_client.request_file(peer, name).await }.boxed()
                 });
 
-                let file_content = futures::future::select_ok(requests)
-                    .await
-                    .map_err(|_| "None of the providers returned file.")
-                    .expect("Can not get file content.")
-                    .0;
+                let file_content = futures::future::select_ok(requests);
 
-                file_content
+                let file_content_await = file_content.await;
+
+                if file_content_await.is_err() {
+                    println!("None of the providers returned file.");
+                    Vec::new()
+                } else {
+                    file_content_await
+                        .map_err(|_| "None of the providers returned file.")
+                        .expect("Can not get file content.")
+                        .0
+                }
+            }
+        }
+
+        pub async fn put_bills_for_parties(&mut self) {
+            let bills = get_bills();
+
+            for bill in bills {
+                let chain = Chain::read_chain_from_file(&bill.name);
+                let nodes = chain.get_all_nodes_from_bill();
+                for node in nodes {
+                    self.add_bill_to_dht_for_node(&bill.name, &node).await;
+                }
             }
         }
 
